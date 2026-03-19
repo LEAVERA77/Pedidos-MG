@@ -184,16 +184,6 @@ textarea{resize:vertical;min-height:80px}
   70%{box-shadow:0 0 0 10px rgba(16,185,129,0)}
   100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}
 }
-/* ── MODAL CÁMARA INLINE (getUserMedia directo, sin input file) ── */
-#modal-camara-inline{display:none;position:fixed;inset:0;background:#000;z-index:5000;flex-direction:column}
-#modal-camara-inline.active{display:flex}
-#camara-video{width:100%;flex:1;object-fit:cover;background:#000}
-.camara-toolbar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:rgba(0,0,0,.7);gap:.75rem;flex-shrink:0}
-.camara-toolbar button{background:white;border:none;border-radius:2rem;padding:.5rem 1.25rem;font-size:.9rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.5rem}
-#btn-capturar{background:#10b981;color:white;flex:1;font-size:1.1rem;padding:.75rem}
-#btn-cancelar-camara{background:#ef4444;color:white}
-#btn-cambiar-camara{background:#475569;color:white}
-.camara-info{color:rgba(255,255,255,.6);font-size:.75rem;text-align:center;padding:.3rem;background:rgba(0,0,0,.5)}
 /* ── MODO OFFLINE ── */
 #offline-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#dc2626;color:white;padding:.45rem 1rem;font-size:.82rem;font-weight:600;text-align:center;align-items:center;justify-content:center;gap:.5rem}
 #offline-banner.visible{display:flex}
@@ -308,7 +298,8 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-tomar-foto" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
           <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
-        <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
+        <!-- Dos inputs separados: uno para cámara, uno para galería/PC -->
+        <input type="file" id="input-foto-camara"  accept="image/*" style="display:none;">
         <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
@@ -350,7 +341,7 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
           <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
-        <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
+        <input type="file" id="input-foto-cierre-camara"  accept="image/*" style="display:none;">
         <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
@@ -389,18 +380,6 @@ textarea{resize:vertical;min-height:80px}
   </div>
   <div class="img-container" id="img-container">
     <img id="foto-ampliada" src="" alt="Foto ampliada" draggable="false">
-  </div>
-</div>
-
-<!-- MODAL CÁMARA INLINE — evita input file en Chrome Android 14/MIUI -->
-<div id="modal-camara-inline">
-  <div class="camara-info" id="camara-info-txt">Apuntá la cámara y presioná Capturar</div>
-  <video id="camara-video" autoplay playsinline muted></video>
-  <canvas id="camara-canvas" style="display:none"></canvas>
-  <div class="camara-toolbar">
-    <button id="btn-cancelar-camara"><i class="fas fa-times"></i> Cancelar</button>
-    <button id="btn-capturar"><i class="fas fa-camera"></i> Capturar</button>
-    <button id="btn-cambiar-camara"><i class="fas fa-sync"></i></button>
   </div>
 </div>
 
@@ -2029,150 +2008,69 @@ async function procesarFotoSeleccionada(file) {
 }
 
 // =============================================================
-//  SISTEMA DE FOTOS — solución definitiva para Chrome Android 14
+//  SISTEMA DE FOTOS — compatible con todos los dispositivos
 //
-//  Diagnóstico del problema en Xiaomi Poco X6 / Chrome / Android 14:
-//  1. input.click() después de un await pierde el "user gesture" —
-//     Chrome bloquea el selector de archivos si no viene de un
-//     evento síncrono directo del usuario.
-//  2. Android 14 eliminó READ_EXTERNAL_STORAGE; Chrome no pide
-//     READ_MEDIA_IMAGES automáticamente desde una página web.
-//  3. El resultado: el botón hace algo (notificación breve) pero
-//     no abre ningún selector.
+//  Problema en Android (especialmente Xiaomi/MIUI con Chrome):
+//  capture="environment" falla si el permiso de cámara no fue
+//  otorgado explícitamente via getUserMedia().
 //
-//  SOLUCIÓN:
-//  - Cámara: usar getUserMedia() directamente con <video> inline.
-//     No toca el sistema de archivos → no necesita permiso de storage.
-//     Captura el frame como canvas → blob → comprime → listo.
-//  - Galería/PC: click SÍNCRONO (sin await previo) en el input.
-//     El gesto del usuario llega directo al input.click() sin interrupciones.
+//  Estrategia:
+//  1. "Tomar foto": pedir permiso via getUserMedia PRIMERO,
+//     luego abrir el input con capture. Fallback: sin capture.
+//  2. "Cargar desde dispositivo": input sin capture (galería/archivos)
+//  3. Compatible con: Chrome, Edge, Firefox, Safari, Samsung Internet
 // =============================================================
 
+// Detectar dispositivo móvil
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
-// ── CÁMARA INLINE (getUserMedia) ────────────────────────────
-let _streamCamara     = null;   // MediaStream activo
-let _camaraFacing     = 'environment'; // 'environment' = trasera, 'user' = frontal
-let _callbackCaptura  = null;   // función a llamar con el dataUrl de la foto
-
-async function abrirCamaraInline(callback) {
-    _callbackCaptura = callback;
-    const modal  = document.getElementById('modal-camara-inline');
-    const video  = document.getElementById('camara-video');
-    const infoEl = document.getElementById('camara-info-txt');
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast('Cámara no disponible en este navegador', 'error');
-        return;
-    }
-
-    modal.classList.add('active');
-    infoEl.textContent = 'Iniciando cámara...';
-
-    await iniciarStreamCamara(video, infoEl);
-}
-
-async function iniciarStreamCamara(video, infoEl) {
-    // Detener stream anterior si existe
-    if (_streamCamara) {
-        _streamCamara.getTracks().forEach(t => t.stop());
-        _streamCamara = null;
-    }
+// Pedir permiso de cámara y devolver true/false
+async function pedirPermisoCamara() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     try {
-        _streamCamara = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: _camaraFacing },
-                width:  { ideal: 1920 },
-                height: { ideal: 1080 }
-            },
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
             audio: false
         });
-        video.srcObject = _streamCamara;
-        await video.play();
-        const track = _streamCamara.getVideoTracks()[0];
-        const settings = track.getSettings();
-        const facing = settings.facingMode === 'user' ? 'Cámara frontal' : 'Cámara trasera';
-        infoEl.textContent = `${facing} — presioná Capturar`;
+        // Liberar el stream inmediatamente — solo necesitábamos el permiso
+        stream.getTracks().forEach(t => t.stop());
+        return true;
     } catch(e) {
-        console.error('[camara]', e.name, e.message);
-        const msg = e.name === 'NotAllowedError'
-            ? 'Permiso de cámara denegado — activalo en Configuración del sitio'
-            : e.name === 'NotFoundError'
-            ? 'No se encontró cámara en este dispositivo'
-            : 'No se pudo iniciar la cámara: ' + e.message;
-        infoEl.textContent = msg;
-        toast(msg, 'error');
+        console.warn('[camara] permiso denegado o no disponible:', e.name, e.message);
+        return false;
     }
 }
 
-function cerrarCamaraInline() {
-    if (_streamCamara) {
-        _streamCamara.getTracks().forEach(t => t.stop());
-        _streamCamara = null;
-    }
-    const modal = document.getElementById('modal-camara-inline');
-    modal.classList.remove('active');
-    const video = document.getElementById('camara-video');
-    video.srcObject = null;
-    _callbackCaptura = null;
-}
-
-function capturarFoto() {
-    const video  = document.getElementById('camara-video');
-    const canvas = document.getElementById('camara-canvas');
-    if (!video.videoWidth) { toast('Esperando cámara...', 'info'); return; }
-
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-
-    // Espejo para cámara frontal
-    if (_camaraFacing === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, 0, 0);
-
-    // Comprimir a JPEG 0.82
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-    cerrarCamaraInline();
-
-    if (_callbackCaptura) _callbackCaptura(dataUrl);
-}
-
-// Eventos del modal de cámara
-document.getElementById('btn-cancelar-camara').addEventListener('click', () => {
-    cerrarCamaraInline();
-    toast('Foto cancelada', 'info');
-});
-document.getElementById('btn-capturar').addEventListener('click', capturarFoto);
-document.getElementById('btn-cambiar-camara').addEventListener('click', async () => {
-    _camaraFacing = _camaraFacing === 'environment' ? 'user' : 'environment';
-    const video  = document.getElementById('camara-video');
-    const infoEl = document.getElementById('camara-info-txt');
-    await iniciarStreamCamara(video, infoEl);
-});
-
-// ── GALERÍA / ARCHIVOS (click síncrono — mantiene user gesture) ──
-// CRÍTICO: NO poner ningún await antes del input.click()
-// Si hay un await previo Chrome Android cancela el gesto y no abre el picker
-
-function abrirGaleria(inputId) {
-    // Click SÍNCRONO directo — sin ningún await antes
+// Abrir cámara con manejo robusto para todos los dispositivos
+async function abrirCamara(inputId) {
     const input = document.getElementById(inputId);
-    if (input) input.click();
+    if (!input) return;
+
+    if (esMobile) {
+        // En móvil: pedir permiso explícito antes de usar el input
+        // Esto resuelve el problema de Chrome en Android 14 / MIUI
+        const tienePermiso = await pedirPermisoCamara();
+        if (tienePermiso) {
+            // Permiso concedido → usar capture para abrir la cámara directamente
+            input.setAttribute('capture', 'environment');
+        } else {
+            // Sin permiso de cámara → abrir sin capture (abre selector: cámara o galería)
+            input.removeAttribute('capture');
+            toast('Sin permiso de cámara — podés seleccionar una foto de la galería', 'info');
+        }
+    } else {
+        // En PC/desktop: no usar capture (abre el explorador de archivos)
+        input.removeAttribute('capture');
+    }
+    input.click();
 }
 
-// ── PROCESAR FOTO DE CIERRE ──────────────────────────────────
-async function procesarFotoCierre(fotoDataUrl) {
-    if (!fotoDataUrl) return;
+// Procesar foto de cierre
+async function procesarFotoCierre(file) {
+    if (!file) return;
     try {
-        // Si es dataUrl de cámara ya está comprimido; si es File, comprimir
-        if (typeof fotoDataUrl === 'string' && fotoDataUrl.startsWith('data:')) {
-            fotoCierreTemp = fotoDataUrl;
-        } else {
-            fotoCierreTemp = await comprimirImagen(fotoDataUrl);
-        }
+        toast('Procesando foto de cierre...', 'info');
+        fotoCierreTemp = await comprimirImagen(file);
         actualizarVistaPreviaFotoCierre();
         const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
         toast(`✓ Foto de cierre lista (≈${kb} KB)`, 'success');
@@ -2182,46 +2080,47 @@ async function procesarFotoCierre(fotoDataUrl) {
     }
 }
 
-// ── BOTONES NUEVO PEDIDO ─────────────────────────────────────
-// Tomar foto: usa cámara inline (no input file)
-document.getElementById('btn-tomar-foto').addEventListener('click', () => {
-    abrirCamaraInline(async dataUrl => {
-        // La foto ya está comprimida desde el canvas
-        fotosTemporales.push(dataUrl);
-        actualizarVistaPreviaFotos();
-        const kb = Math.round(dataUrl.length * 0.75 / 1024);
-        toast(`✓ Foto lista (≈${kb} KB)`, 'success');
-    });
+// Botón "Tomar foto" (nuevo pedido) → cámara con permiso explícito
+document.getElementById('btn-tomar-foto').addEventListener('click', async () => {
+    await abrirCamara('input-foto-camara');
 });
 
-// Cargar desde dispositivo: click síncrono en input (sin await)
+// Botón "Cargar desde dispositivo" (nuevo pedido) → galería/archivos
 document.getElementById('btn-subir-foto').addEventListener('click', () => {
-    abrirGaleria('input-foto-galeria');
+    const input = document.getElementById('input-foto-galeria');
+    input.removeAttribute('capture');
+    input.click();
 });
 
-// Change handlers para galería (nuevo pedido)
+// Eventos de cambio de inputs (nuevo pedido)
+document.getElementById('input-foto-camara').addEventListener('change', async (e) => {
+    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
+    e.target.value = '';
+});
 document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
     if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
     e.target.value = '';
 });
 
-// ── BOTONES CIERRE DE PEDIDO ─────────────────────────────────
-document.getElementById('btn-foto-cierre-camara').addEventListener('click', () => {
-    abrirCamaraInline(async dataUrl => {
-        await procesarFotoCierre(dataUrl);
-    });
+// Botón "Tomar foto" (cierre de pedido) → cámara con permiso explícito
+document.getElementById('btn-foto-cierre-camara').addEventListener('click', async () => {
+    await abrirCamara('input-foto-cierre-camara');
 });
 
+// Botón "Cargar desde dispositivo" (cierre)
 document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
-    abrirGaleria('input-foto-cierre-galeria');
+    const input = document.getElementById('input-foto-cierre-galeria');
+    input.removeAttribute('capture');
+    input.click();
 });
 
-// Change handlers para galería (cierre)
+// Eventos de cambio de inputs (cierre)
+document.getElementById('input-foto-cierre-camara').addEventListener('change', async (e) => {
+    if (e.target.files[0]) await procesarFotoCierre(e.target.files[0]);
+    e.target.value = '';
+});
 document.getElementById('input-foto-cierre-galeria').addEventListener('change', async (e) => {
-    if (e.target.files[0]) {
-        const comprimida = await comprimirImagen(e.target.files[0]);
-        await procesarFotoCierre(comprimida);
-    }
+    if (e.target.files[0]) await procesarFotoCierre(e.target.files[0]);
     e.target.value = '';
 });
 
