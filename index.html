@@ -306,8 +306,7 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Fotos del trabajo</label>
         <div style="display:flex; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
           <button type="button" id="btn-tomar-foto" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <!-- CAMBIO: label en vez de button + click() → funciona en Chrome Android 14 Xiaomi y todos los Android -->
-          <label for="input-foto-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
+          <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
         <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
         <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
@@ -349,8 +348,7 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Foto del cierre (opcional)</label>
         <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;">
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <!-- CAMBIO: label en vez de button + click() → funciona en Chrome Android 14 Xiaomi y todos los Android -->
-          <label for="input-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
+          <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
         <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
         <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;">
@@ -416,8 +414,10 @@ textarea{resize:vertical;min-height:80px}
 
 <script>
 // Detectar si el navegador soporta módulos ES + dynamic import
+// Edge antiguo, WebView2 de Outlook, y Samsung Internet < 16 pueden fallar
 window._supportsModules = false;
 try {
+    // Test básico de soporte
     if (typeof Promise !== 'undefined' && typeof fetch !== 'undefined') {
         window._supportsModules = true;
     }
@@ -425,16 +425,8 @@ try {
 </script>
 <script type="module">
 // =============================================================
-//  PEDIDOS MG — VERSIÓN CORREGIDA PARA XIAOMI POCO X6 PRO (Android 14 + Chrome)
+//  PEDIDOS MG — VERSIÓN CON KEEP-ALIVE, REINTENTOS Y ZOOM CORREGIDO
 // =============================================================
-// CAMBIOS REALIZADOS:
-// 1. Galería ("Cargar desde dispositivo"): ahora usa <label> nativo en vez de input.click()
-//    → Soluciona el bug de Chrome Android 14 / MIUI / HyperOS donde se perdía el user gesture.
-//    Funciona en TODOS los Android (incluyendo stock browser y Chrome).
-// 2. Mapa: se agregó autoCentrarMapa + listeners dragstart/zoomstart
-//    → El mapa YA NO vuelve automáticamente a la ubicación GPS cuando el usuario se desplaza o aleja.
-//    El marcador verde sigue actualizándose, pero el centro del mapa queda bajo control del usuario.
-//    El botón de ubicación sigue centrando cuando se presiona.
 
 // Definir proyección para coordenadas Inchauspe (Campo Inchauspe 1969, faja 5)
 proj4.defs('INCHAUSPE', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
@@ -443,18 +435,24 @@ let NEON_OK = false;
 let _sql = null;
 let mapaInicializado = false;
 let fotosTemporales = [];
-let fotoCierreTemp = null;
+let fotoCierreTemp = null;    // foto temporal para el cierre
 let ultimaUbicacion = null;
 let marcadorUbicacion = null;
 let pedidoActualParaAvance = null;
-let modoOffline = false;
+let modoOffline = false;      // true cuando no hay conexión a Neon
+// keepAliveInterval y keepAliveStartTime se declaran en el bloque keep-alive
 
-// NUEVO: control de auto-centrado del mapa
-let autoCentrarMapa = true;
-
-const OQ_KEY = 'pmg_offline_queue';
-const OP_KEY = 'pmg_offline_pedidos';
-const OU_KEY = 'pmg_offline_user';
+// =============================================================
+//  MOTOR OFFLINE — localStorage como cola de sincronización
+//  Claves:
+//    pmg_offline_queue : array de operaciones pendientes
+//    pmg_offline_pedidos: cache de pedidos descargados
+//    pmg_offline_user  : usuario autenticado offline
+//    pmg_permisos      : permisos concedidos por el usuario
+// =============================================================
+const OQ_KEY = 'pmg_offline_queue';    // cola de operaciones
+const OP_KEY = 'pmg_offline_pedidos';  // cache de pedidos
+const OU_KEY = 'pmg_offline_user';     // usuarios permitidos
 
 function offlineQueue() {
     try { return JSON.parse(localStorage.getItem(OQ_KEY) || '[]'); }
@@ -471,6 +469,7 @@ function offlinePedidosSave(pedidos) {
     try { localStorage.setItem(OP_KEY, JSON.stringify(pedidos)); } catch(_) {}
 }
 
+// Encolar operación offline
 function enqueueOffline(op) {
     const q = offlineQueue();
     q.push({ ...op, _offlineId: 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2) });
@@ -478,6 +477,7 @@ function enqueueOffline(op) {
     actualizarBadgeOffline();
 }
 
+// Actualizar badge con cantidad de pedidos offline pendientes
 function actualizarBadgeOffline() {
     const q = offlineQueue();
     const badge = document.getElementById('offline-badge');
@@ -490,6 +490,7 @@ function actualizarBadgeOffline() {
     }
 }
 
+// Mostrar/ocultar banner offline
 function setModoOffline(offline) {
     modoOffline = offline;
     const banner = document.getElementById('offline-banner');
@@ -504,10 +505,12 @@ function setModoOffline(offline) {
     }
 }
 
+// Sincronizar cola offline contra Neon cuando haya conexión
 async function sincronizarOffline() {
     const q = offlineQueue();
     if (q.length === 0) { toast('No hay pedidos offline pendientes', 'info'); return; }
     if (!NEON_OK || !_sql) {
+        // Intentar reconectar primero
         toast('Intentando conectar...', 'info');
         const ok = await initNeon();
         if (!ok) { toast('Sin conexión. Reintentá cuando tengas señal.', 'error'); return; }
@@ -539,15 +542,19 @@ async function sincronizarOffline() {
 
     if (ok > 0) {
         toast(`✓ ${ok} pedido(s) sincronizado(s)${fail ? ' · ' + fail + ' pendientes' : ''}`, 'success');
-        await cargarPedidos();
+        await cargarPedidos(); // recargar lista desde Neon
     } else {
         toast('No se pudo sincronizar. Reintentá más tarde.', 'error');
     }
 }
 
+// Detectar online/offline del navegador
 window.addEventListener('online', async () => {
+    console.log('Navegador: online (verificando conectividad real...)');
+    // Confirmar con hayInternet() porque 'online' puede ser falso positivo en Android
     const hayRed = await hayInternet();
-    if (!hayRed) return;
+    if (!hayRed) { console.log('Evento online ignorado — sin red real'); return; }
+    // Intentar reconectar a Neon en background
     try {
         const ok = await initNeon();
         if (ok) {
@@ -558,17 +565,26 @@ window.addEventListener('online', async () => {
                 const q = offlineQueue();
                 if (q.length > 0) setTimeout(sincronizarOffline, 1500);
                 else cargarPedidos();
+            } else {
+                // Sin sesión activa: actualizar el indicador del login
+                const dbs2 = document.getElementById('dbs');
+                if (dbs2) {
+                    dbs2.className = 'dbs ok';
+                    dbs2.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
+                }
             }
         }
     } catch(_) {}
 });
 window.addEventListener('offline', () => {
-    _netCache = { ok: false, ts: Date.now() };
+    console.log('Navegador: offline');
+    _netCache = { ok: false, ts: Date.now() }; // invalidar cache de red
     NEON_OK = false;
     _sql = null;
     setModoOffline(true);
 });
 
+// Usuarios permitidos offline (se guardan en localStorage al hacer login exitoso)
 function guardarUsuarioOffline(u, pw) {
     try {
         const lista = JSON.parse(localStorage.getItem(OU_KEY) || '[]');
@@ -585,8 +601,10 @@ function verificarUsuarioOffline(em, pw) {
     } catch(_) { return null; }
 }
 
+// Solicitar permisos al navegador en el momento correcto
 async function solicitarPermisos() {
     const resultados = {};
+    // 1. Geolocalización
     try {
         await new Promise((res, rej) =>
             navigator.geolocation.getCurrentPosition(
@@ -599,18 +617,21 @@ async function solicitarPermisos() {
         );
         resultados.gps = true;
     } catch(_) { resultados.gps = false; }
+    // 2. Cámara — solo si el browser lo soporta
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            stream.getTracks().forEach(t => t.stop());
+            stream.getTracks().forEach(t => t.stop()); // liberar cámara inmediatamente
             resultados.camara = true;
         } catch(_) { resultados.camara = false; }
     }
     return resultados;
 }
 
+// Exponer para el botón del banner
 window.sincronizarOffline = sincronizarOffline;
 
+// Intentar recuperar última ubicación guardada
 try {
     const ubicacionGuardada = localStorage.getItem('ultima_ubicacion');
     if (ubicacionGuardada) {
@@ -625,39 +646,58 @@ function esc(v) {
     return "'" + String(v).replace(/'/g, "''") + "'";
 }
 
+// =============================================================
+//  FUNCIÓN DE REINTENTOS CON NOTIFICACIONES
+// =============================================================
 async function ejecutarSQLConReintentos(query, params = [], maxIntentos = 3) {
+    // Si estamos en modo offline, no desperdiciar tiempo en reintentos
     if (modoOffline || !NEON_OK) {
         throw new Error('Sin conexión — modo offline activo');
     }
+
     let ultimoError;
     let reintentosMostrados = false;
     
     for (let intento = 1; intento <= maxIntentos; intento++) {
         try {
             if (!_sql) throw new Error('Neon no inicializado');
+            
+            // Si es el segundo intento, mostrar notificación
             if (intento === 2 && !reintentosMostrados) {
                 toast('Reactivando base de datos...', 'info');
                 reintentosMostrados = true;
             }
+            
             let q = query;
             for (let i = 0; i < params.length; i++) {
                 q = q.replace(new RegExp('\\{' + i + '\\}', 'g'), esc(params[i]));
             }
+            
             return await _sql(q);
+            
         } catch (error) {
             ultimoError = error;
             console.warn(`Intento ${intento} de ${maxIntentos} falló:`, error.message);
+            
             if (intento < maxIntentos) {
+                // Esperar exponencialmente: 1s, 2s
                 const espera = Math.pow(2, intento - 1) * 1000;
                 await new Promise(resolve => setTimeout(resolve, espera));
-                try { if (_sql) await _sql('SELECT 1'); } catch (_) {}
+                
+                // Intentar una consulta simple para reactivar
+                try {
+                    if (_sql) await _sql('SELECT 1');
+                } catch (_) {}
             }
         }
     }
+    
+    // Si llegamos aquí, todos los intentos fallaron
     toast('Error de conexión persistente. Intente nuevamente.', 'error');
     throw ultimoError;
 }
 
+// Función auxiliar para llamadas simples sin reintentos (para keep-alive)
 async function sqlSimple(query, params = []) {
     if (!_sql) throw new Error('Neon no inicializado');
     let q = query;
@@ -666,13 +706,22 @@ async function sqlSimple(query, params = []) {
     return _sql(q);
 }
 
+// =============================================================
+//  KEEP-ALIVE ROBUSTO
+//  - Heartbeat cada 4 min (Neon duerme a los 5 min)
+//  - Detecta tab en segundo plano y latido al volver
+//  - Sesión máxima 1 hora, luego cierra automáticamente
+//  - Reconexión automática si el SDK falló
+// =============================================================
 let keepAliveInterval  = null;
 let keepAliveStartTime = null;
-const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;
-const SESSION_MAX_MS        = 60 * 60 * 1000;
+const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;  // 4 minutos
+const SESSION_MAX_MS        = 60 * 60 * 1000;  // 1 hora
 
 async function heartbeat() {
-    if (!app.u) return;
+    if (!app.u) return; // Solo con sesión activa
+
+    // Verificar límite de 1 hora
     if (keepAliveStartTime && Date.now() - keepAliveStartTime >= SESSION_MAX_MS) {
         console.log('Keep-alive: sesión de 1 hora cumplida, cerrando sesión');
         detenerKeepAlive();
@@ -692,6 +741,7 @@ async function heartbeat() {
         await sqlSimple('SELECT 1');
         console.log('Keep-alive OK', new Date().toLocaleTimeString('es-AR', {hour12:false}));
         if (modoOffline) {
+            // Se recuperó la conexión
             NEON_OK = true;
             setModoOffline(false);
             toast('Conexión restaurada ✓', 'success');
@@ -704,8 +754,12 @@ async function heartbeat() {
         }
     } catch (err) {
         console.warn('Keep-alive: fallo de red:', err.message);
+        // Marcar offline inmediatamente — no reintentar aquí
+        // (el siguiente heartbeat en 4 min lo intentará de nuevo)
         NEON_OK = false;
         setModoOffline(true);
+        // Si hay sesión activa, intentar reconectar en background
+        // pero SIN bloquear nada
         if (app.u) {
             setTimeout(async () => {
                 if (await hayInternet()) {
@@ -727,7 +781,7 @@ async function heartbeat() {
 }
 
 function iniciarKeepAlive() {
-    detenerKeepAlive();
+    detenerKeepAlive(); // limpiar anterior
     keepAliveStartTime = Date.now();
     keepAliveInterval  = setInterval(heartbeat, KEEPALIVE_INTERVAL_MS);
     console.log('Keep-alive iniciado, sesión máxima 1h');
@@ -741,6 +795,8 @@ function detenerKeepAlive() {
     keepAliveStartTime = null;
 }
 
+// Cuando el tab vuelve al primer plano, hacer heartbeat inmediato
+// (el tab pudo haber estado suspendido y el SDK puede haber expirado)
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && app.u) {
         console.log('Tab visible: heartbeat preventivo');
@@ -748,6 +804,11 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// =============================================================
+//  UTILIDADES DE RED
+// =============================================================
+
+// Cancela una promesa si tarda más de ms milisegundos
 function conTimeout(promesa, ms, msg) {
     return Promise.race([
         promesa,
@@ -755,17 +816,36 @@ function conTimeout(promesa, ms, msg) {
     ]);
 }
 
-let _netCache = null;
-const NET_TTL  = 6000;
+// ------------------------------------------------------------------
+//  hayInternet() — prueba REAL de conectividad
+//
+//  navigator.onLine es POCO CONFIABLE en:
+//    - Android MIUI/HyperOS (Xiaomi, Poco, Redmi): siempre true
+//    - Android con VPN activa
+//    - iOS con red cautiva (portales de hotel/aeropuerto)
+//    - Windows/Mac con adaptador de red activo pero sin gateway
+//
+//  Esta función hace un fetch real y devuelve true/false en <4s.
+// ------------------------------------------------------------------
+let _netCache = null;  // { ok: bool, ts: number }
+const NET_TTL  = 6000; // reusar resultado por 6 segundos
 
 async function hayInternet() {
+    // Reusar resultado reciente
     if (_netCache && Date.now() - _netCache.ts < NET_TTL) {
         return _netCache.ok;
     }
 
+    // Lista de pruebas en orden — fetch con mode:'no-cors' no lanza
+    // error CORS pero SÍ lanza error de red (Failed to fetch) si no hay internet.
+    // Con mode:'no-cors' el status siempre es 0 (opaque) pero el hecho de
+    // que NO lanzó excepción confirma que hay red.
     const pruebas = [
+        // 1. Cloudflare trace — ultra-rápido, sin cookies, CORS libre, global
         'https://1.1.1.1/cdn-cgi/trace',
+        // 2. Google connectivity check — retorna 204, funciona en todo el mundo
         'https://connectivitycheck.gstatic.com/generate_204',
+        // 3. Apple captive portal check — usado en iOS/macOS
         'https://captive.apple.com/hotspot-detect.html',
     ];
 
@@ -776,21 +856,30 @@ async function hayInternet() {
                 3500,
                 'sin respuesta'
             );
+            // Llegamos aquí = hay red real
             _netCache = { ok: true, ts: Date.now() };
             console.log('[red] OK via', url.split('/')[2]);
             return true;
-        } catch(_) {}
+        } catch(_) {
+            // Probar el siguiente endpoint
+        }
     }
 
     _netCache = { ok: false, ts: Date.now() };
-    console.log('[red] SIN INTERNET');
+    console.log('[red] SIN INTERNET — todos los endpoints fallaron');
     return false;
 }
 
+// Invalidar cache cuando el navegador cambia de estado de red
 window.addEventListener('online',  () => { _netCache = null; });
 window.addEventListener('offline', () => { _netCache = { ok: false, ts: Date.now() }; });
 
+// ------------------------------------------------------------------
+//  initNeon — conectar al SDK de Neon
+// ------------------------------------------------------------------
 async function initNeon() {
+    // Verificar conectividad REAL antes de intentar cargar SDK remoto.
+    // Evita que en Android/MIUI el import() quede colgado 30+ segundos.
     const tieneRed = await hayInternet();
     if (!tieneRed) {
         console.log('[neon] sin red real — modo offline');
@@ -826,8 +915,9 @@ async function initNeon() {
         } catch(e) {
             console.warn(`[neon] SDK ${ver} fallo:`, e.message);
             _sql = null;
+            // Si es un error de red (no de versión), no tiene sentido probar más versiones
             if (e.message.includes('timeout') || e.message.includes('fetch') || e.message.includes('network')) {
-                console.log('[neon] error de red — abortando');
+                console.log('[neon] error de red — abortando intentos restantes');
                 break;
             }
         }
@@ -909,14 +999,19 @@ const app = {
     ok: false
 };
 
+// ── CONEXIÓN INICIAL ──────────────────────────────────────────
+// Compatibilidad: NO usar top-level await (falla en Edge/WebView/Outlook).
+// El botón se habilita INMEDIATAMENTE; Neon conecta en background.
 const dbs = document.getElementById('dbs');
 const lb  = document.getElementById('lb');
 
+// Habilitar login de inmediato — funciona en TODOS los navegadores
 lb.disabled = false;
 actualizarBadgeOffline();
 dbs.className = 'dbs c';
 dbs.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando red...';
 
+// Conectar a Neon en background (no bloquea nada)
 (async function conectarNeon() {
     try {
         const ok = await initNeon();
@@ -946,6 +1041,7 @@ dbs.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando red...'
             dbs.className = 'dbs ok';
             dbs.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
             setModoOffline(false);
+            // Si hay sesión activa y cola offline, sincronizar
             if (app.u && offlineQueue().length > 0) setTimeout(sincronizarOffline, 1500);
             else if (app.u) cargarPedidos();
         } else {
@@ -981,6 +1077,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
     lb.disabled = true;
     le.textContent = '';
     
+    // Función interna para entrar a la app
     function entrarConUsuario(u, offline = false) {
         app.u = u;
         localStorage.setItem('pmg', JSON.stringify(app.u));
@@ -989,14 +1086,17 @@ document.getElementById('lf').addEventListener('submit', async e => {
         document.getElementById('ms').classList.add('active');
         iniciarKeepAlive();
         setTimeout(async () => {
+            // Solicitar permisos de GPS y cámara al entrar
             solicitarPermisos().then(r => {
                 if (!r.gps) toast('GPS no disponible — ubicación manual', 'info');
             });
             initMap();
             if (!offline) {
                 await cargarPedidos();
+                // Guardar cache para uso offline
                 offlinePedidosSave(app.p);
             } else {
+                // Cargar pedidos desde cache local
                 app.p = offlinePedidos();
                 render();
                 toast('📴 Modo offline — mostrando pedidos en caché', 'info');
@@ -1004,6 +1104,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
         }, 200);
     }
     
+    // Helper: entrar offline con cache
     function intentarOffline() {
         const u = verificarUsuarioOffline(em, pw);
         if (u) {
@@ -1015,6 +1116,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
     }
 
     try {
+        // Paso 1: si sabemos que no hay red → directo al cache, sin esperar
         if (modoOffline || !NEON_OK || !_sql) {
             if (!intentarOffline()) {
                 le.textContent = 'Sin conexión. Ingresá con internet al menos una vez para habilitar el modo offline.';
@@ -1022,6 +1124,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
             return;
         }
 
+        // Paso 2: hay red → intentar Neon con timeout de 5s (UN solo intento)
         let resultado = null;
         try {
             resultado = await conTimeout(
@@ -1031,6 +1134,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
                 5000, 'timeout login'
             );
         } catch (netErr) {
+            // Red se cayó en el momento del login → offline inmediato
             console.warn('Login: red caída, usando cache:', netErr.message);
             setModoOffline(true);
             if (!intentarOffline()) {
@@ -1046,6 +1150,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
             entrarConUsuario(u, false);
             toast('Bienvenido ' + u.nombre, 'success');
         } else {
+            // Credenciales incorrectas — no intentar offline con datos equivocados
             le.textContent = 'Email o contraseña incorrectos.';
         }
     } catch (error) {
@@ -1100,6 +1205,7 @@ const norm = p => ({
 async function cargarPedidos() {
     document.getElementById('pl').innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Cargando...</div>';
     if (modoOffline) {
+        // Offline: usar cache
         app.p = offlinePedidos();
         render();
         return;
@@ -1107,6 +1213,7 @@ async function cargarPedidos() {
     try {
         const r = await ejecutarSQLConReintentos('SELECT * FROM pedidos ORDER BY fecha_creacion DESC');
         app.p = (r.rows || []).map(norm);
+        // Guardar en cache local para uso offline posterior
         offlinePedidosSave(app.p);
     } catch(e) {
         console.warn('cargarPedidos: error, usando cache', e.message);
@@ -1117,6 +1224,7 @@ async function cargarPedidos() {
     render();
 }
 
+// Función para convertir coordenadas WGS84 a Inchauspe
 function convertirAInchauspe(lat, lng) {
     try {
         const inchauspe = proj4('WGS84', 'INCHAUSPE', [lng, lat]);
@@ -1130,13 +1238,22 @@ function convertirAInchauspe(lat, lng) {
     }
 }
 
+// =============================================================
+//  MAPA CON GEOLOCALIZACIÓN MEJORADA Y ZOOM CORREGIDO
+// =============================================================
+
 function calcularEscalaReal(zoom) {
+    // Escala correcta: considera la latitud actual del mapa (Argentina ~-31°)
+    // La resolución en metros/pixel varía con cos(latitud)
     const lat = app.map ? app.map.getCenter().lat : -31.5;
     const latRad = lat * Math.PI / 180;
+    // Resolución real en metros/pixel a esta latitud
     const resolucion = (40075016.686 * Math.cos(latRad)) / (256 * Math.pow(2, zoom));
+    // Ancho visible: usamos el ancho real del contenedor del mapa
     const el = document.getElementById('mc');
     const anchoPantalla = el ? el.clientWidth : 800;
     const metrosVisibles = resolucion * anchoPantalla;
+    // Redondear a valores legibles
     if (metrosVisibles < 1) return (metrosVisibles * 100).toFixed(0) + ' cm';
     if (metrosVisibles < 10) return metrosVisibles.toFixed(1) + ' m';
     if (metrosVisibles < 1000) return Math.round(metrosVisibles) + ' m';
@@ -1165,9 +1282,10 @@ function initMap() {
         zoomControl: true,
         attributionControl: true,
         maxZoom: 19,
-        zoom: 13
+        zoom: 13 // Zoom inicial 13 (aprox 2.4km)
     }).setView([-31.505, -60.02], 13);
     
+    // Usar tile layer de OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         subdomains: ['a','b','c'],
@@ -1177,17 +1295,14 @@ function initMap() {
         detectRetina: false,
     }).addTo(app.map);
     
+    // Actualizar indicador de escala al cambiar zoom o mover el mapa
     const actualizarEscala = () => {
         if (app.map) document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
     };
     app.map.on('zoomend', actualizarEscala);
     app.map.on('moveend', actualizarEscala);
+    // Inicializar inmediatamente
     setTimeout(actualizarEscala, 200);
-    
-    // NUEVO: control de auto-centrado
-    autoCentrarMapa = true;
-    app.map.on('dragstart', () => { autoCentrarMapa = false; });
-    app.map.on('zoomstart', () => { autoCentrarMapa = false; });
     
     app.map.on('click', e => {
         app.sel = e.latlng;
@@ -1202,40 +1317,60 @@ function initMap() {
     mapaInicializado = true;
     renderMk();
     
+    // Mostrar última ubicación conocida mientras se obtiene la actual
     if (ultimaUbicacion && app.map) {
         const zInit = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
         app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], zInit || 15);
         setTimeout(() => {
             document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
         }, 100);
+        // Actualizar posición en background (silenciosamente)
         setTimeout(() => solicitarUbicacion(false, true), 500);
     } else {
+        // Sin ubicación previa → pedir GPS ahora
         solicitarUbicacion(true, false);
     }
 }
 
-let _watchId         = null;
-let _circuloAcc      = null;
-let _mejorPrecision  = Infinity;
+// =============================================================
+//  GEOLOCALIZACIÓN MEJORADA
+//  Maneja correctamente:
+//  - Celulares con GPS real (Android/iOS): alta precisión
+//  - PCs y laptops (WiFi/IP): precisión baja, múltiples intentos
+//  - Dispositivos sin GPS: muestra el radio de incertidumbre
+// =============================================================
 
+let _watchId         = null;  // ID del watchPosition continuo
+let _circuloAcc      = null;  // Círculo de precisión en el mapa
+let _mejorPrecision  = Infinity; // Para elegir la mejor lectura en PC
+
+// Actualiza el marcador verde Y el círculo de precisión en el mapa
 function mostrarMarcadorUbicacion(lat, lon, acc) {
     if (!app.map) return;
 
+    // Remover marcador anterior
     if (marcadorUbicacion) {
         try { app.map.removeLayer(marcadorUbicacion); } catch(_) {}
         marcadorUbicacion = null;
     }
+    // Remover círculo de precisión anterior
     if (_circuloAcc) {
         try { app.map.removeLayer(_circuloAcc); } catch(_) {}
         _circuloAcc = null;
     }
 
+    // Determinar zoom según precisión:
+    // < 50m  → zoom 17 (calle)
+    // < 500m → zoom 15 (barrio)
+    // < 5km  → zoom 13 (ciudad)
+    // >= 5km → zoom 11 (región) — típico de PC con geoloc por IP
     const precisionZoom = !acc ? 15
         : acc < 50   ? 17
         : acc < 500  ? 15
         : acc < 5000 ? 13
         : 11;
 
+    // Marcador pulsante (punto verde con anillo animado)
     const svgIcon = L.divIcon({
         className: '',
         html: `<div style="
@@ -1271,6 +1406,7 @@ function mostrarMarcadorUbicacion(lat, lon, acc) {
             </div>
         `);
 
+    // Dibujar círculo de precisión si acc > 50m (en PC siempre, en celular casi nunca)
     if (acc && acc > 50) {
         _circuloAcc = L.circle([lat, lon], {
             radius: acc,
@@ -1285,12 +1421,18 @@ function mostrarMarcadorUbicacion(lat, lon, acc) {
     return precisionZoom;
 }
 
+// Función principal de geolocalización
+// Estrategia:
+//   1. Primera lectura rápida (puede ser imprecisa en PC) → mostrar inmediato
+//   2. Si acc > 100m → intentar mejorar con hasta 3 lecturas adicionales
+//   3. watchPosition continuo para actualizar mientras el usuario se mueve
 function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
     if (!navigator.geolocation) {
         if (!modoSilencioso) toast('Geolocalización no disponible en este dispositivo', 'error');
         return;
     }
 
+    // Mostrar estado de espera
     const btnVerde = document.getElementById('btn-ubicacion');
     if (btnVerde && !modoSilencioso) {
         btnVerde.style.opacity = '0.6';
@@ -1304,6 +1446,7 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         const { latitude, longitude, accuracy } = position.coords;
         const acc = Math.round(accuracy);
 
+        // Para PCs: solo actualizar si esta lectura es mejor que la anterior
         if (esWatchUpdate && acc >= _mejorPrecision && acc > 200) return;
         _mejorPrecision = Math.min(_mejorPrecision, acc);
 
@@ -1312,10 +1455,9 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
 
         if (app.map) {
             const zoomSugerido = mostrarMarcadorUbicacion(latitude, longitude, acc);
-            
-            // CORRECCIÓN: solo centrar si el usuario no ha interactuado manualmente
-            if (centrarMapa && autoCentrarMapa) {
+            if (centrarMapa) {
                 app.map.invalidateSize({ animate: false });
+                // No recentrar si ya estamos cerca (el usuario movió el mapa manualmente)
                 const actualCenter = app.map.getCenter();
                 const distLat = Math.abs(actualCenter.lat - latitude);
                 const distLon = Math.abs(actualCenter.lng - longitude);
@@ -1329,6 +1471,7 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
             }
         }
 
+        // Restaurar botón
         if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
 
         if (!modoSilencioso && !esWatchUpdate) {
@@ -1351,6 +1494,7 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         if (!modoSilencioso) {
             toast(msgs[error.code] || 'Error de GPS', 'error');
         }
+        // Usar última ubicación guardada si existe
         if (ultimaUbicacion && app.map && centrarMapa) {
             app.map.invalidateSize({ animate: false });
             mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
@@ -1359,9 +1503,11 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         }
     }
 
+    // Primera lectura: maximumAge=0 para forzar lectura fresca (importante en PC)
     navigator.geolocation.getCurrentPosition(
         pos => {
             procesarPosicion(pos, false);
+            // Si la precisión es pobre (>100m, típico de PC/WiFi), pedir lecturas adicionales
             if (pos.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
                 const intentarMejorar = () => {
                     if (intentos >= MAX_INTENTOS) return;
@@ -1369,11 +1515,12 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
                     navigator.geolocation.getCurrentPosition(
                         p2 => {
                             procesarPosicion(p2, false);
+                            // Si aún impreciso, intentar una vez más
                             if (p2.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
                                 setTimeout(intentarMejorar, 2000);
                             }
                         },
-                        () => {},
+                        () => {}, // Silencioso en reintentos
                         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
                     );
                 };
@@ -1384,6 +1531,8 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
 
+    // watchPosition: actualiza el marcador mientras el usuario se mueve
+    // Solo activar en dispositivos con GPS real (evitar spam en PC con geoloc por IP)
     if (!_watchId) {
         _watchId = navigator.geolocation.watchPosition(
             pos => procesarPosicion(pos, true),
@@ -1393,19 +1542,21 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
     }
 }
 
-// Botón verde — ir a mi ubicación actual
+// Botón verde — ir a mi ubicación actual y dibujar el marcador
 document.getElementById('btn-ubicacion').addEventListener('click', () => {
     if (!app.map) return;
-    autoCentrarMapa = true; // permitir recentrar
     if (ultimaUbicacion) {
+        // Mostrar inmediatamente con la última posición conocida
         app.map.invalidateSize({ animate: false });
         const z = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
         app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], z || 15, { animate: true });
         setTimeout(() => {
             document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
         }, 300);
+        // Actualizar en background para refrescar la posición
         solicitarUbicacion(true, true);
     } else {
+        // Primera vez: solicitar GPS
         solicitarUbicacion(true, false);
     }
 });
@@ -1432,6 +1583,7 @@ document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => 
     if (ultimaUbicacion) {
         aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
         document.getElementById('pm').classList.add('active');
+        // Refrescar en background
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 pos => {
@@ -1530,10 +1682,14 @@ window._a = (a, id) => {
 window._zm = id => {
     const p = app.p.find(x => String(x.id) === String(id));
     if (p && app.map) {
+        // Cerrar modales PRIMERO, luego esperar que el mapa
+        // recalcule su tamaño antes de hacer setView
         closeAll();
         setTimeout(() => {
             if (!app.map) return;
             app.map.invalidateSize({ animate: false });
+            // Zoom 17 es suficiente — OSM garantiza tiles hasta 18/19
+            // pero 17 funciona en todas las áreas sin tiles faltantes
             app.map.setView([p.la, p.ln], 17, { animate: true });
             setTimeout(() => {
                 document.getElementById('zoom-altura').textContent = calcularEscalaReal(17);
@@ -1542,6 +1698,7 @@ window._zm = id => {
     }
 };
 
+// ── FUNCIÓN DE IMPRESIÓN ─────────────────────────────────────
 window.imprimirPedido = function(p) {
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
     const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
@@ -1608,10 +1765,12 @@ window.imprimirPedido = function(p) {
     contenedor.innerHTML = '';
 };
 
+// ── FUNCIONES PARA FOTOS ─────────────────────────────────────
+// Leer orientación EXIF para rotar correctamente fotos de celular
 function leerOrientacionEXIF(arrayBuffer) {
     try {
         const view = new DataView(arrayBuffer);
-        if (view.getUint16(0, false) !== 0xFFD8) return 1;
+        if (view.getUint16(0, false) !== 0xFFD8) return 1; // no es JPEG
         const length = view.byteLength;
         let offset = 2;
         while (offset < length) {
@@ -1643,8 +1802,9 @@ function comprimirImagen(file) {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
 
+                // Rotar canvas según orientación EXIF
                 const rotar = [5,6,7,8].includes(orientacion);
-                const maxSize = 1600;
+                const maxSize = 1600; // Suficiente para campo, sin pérdida apreciable
                 const mayor = rotar ? Math.max(h, w) : Math.max(w, h);
                 if (mayor > maxSize) {
                     const r = maxSize / mayor;
@@ -1657,6 +1817,7 @@ function comprimirImagen(file) {
 
                 const ctx = canvas.getContext('2d');
                 ctx.save();
+                // Aplicar transformación según orientación EXIF
                 if      (orientacion === 2) { ctx.transform(-1,0,0,1,w,0); }
                 else if (orientacion === 3) { ctx.transform(-1,0,0,-1,w,h); }
                 else if (orientacion === 4) { ctx.transform(1,0,0,-1,0,h); }
@@ -1667,6 +1828,7 @@ function comprimirImagen(file) {
                 ctx.drawImage(img, 0, 0, w, h);
                 ctx.restore();
 
+                // Calidad 0.82: buena calidad, ~150-350 KB típico en campo
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
                 resolve(dataUrl);
             };
@@ -1677,19 +1839,19 @@ function comprimirImagen(file) {
     });
 }
 
-// VISOR DE FOTOS (sin cambios)
+// ── VISOR DE FOTOS CON ZOOM Y ARRASTRE ──────────────────────
 (function() {
     const modal = document.getElementById('modal-foto-ampliada');
     const img   = document.getElementById('foto-ampliada');
     const cont  = document.getElementById('img-container');
     const info  = document.getElementById('foto-zoom-nivel');
     
-    let scale = 1;
-    let tx = 0, ty = 0;
+    let scale = 1;       // zoom actual
+    let tx = 0, ty = 0; // traslación acumulada
     let isDragging = false;
     let lastX = 0, lastY = 0;
+    // Para pinch en móvil
     let lastDist = 0;
-    let hasMoved = false;
 
     function applyTransform(animate) {
         img.style.transition = animate ? 'transform .2s' : 'none';
@@ -1702,6 +1864,7 @@ function comprimirImagen(file) {
         if (scale <= 1) { tx = 0; ty = 0; return; }
         const imgW = img.naturalWidth  || img.offsetWidth;
         const imgH = img.naturalHeight || img.offsetHeight;
+        // El exceso máximo que podemos desplazar
         const maxX = Math.max(0, (imgW  * scale - cont.clientWidth)  / 2);
         const maxY = Math.max(0, (imgH  * scale - cont.clientHeight) / 2);
         tx = Math.max(-maxX, Math.min(maxX, tx));
@@ -1712,6 +1875,7 @@ function comprimirImagen(file) {
     function zoomBy(delta, cx, cy) {
         const prev = scale;
         scale = Math.max(1, Math.min(8, scale * delta));
+        // Ajustar traslación para que el zoom sea relativo al punto cx,cy
         if (cx !== undefined) {
             const rect = cont.getBoundingClientRect();
             const ox = cx - rect.left - cont.clientWidth  / 2;
@@ -1723,6 +1887,7 @@ function comprimirImagen(file) {
         applyTransform(false);
     }
 
+    // Abrir foto
     window.verFotoAmpliada = function(src) {
         img.src = src;
         resetZoom();
@@ -1731,18 +1896,22 @@ function comprimirImagen(file) {
         modal.classList.add('active');
     };
 
+    // Cerrar
     document.getElementById('cerrar-modal-foto').addEventListener('click', () => {
         modal.classList.remove('active');
         resetZoom();
     });
+    // Click fuera de la imagen cierra
     modal.addEventListener('click', e => {
         if (e.target === modal) { modal.classList.remove('active'); resetZoom(); }
     });
+    // Tecla Escape
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && modal.classList.contains('active'))
             { modal.classList.remove('active'); resetZoom(); }
     });
 
+    // Botones barra
     document.getElementById('foto-zoom-in').addEventListener('click', e => {
         e.stopPropagation(); zoomBy(1.4);
     });
@@ -1753,21 +1922,26 @@ function comprimirImagen(file) {
         e.stopPropagation(); resetZoom();
     });
 
+    // Click en la imagen: zoom in / zoom out al 100%
+    // Solo actúa si NO hubo arrastre real (hasMoved)
     cont.addEventListener('click', e => {
-        if (hasMoved) { hasMoved = false; return; }
+        if (hasMoved) { hasMoved = false; return; } // fue un drag, no un click
         if (scale < 1.5) zoomBy(2.5, e.clientX, e.clientY);
         else resetZoom();
     });
 
+    // Rueda del mouse: zoom
     cont.addEventListener('wheel', e => {
         e.preventDefault();
         const delta = e.deltaY < 0 ? 1.2 : 1/1.2;
         zoomBy(delta, e.clientX, e.clientY);
     }, { passive: false });
 
+    // Arrastre mouse — el zoom NO se resetea al soltar
+    // hasMoved distingue drag real de click para no activar zoom al soltar
     let hasMoved = false;
     cont.addEventListener('mousedown', e => {
-        if (scale < 1.05) return;
+        if (scale < 1.05) return; // solo arrastra cuando hay zoom
         isDragging = true;
         hasMoved = false;
         lastX = e.clientX; lastY = e.clientY;
@@ -1787,9 +1961,11 @@ function comprimirImagen(file) {
     document.addEventListener('mouseup', () => {
         if (!isDragging) return;
         isDragging = false;
+        // El zoom NO cambia — sigue igual. Solo actualizamos el cursor.
         cont.style.cursor = scale > 1.05 ? 'grab' : 'zoom-in';
     });
 
+    // Táctil: pinch para zoom + arrastre
     cont.addEventListener('touchstart', e => {
         if (e.touches.length === 2) {
             lastDist = Math.hypot(
@@ -1829,11 +2005,13 @@ function comprimirImagen(file) {
         if (e.touches.length < 2) lastDist = 0;
         if (e.touches.length === 0) {
             isDragging = false;
+            // El zoom NO se resetea al levantar el dedo
         }
     });
 
-})();
+})(); // fin IIFE visor de fotos
 
+// Función compartida para procesar una foto seleccionada
 async function procesarFotoSeleccionada(file) {
     if (!file) return;
     try {
@@ -1841,6 +2019,7 @@ async function procesarFotoSeleccionada(file) {
         const compressedImage = await comprimirImagen(file);
         fotosTemporales.push(compressedImage);
         actualizarVistaPreviaFotos();
+        // Mostrar tamaño aproximado al usuario
         const kb = Math.round(compressedImage.length * 0.75 / 1024);
         toast(`✓ Foto lista (≈${kb} KB)`, 'success');
     } catch (error) {
@@ -1850,11 +2029,31 @@ async function procesarFotoSeleccionada(file) {
 }
 
 // =============================================================
-//  CÁMARA INLINE (sin cambios — ya funciona en Xiaomi Chrome)
+//  SISTEMA DE FOTOS — solución definitiva para Chrome Android 14
+//
+//  Diagnóstico del problema en Xiaomi Poco X6 / Chrome / Android 14:
+//  1. input.click() después de un await pierde el "user gesture" —
+//     Chrome bloquea el selector de archivos si no viene de un
+//     evento síncrono directo del usuario.
+//  2. Android 14 eliminó READ_EXTERNAL_STORAGE; Chrome no pide
+//     READ_MEDIA_IMAGES automáticamente desde una página web.
+//  3. El resultado: el botón hace algo (notificación breve) pero
+//     no abre ningún selector.
+//
+//  SOLUCIÓN:
+//  - Cámara: usar getUserMedia() directamente con <video> inline.
+//     No toca el sistema de archivos → no necesita permiso de storage.
+//     Captura el frame como canvas → blob → comprime → listo.
+//  - Galería/PC: click SÍNCRONO (sin await previo) en el input.
+//     El gesto del usuario llega directo al input.click() sin interrupciones.
 // =============================================================
-let _streamCamara     = null;
-let _camaraFacing     = 'environment';
-let _callbackCaptura  = null;
+
+const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+// ── CÁMARA INLINE (getUserMedia) ────────────────────────────
+let _streamCamara     = null;   // MediaStream activo
+let _camaraFacing     = 'environment'; // 'environment' = trasera, 'user' = frontal
+let _callbackCaptura  = null;   // función a llamar con el dataUrl de la foto
 
 async function abrirCamaraInline(callback) {
     _callbackCaptura = callback;
@@ -1874,6 +2073,7 @@ async function abrirCamaraInline(callback) {
 }
 
 async function iniciarStreamCamara(video, infoEl) {
+    // Detener stream anterior si existe
     if (_streamCamara) {
         _streamCamara.getTracks().forEach(t => t.stop());
         _streamCamara = null;
@@ -1926,18 +2126,21 @@ function capturarFoto() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
 
+    // Espejo para cámara frontal
     if (_camaraFacing === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
     ctx.drawImage(video, 0, 0);
 
+    // Comprimir a JPEG 0.82
     const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     cerrarCamaraInline();
 
     if (_callbackCaptura) _callbackCaptura(dataUrl);
 }
 
+// Eventos del modal de cámara
 document.getElementById('btn-cancelar-camara').addEventListener('click', () => {
     cerrarCamaraInline();
     toast('Foto cancelada', 'info');
@@ -1950,12 +2153,21 @@ document.getElementById('btn-cambiar-camara').addEventListener('click', async ()
     await iniciarStreamCamara(video, infoEl);
 });
 
-// =============================================================
-//  PROCESAR FOTO DE CIERRE
-// =============================================================
+// ── GALERÍA / ARCHIVOS (click síncrono — mantiene user gesture) ──
+// CRÍTICO: NO poner ningún await antes del input.click()
+// Si hay un await previo Chrome Android cancela el gesto y no abre el picker
+
+function abrirGaleria(inputId) {
+    // Click SÍNCRONO directo — sin ningún await antes
+    const input = document.getElementById(inputId);
+    if (input) input.click();
+}
+
+// ── PROCESAR FOTO DE CIERRE ──────────────────────────────────
 async function procesarFotoCierre(fotoDataUrl) {
     if (!fotoDataUrl) return;
     try {
+        // Si es dataUrl de cámara ya está comprimido; si es File, comprimir
         if (typeof fotoDataUrl === 'string' && fotoDataUrl.startsWith('data:')) {
             fotoCierreTemp = fotoDataUrl;
         } else {
@@ -1970,11 +2182,11 @@ async function procesarFotoCierre(fotoDataUrl) {
     }
 }
 
-// =============================================================
-//  BOTONES DE FOTOS (CAMARA + LABEL PARA GALERÍA)
-// =============================================================
+// ── BOTONES NUEVO PEDIDO ─────────────────────────────────────
+// Tomar foto: usa cámara inline (no input file)
 document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     abrirCamaraInline(async dataUrl => {
+        // La foto ya está comprimida desde el canvas
         fotosTemporales.push(dataUrl);
         actualizarVistaPreviaFotos();
         const kb = Math.round(dataUrl.length * 0.75 / 1024);
@@ -1982,23 +2194,29 @@ document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     });
 });
 
-// Cambio: ya no hay listener en btn-subir-foto (ahora es label)
+// Cargar desde dispositivo: click síncrono en input (sin await)
+document.getElementById('btn-subir-foto').addEventListener('click', () => {
+    abrirGaleria('input-foto-galeria');
+});
 
-// Cierre
+// Change handlers para galería (nuevo pedido)
+document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
+    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
+    e.target.value = '';
+});
+
+// ── BOTONES CIERRE DE PEDIDO ─────────────────────────────────
 document.getElementById('btn-foto-cierre-camara').addEventListener('click', () => {
     abrirCamaraInline(async dataUrl => {
         await procesarFotoCierre(dataUrl);
     });
 });
 
-// Cambio: ya no hay listener en btn-foto-cierre-galeria (ahora es label)
-
-// Change handlers (siguen igual)
-document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
-    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
-    e.target.value = '';
+document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
+    abrirGaleria('input-foto-cierre-galeria');
 });
 
+// Change handlers para galería (cierre)
 document.getElementById('input-foto-cierre-galeria').addEventListener('change', async (e) => {
     if (e.target.files[0]) {
         const comprimida = await comprimirImagen(e.target.files[0]);
@@ -2017,6 +2235,7 @@ function actualizarVistaPreviaFotos() {
         img.src = foto;
         img.className = 'foto-miniatura';
         img.onclick = () => window.verFotoAmpliada(foto);
+        // Botón eliminar
         const del = document.createElement('button');
         del.type = 'button';
         del.innerHTML = '✕';
@@ -2031,6 +2250,7 @@ function actualizarVistaPreviaFotos() {
         wrap.appendChild(del);
         container.appendChild(wrap);
     });
+    // Contador
     if (fotosTemporales.length > 0) {
         const cnt = document.createElement('div');
         cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
@@ -2039,36 +2259,7 @@ function actualizarVistaPreviaFotos() {
     }
 }
 
-function actualizarVistaPreviaFotoCierre() {
-    const container = document.getElementById('vista-previa-foto-cierre');
-    if (!container) return;
-    container.innerHTML = '';
-    if (!fotoCierreTemp) return;
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;display:inline-block';
-    const img = document.createElement('img');
-    img.src = fotoCierreTemp;
-    img.className = 'foto-miniatura';
-    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp);
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.innerHTML = '✕';
-    del.title = 'Eliminar foto';
-    del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
-    del.onclick = (e) => { e.stopPropagation(); fotoCierreTemp = null; actualizarVistaPreviaFotoCierre(); };
-    wrap.appendChild(img);
-    wrap.appendChild(del);
-    container.appendChild(wrap);
-    const cnt = document.createElement('div');
-    cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
-    const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
-    cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
-    container.appendChild(cnt);
-}
-
-// =============================================================
-//  AVANCE, GUARDAR, ETC. (sin cambios)
-// =============================================================
+// ── FUNCIONES PARA AVANCE ────────────────────────────────────
 function abrirAvance(id) {
     const pedido = app.p.find(x => String(x.id) === String(id));
     if (!pedido) return;
@@ -2109,6 +2300,7 @@ document.getElementById('cancelar-avance').addEventListener('click', () => {
     pedidoActualParaAvance = null;
 });
 
+// ── GUARDAR PEDIDO ───────────────────────────────────────────
 document.getElementById('pf').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -2153,7 +2345,9 @@ document.getElementById('pf').addEventListener('submit', async e => {
         )`;
 
         if (modoOffline || !NEON_OK) {
+            // ── MODO OFFLINE: encolar en localStorage ──
             enqueueOffline({ tipo: 'INSERT', query: queryInsert });
+            // Agregar a la lista local para que se vea en el mapa
             const pedidoLocal = {
                 id: 'off_' + Date.now(),
                 np: numPedido,
@@ -2178,6 +2372,7 @@ document.getElementById('pf').addEventListener('submit', async e => {
             offlinePedidosSave(app.p);
             toast('📴 Pedido guardado localmente — se sincronizará al conectarse', 'success');
         } else {
+            // ── MODO ONLINE: guardar directamente en Neon ──
             await ejecutarSQLConReintentos(queryInsert);
             toast('Pedido guardado', 'success');
         }
@@ -2190,6 +2385,7 @@ document.getElementById('pf').addEventListener('submit', async e => {
         if (!modoOffline) cargarPedidos();
     } catch(e) {
         console.error(e);
+        // Si falla por red, intentar guardar offline
         if (e.message && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
             setModoOffline(true);
             toast('Sin conexión — reintentá guardar en modo offline', 'error');
@@ -2235,9 +2431,11 @@ async function updPedido(id, campos) {
     const queryUpdate = `UPDATE pedidos SET ${s.join(',')} WHERE id=${esc(parseInt(id))}`;
 
     if (modoOffline || !NEON_OK || String(id).startsWith('off_')) {
+        // Offline: encolar si el id es real, aplicar localmente si es offline
         if (!String(id).startsWith('off_')) {
             enqueueOffline({ tipo: 'UPDATE', query: queryUpdate });
         }
+        // igual actualizar en memoria y cache local
     } else {
         await ejecutarSQLConReintentos(queryUpdate);
     }
@@ -2262,6 +2460,7 @@ async function updPedido(id, campos) {
         if (campos.x_inchauspe) app.p[idx].x_inchauspe = campos.x_inchauspe;
         if (campos.y_inchauspe) app.p[idx].y_inchauspe = campos.y_inchauspe;
     }
+    // Persistir cache actualizado
     offlinePedidosSave(app.p);
     render();
 }
@@ -2281,6 +2480,33 @@ async function iniciar(id) {
     }
 }
 
+function actualizarVistaPreviaFotoCierre() {
+    const container = document.getElementById('vista-previa-foto-cierre');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!fotoCierreTemp) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-block';
+    const img = document.createElement('img');
+    img.src = fotoCierreTemp;
+    img.className = 'foto-miniatura';
+    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.innerHTML = '✕';
+    del.title = 'Eliminar foto';
+    del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
+    del.onclick = (e) => { e.stopPropagation(); fotoCierreTemp = null; actualizarVistaPreviaFotoCierre(); };
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    container.appendChild(wrap);
+    const cnt = document.createElement('div');
+    cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
+    const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
+    cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
+    container.appendChild(cnt);
+}
+
 function abrirCierre(id) {
     const p = app.p.find(x => String(x.id) === String(id));
     if (!p) return;
@@ -2293,6 +2519,7 @@ function abrirCierre(id) {
     document.getElementById('tr').value = '';
     document.getElementById('tc2').value = app.u?.nombre || '';
     document.getElementById('tc').textContent = '0';
+    // Resetear foto de cierre
     fotoCierreTemp = null;
     actualizarVistaPreviaFotoCierre();
     document.getElementById('cm2').classList.add('active');
@@ -2327,6 +2554,7 @@ document.getElementById('cc2').addEventListener('click', async () => {
     }
 });
 
+// ── DETALLE ───────────────────────────────────────────────────
 function detalle(p) {
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
     const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
@@ -2347,6 +2575,7 @@ function detalle(p) {
     
     const ed = app.u?.rol === 'admin' || String(p.ui) === String(app.u?.id);
     
+    // Generar HTML para las fotos
     let fotosHtml = '';
     if (p.fotos && p.fotos.length > 0) {
         fotosHtml = '<div class="fotos-container">';
@@ -2358,6 +2587,7 @@ function detalle(p) {
         fotosHtml += '</div>';
     }
     
+    // Coordenadas formateadas
     const latFormateada = p.la ? p.la.toFixed(5).replace('.', ',') : '';
     const lngFormateada = p.ln ? p.ln.toFixed(5).replace('.', ',') : '';
     
@@ -2421,6 +2651,7 @@ function detalle(p) {
     document.getElementById('dm').classList.add('active');
 }
 
+// ── FUNCIÓN PARA COPIAR TEXTO ────────────────────────────────
 window.copiarTexto = function(texto) {
     navigator.clipboard.writeText(texto).then(() => {
         toast('Copiado al portapapeles', 'success');
@@ -2429,6 +2660,7 @@ window.copiarTexto = function(texto) {
     });
 };
 
+// ── EXPORTACIÓN A EXCEL ──────────────────────────────────────
 function exportPedido(pedidos, nombre) {
     if (!pedidos || pedidos.length === 0) {
         toast('No hay datos para exportar', 'error');
@@ -2522,6 +2754,7 @@ window._xl = id => {
     if (p) exportPedido([p], 'pedido_' + p.np);
 };
 
+// ── RENDER LISTA ─────────────────────────────────────────────
 function render() {
     const cer = app.p.filter(p => p.es === 'Cerrado').length;
     document.getElementById('pc').textContent = app.p.length - cer;
@@ -2588,10 +2821,12 @@ function render() {
     renderMk();
 }
 
+// ── HELPERS ───────────────────────────────────────────────────
 function closeAll() {
     document.querySelectorAll('.mo').forEach(m => m.classList.remove('active'));
     document.getElementById('pf').reset();
     document.getElementById('dc').textContent = '0';
+    // Resetear foto de cierre
     fotoCierreTemp = null;
     const vpc = document.getElementById('vista-previa-foto-cierre');
     if (vpc) vpc.innerHTML = '';
@@ -2612,12 +2847,13 @@ function switchTab(t) {
     render();
 }
 
+// ── EVENTOS UI ────────────────────────────────────────────────
 document.getElementById('mt').addEventListener('click', togglePanel);
 document.getElementById('ph').addEventListener('click', togglePanel);
 
 document.getElementById('ub').addEventListener('click', () => {
     if (confirm('¿Cerrar sesión?')) {
-        detenerKeepAlive();
+        detenerKeepAlive(); // Detener keep-alive al cerrar sesión
         localStorage.removeItem('pmg');
         app.u = null;
         mapaInicializado = false;
@@ -2643,6 +2879,8 @@ document.getElementById('eb').addEventListener('click', () => {
     );
 });
 
+
+
 document.querySelectorAll('.cm').forEach(b => b.addEventListener('click', closeAll));
 document.querySelectorAll('.cm2').forEach(b => b.addEventListener('click', closeAll));
 
@@ -2654,11 +2892,13 @@ document.getElementById('tr').addEventListener('input', function() {
     document.getElementById('tc').textContent = this.value.length;
 });
 
+// Hacer clic en el campo de ubicación abre el mapa para seleccionar
 document.getElementById('ui').addEventListener('click', () => {
     closeAll();
     toast('Hacé clic en el mapa para seleccionar la ubicación', 'info');
 });
 
+// ── POBLAR SELECTORES ────────────────────────────────────────
 const sd = document.getElementById('di2');
 [...new Set(DIST.map(d => d.g))].forEach(g => {
     const og = document.createElement('optgroup');
@@ -2680,6 +2920,7 @@ TIPOS.forEach(t => {
     st.appendChild(o);
 });
 
+// ── RESTAURAR SESIÓN ─────────────────────────────────────────
 try {
     const s = localStorage.getItem('pmg');
     if (s) {
@@ -2690,9 +2931,11 @@ try {
         iniciarKeepAlive();
         actualizarBadgeOffline();
         setTimeout(async () => {
+            // Pedir GPS y cámara al restaurar sesión
             solicitarPermisos();
             initMap();
             await cargarPedidos();
+            // Si hay pedidos offline en cola, sincronizar automáticamente
             if (!modoOffline && offlineQueue().length > 0) {
                 setTimeout(sincronizarOffline, 2000);
             }
@@ -2700,7 +2943,7 @@ try {
     }
 } catch(_) {}
 
-// XLSX
+// ── CARGAR XLSX ──────────────────────────────────────────────
 const xscript = document.createElement('script');
 xscript.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
 xscript.onerror = () => console.log('XLSX no disponible - se usará CSV');
