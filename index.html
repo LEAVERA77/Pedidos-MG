@@ -16,213 +16,164 @@
 <!-- jsPDF para generar PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-/* ESTILOS COMPLETOS */
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-:root{--bd:#1e3a8a;--bm:#2563eb;--bl:#3b82f6;--gr:#10b981;--re:#ef4444;--or:#f97316;--ye:#eab308;--bg:#f1f5f9;--bo:#e2e8f0;--td:#1e293b;--tm:#475569;--tl:#94a3b8}
-html,body{height:100%;overflow:hidden;background:var(--bg)}
-#app{height:100vh;position:relative}
-.screen{display:none;height:100%;width:100%;position:absolute;inset:0}
-#ls{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#2563eb 100%)}
-#ls.active{display:flex;align-items:center;justify-content:center}
-#ms.active{display:block}
-.lc{background:white;padding:2rem 2rem 1.5rem;border-radius:1.25rem;width:92%;max-width:420px;box-shadow:0 25px 60px rgba(0,0,0,.4);max-height:95vh;overflow-y:auto}
-.ll{width:56px;height:56px;background:linear-gradient(135deg,var(--bd),var(--bl));border-radius:1rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:1.6rem;color:white}
-.lc h1{font-size:1.4rem;color:var(--td);text-align:center;font-weight:700;margin-bottom:.2rem}
-.lc .sub{text-align:center;color:var(--tm);font-size:.9rem;margin-bottom:1rem}
-.dbs{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.5rem 1rem;border-radius:2rem;font-size:.82rem;margin-bottom:1.25rem;transition:all .3s}
-.dbs.c{background:#fef9c3;color:#854d0e}.dbs.ok{background:#dcfce7;color:#166534}.dbs.er{background:#fee2e2;color:#991b1b}
-.ig{position:relative;margin-bottom:1rem}
-.ig i{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--tl);pointer-events:none;font-size:.9rem}
-.ig input{width:100%;padding:.75rem .9rem .75rem 2.4rem;border:1.5px solid var(--bo);border-radius:.6rem;font-size:.95rem}
-.ig input:focus{outline:none;border-color:var(--bl);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-.bp{width:100%;padding:.8rem;background:linear-gradient(135deg,var(--bd),var(--bm));color:white;border:none;border-radius:.6rem;font-size:1rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.25rem}
-.bp:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 15px rgba(30,58,138,.3)}
-.bp:disabled{opacity:.5;cursor:not-allowed}
-.bs{background:linear-gradient(135deg,#059669,var(--gr))!important}
-.sec{flex:1;padding:.75rem;background:white;border:1.5px solid var(--bo);border-radius:.6rem;cursor:pointer;font-size:.95rem;font-weight:500}
-.le{color:var(--re);font-size:.88rem;text-align:center;margin-top:.5rem;min-height:1.2rem}
-.ba{background:var(--bd);color:white;font-size:.7rem;padding:.1rem .4rem;border-radius:.3rem;font-weight:600}
-.du{margin-top:1.25rem;padding:.9rem;background:var(--bg);border-radius:.6rem;font-size:.82rem;color:var(--tm);border:1px solid var(--bo)}
-.du p{margin:.2rem 0}.du strong{color:var(--bd)}
-.hd{background:white;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.08);position:relative;z-index:1000;height:58px;border-bottom:2px solid var(--bd)}
-.hd h2{font-size:1.05rem;color:var(--bd);font-weight:700;display:flex;align-items:center;gap:.4rem}
-.hr{display:flex;align-items:center;gap:.4rem}
-.di{font-size:.85rem;padding:.3rem .5rem;border-radius:.4rem;display:flex;align-items:center;gap:.3rem}
-.di.ok{color:var(--gr)}.di.er{color:var(--re)}
-.un{font-size:.82rem;color:var(--tm);font-weight:500;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ib{background:none;border:none;font-size:1.3rem;color:var(--tm);cursor:pointer;padding:.4rem;border-radius:.4rem}
-.ib:hover{background:var(--bg);color:var(--bd)}
-#mc{height:calc(100vh - 58px);width:100%;z-index:1;position:relative}
-.bp2{position:absolute;bottom:0;left:0;right:0;background:white;border-radius:1.25rem 1.25rem 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.12);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:1000;max-height:72vh;display:flex;flex-direction:column}
-.bp2.col{transform:translateY(calc(100% - 4.5rem))}
-.ph{padding:.6rem 1rem .4rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;flex-shrink:0}
-.hb{width:44px;height:4px;background:#cbd5e1;border-radius:10px;margin-bottom:.2rem}
-.hl{font-size:.75rem;color:var(--tl);font-weight:500;letter-spacing:.05em}
-/* Indicador de altura de zoom */
-.zoom-indicator{font-size:.7rem;color:var(--bd);background:var(--bg);padding:.15rem .5rem;border-radius:1rem;margin-left:.5rem}
-.pc{display:flex;flex-direction:column;overflow:hidden;flex:1}
-.pt{display:flex;padding:0 .75rem;border-bottom:1px solid var(--bo);align-items:center;flex-shrink:0;gap:.25rem}
-.tb{flex:1;padding:.65rem .25rem;background:none;border:none;border-bottom:2.5px solid transparent;font-weight:600;color:var(--tm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.35rem;font-size:.85rem}
-.tb.active{color:var(--bd);border-bottom-color:var(--bd)}
-.bge{background:var(--bd);color:white;font-size:.65rem;padding:.1rem .4rem;border-radius:1rem;font-weight:700}
-.eb{background:none;border:none;color:#16a34a;font-size:1.2rem;cursor:pointer;padding:.4rem .5rem;border-radius:.4rem;flex-shrink:0}
-.eb:hover{background:#dcfce7}
-.pl{overflow-y:auto;padding:.75rem;flex:1}
-.ll2{text-align:center;color:var(--tl);padding:2rem 1rem;font-size:.9rem;display:flex;align-items:center;justify-content:center;gap:.5rem}
-.pi{background:white;border-radius:.75rem;padding:.85rem 1rem;margin-bottom:.6rem;border:1px solid var(--bo);border-left:4px solid var(--bd);cursor:pointer;transition:transform .1s,box-shadow .15s}
-.pi:hover{transform:translateX(3px);box-shadow:0 3px 12px rgba(0,0,0,.1)}
-.ph2{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem}
-.pn{font-weight:700;color:var(--bd);font-size:.9rem}
-.pe{font-size:.7rem;padding:.2rem .55rem;border-radius:1rem;font-weight:600}
-.ep{background:#fef9c3;color:#854d0e}.ee{background:#dbeafe;color:#1d4ed8}.ec{background:#dcfce7;color:#166534}
-.pi2{font-size:.78rem;color:var(--tm);margin-bottom:.2rem}
-.pd{font-size:.87rem;color:var(--td);line-height:1.3}
-.pt2{display:inline-block;font-size:.68rem;padding:.15rem .4rem;border-radius:.3rem;font-weight:700;margin-top:.3rem}
-.pc2{background:#fee2e2;color:var(--re)}.pa{background:#ffedd5;color:var(--or)}.pm{background:#fef9c3;color:#854d0e}.pb{background:#dbeafe;color:var(--bd)}
-.pav{margin-top:.45rem;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden}
-.ab{height:100%;background:linear-gradient(90deg,var(--bd),var(--bl));border-radius:2px;transition:width .4s}
-
-/* Botón de ubicación actual y nuevo botón */
-.fab-ubicacion{position:absolute;bottom:6rem;right:1rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#10b981;color:white;border:none;box-shadow:0 4px 18px rgba(16,185,129,.45);font-size:1.4rem;cursor:pointer;z-index:1002;display:flex;align-items:center;justify-content:center;transition:transform .2s}
-.fab-ubicacion:hover{transform:scale(1.1)}
-.fab-pedido-ubicacion{position:absolute;bottom:10.5rem;right:1rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#f59e0b;color:white;border:none;box-shadow:0 4px 18px rgba(245,158,11,.45);font-size:1.4rem;cursor:pointer;z-index:1002;display:flex;align-items:center;justify-content:center;transition:transform .2s}
-.fab-pedido-ubicacion:hover{transform:scale(1.1)}
-.mo{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
-.mo.active{display:flex}
-.mc{background:white;border-radius:1rem;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.35);animation:mIn .2s ease}
-.mc.lg{max-width:680px}
-@keyframes mIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-.mh{padding:1rem 1.25rem;border-bottom:1px solid var(--bo);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:10;border-radius:1rem 1rem 0 0}
-.mh h3{color:var(--bd);font-size:1rem;display:flex;align-items:center;gap:.4rem}
-.cm{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--tl);padding:.3rem;border-radius:.4rem}
-.mb{padding:1.25rem}
-.fg{margin-bottom:1rem;padding:0 1.25rem}
-.fg:first-child{padding-top:1.1rem}
-.fr{display:flex;gap:.75rem;padding:0 1.25rem;margin-bottom:1rem}
-.fr .hf{flex:1;padding:0;margin-bottom:0}
-label{display:block;margin-bottom:.35rem;font-weight:600;font-size:.83rem;color:var(--tm);display:flex;align-items:center;gap:.3rem}
-input,select,textarea{width:100%;padding:.65rem .8rem;border:1.5px solid var(--bo);border-radius:.5rem;font-size:.93rem;background:white;color:var(--td)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--bl);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
-textarea{resize:vertical;min-height:80px}
-.cc{font-size:.75rem;color:var(--tl);display:block;text-align:right;margin-top:.2rem}
-.ud{padding:.65rem .8rem;border:1.5px dashed var(--bo);border-radius:.5rem;font-size:.87rem;color:var(--tm);background:var(--bg);display:flex;align-items:center;gap:.4rem;cursor:pointer}
-.ud.sel{border-color:var(--gr);color:#166534;background:#f0fdf4}
-.fa2{padding:1rem 1.25rem;display:flex;gap:.75rem;border-top:1px solid var(--bo);margin-top:.25rem}
-.dc{padding:1rem 1.25rem 1.25rem}
-.ds{margin-bottom:1rem;background:var(--bg);border-radius:.75rem;padding:.9rem 1rem;border:1px solid var(--bo)}
-.ds h4{color:var(--bd);margin-bottom:.65rem;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.4rem}
-.dr{display:flex;margin-bottom:.4rem;font-size:.88rem;align-items:flex-start;gap:.5rem}
-.dl{min-width:115px;color:var(--tm);flex-shrink:0;font-size:.82rem}
-.dv{flex:1;color:var(--td);font-weight:500;word-break:break-word;display:flex;align-items:center;gap:.25rem;flex-wrap:wrap}
-.dv-copy{cursor:pointer;padding:.2rem .5rem;background:var(--bg);border-radius:.5rem;font-size:.75rem;color:var(--bd);display:inline-flex;align-items:center;gap:.25rem}
-.dv-copy:hover{background:var(--bo)}
-.dv-copy.copied{background:var(--gr);color:white}
-.trb{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:.5rem;padding:.75rem;font-size:.88rem;color:#166534;line-height:1.5;margin-top:.25rem}
-.da{display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap}
-.ba2{padding:.45rem 1rem;background:white;border:1.5px solid var(--bo);border-radius:2rem;cursor:pointer;font-size:.87rem;display:inline-flex;align-items:center;gap:.35rem;font-weight:500}
-.ba2:hover{background:var(--bg)}.ba2.p2{background:var(--bd);color:white;border-color:var(--bd)}.ba2.s2{background:var(--gr);color:white;border-color:var(--gr)}
-.ba2.imprimir{background:var(--or);color:white;border-color:var(--or)}
-.ci{background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:.6rem;padding:.8rem 1rem;font-size:.88rem;color:var(--bd);line-height:1.5}
-/* Estilos para galería de fotos */
-.fotos-container{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem;max-height:200px;overflow-y:auto;padding:.25rem}
-.foto-miniatura{width:70px;height:70px;object-fit:cover;border-radius:.5rem;border:2px solid var(--bo);cursor:pointer;transition:transform .2s}
-.foto-miniatura:hover{transform:scale(1.1)}
-.btn-foto{background:var(--bd);color:white;border:none;border-radius:2rem;padding:.5rem 1rem;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem;margin-right:.5rem;margin-bottom:.5rem}
-.btn-foto i{font-size:1rem}
-.modal-foto{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:3000;display:none;flex-direction:column;align-items:center;justify-content:center}
-.modal-foto.active{display:flex}
-/* Barra superior con controles */
-.modal-foto .foto-toolbar{position:absolute;top:0;left:0;right:0;height:3.5rem;display:flex;align-items:center;justify-content:space-between;padding:0 1rem;background:rgba(0,0,0,.4);z-index:3002}
-.modal-foto .foto-toolbar button{background:rgba(255,255,255,.15);border:none;color:white;border-radius:.5rem;padding:.4rem .8rem;cursor:pointer;font-size:.9rem;display:flex;align-items:center;gap:.4rem}
-.modal-foto .foto-toolbar button:hover{background:rgba(255,255,255,.3)}
-.modal-foto .foto-zoom-info{color:rgba(255,255,255,.7);font-size:.8rem}
-/* Contenedor con overflow para arrastre cuando ampliado */
-.modal-foto .img-container{
-    margin-top:3.5rem;
-    width:100%;height:calc(100vh - 3.5rem);
-    overflow:hidden;
-    cursor:grab;
-    display:flex;align-items:center;justify-content:center;
-    position:relative;
-}
-.modal-foto .img-container:active{cursor:grabbing}
-.modal-foto img{
-    max-width:95vw;max-height:calc(95vh - 3.5rem);
-    object-fit:contain;
-    transform-origin:center center;
-    transition:transform 0.15s ease;
-    user-select:none;
-    pointer-events:none;
-}
-.cerrar-modal-foto{color:white;font-size:1.5rem;cursor:pointer;background:none;border:none;display:flex;align-items:center;gap:.4rem}
-/* Estilos para impresión */
-#print-container{display:none}
-#print-container.printing{display:block;position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:10000;overflow:auto;padding:2rem}
-.print-content{font-family:system-ui;max-width:800px;margin:0 auto;font-size:12pt}
-.print-content h1{color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:0.5rem;font-size:18pt}
-.print-content h2{color:#1e3a8a;margin-top:1.5rem;font-size:14pt}
-.print-content table{width:100%;border-collapse:collapse;margin-top:1rem;font-size:11pt}
-.print-content td{padding:0.5rem;border:1px solid #e2e8f0}
-.print-content td:first-child{background:#f1f5f9;font-weight:bold;width:150px}
-/* Modal para cargar avance */
-.avance-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:4000;display:none;align-items:center;justify-content:center}
-.avance-modal.active{display:flex}
-.avance-content{background:white;border-radius:1rem;padding:2rem;max-width:400px;width:90%}
-.avance-content h3{color:var(--bd);margin-bottom:1rem}
-.avance-slider{width:100%;margin:1rem 0}
-.avance-input{width:100%;padding:.5rem;border:1.5px solid var(--bo);border-radius:.5rem;font-size:1rem;text-align:center}
-.avance-buttons{display:flex;gap:1rem;margin-top:1rem}
-.avance-buttons button{flex:1;padding:.5rem;border:none;border-radius:.5rem;cursor:pointer}
-.avance-buttons .guardar{background:var(--bd);color:white}
-.avance-buttons .cancelar{background:var(--bg);color:var(--td)}
-#toast{position:fixed;bottom:6rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--td);color:white;padding:.65rem 1.25rem;border-radius:2rem;font-size:.88rem;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 15px rgba(0,0,0,.3)}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.success{background:#059669}#toast.error{background:#dc2626}#toast.info{background:var(--bd)}
-@media(min-width:1024px){.bp2{left:auto;right:1rem;bottom:1rem;width:370px;border-radius:1rem;transform:none!important;max-height:calc(100vh - 78px)}.fab-ubicacion{bottom:1.5rem;right:390px}.fab-pedido-ubicacion{bottom:6rem;right:390px}.hl{display:none}}
-@keyframes pulse-gps{
-  0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}
-  70%{box-shadow:0 0 0 10px rgba(16,185,129,0)}
-  100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}
-}
-/* ── MODAL CÁMARA INLINE (CORREGIDO PARA ANDROID) ── */
-#modal-camara-inline {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 5000;
-    flex-direction: column;
-    height: 100vh;
-    width: 100vw;
+/* ===== ESTILOS COMPLETOS ===== */
+* {
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-#modal-camara-inline.active {
-    display: flex;
+
+:root {
+    --bd: #1e3a8a;
+    --bm: #2563eb;
+    --bl: #3b82f6;
+    --gr: #10b981;
+    --re: #ef4444;
+    --or: #f97316;
+    --ye: #eab308;
+    --bg: #f1f5f9;
+    --bo: #e2e8f0;
+    --td: #1e293b;
+    --tm: #475569;
+    --tl: #94a3b8;
 }
-#camara-video {
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+}
+
+#app {
+    height: 100vh;
+    position: relative;
+}
+
+.screen {
+    display: none;
+    height: 100%;
     width: 100%;
-    flex: 1 1 auto;
-    min-height: 0; /* Importante para flexbox en Android */
-    object-fit: cover;
-    background: #000;
+    position: absolute;
+    inset: 0;
 }
-.camara-toolbar {
+
+#ls {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+}
+
+#ls.active {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: rgba(0,0,0,0.8);
-    gap: 0.75rem;
-    flex-shrink: 0;
-    height: auto;
-    min-height: 70px; /* Altura mínima para asegurar visibilidad */
-    border-top: 1px solid rgba(255,255,255,0.2);
+    justify-content: center;
 }
-.camara-toolbar button {
+
+#ms.active {
+    display: block;
+}
+
+.lc {
     background: white;
-    border: none;
+    padding: 2rem 2rem 1.5rem;
+    border-radius: 1.25rem;
+    width: 92%;
+    max-width: 420px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    max-height: 95vh;
+    overflow-y: auto;
+}
+
+.ll {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--bd), var(--bl));
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.6rem;
+    color: white;
+}
+
+.lc h1 {
+    font-size: 1.4rem;
+    color: var(--td);
+    text-align: center;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.lc .sub {
+    text-align: center;
+    color: var(--tm);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.dbs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
     border-radius: 2rem;
-    padding: 0.6rem 1.25rem;
+    font-size: 0.82rem;
+    margin-bottom: 1.25rem;
+    transition: all 0.3s;
+}
+
+.dbs.c {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.dbs.ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.dbs.er {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.ig {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.ig i {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--tl);
+    pointer-events: none;
+    font-size: 0.9rem;
+}
+
+.ig input {
+    width: 100%;
+    padding: 0.75rem 0.9rem 0.75rem 2.4rem;
+    border: 1.5px solid var(--bo);
+    border-radius: 0.6rem;
+    font-size: 0.95rem;
+}
+
+.ig input:focus {
+    outline: none;
+    border-color: var(--bl);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.bp {
+    width: 100%;
+    padding: 0.8rem;
+    background: linear-gradient(135deg, var(--bd), var(--bm));
+    color: white;
+    border: none;
+    border-radius: 0.6rem;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
@@ -230,40 +181,1220 @@ textarea{resize:vertical;min-height:80px}
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    min-width: 100px;
+    margin-top: 0.25rem;
 }
+
+.bp:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(30,58,138,0.3);
+}
+
+.bp:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bs {
+    background: linear-gradient(135deg, #059669, var(--gr)) !important;
+}
+
+.sec {
+    flex: 1;
+    padding: 0.75rem;
+    background: white;
+    border: 1.5px solid var(--bo);
+    border-radius: 0.6rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.le {
+    color: var(--re);
+    font-size: 0.88rem;
+    text-align: center;
+    margin-top: 0.5rem;
+    min-height: 1.2rem;
+}
+
+.ba {
+    background: var(--bd);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    font-weight: 600;
+}
+
+.du {
+    margin-top: 1.25rem;
+    padding: 0.9rem;
+    background: var(--bg);
+    border-radius: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--tm);
+    border: 1px solid var(--bo);
+}
+
+.du p {
+    margin: 0.2rem 0;
+}
+
+.du strong {
+    color: var(--bd);
+}
+
+.hd {
+    background: white;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    position: relative;
+    z-index: 1000;
+    height: 58px;
+    border-bottom: 2px solid var(--bd);
+}
+
+.hd h2 {
+    font-size: 1.05rem;
+    color: var(--bd);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.hr {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.di {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.di.ok {
+    color: var(--gr);
+}
+
+.di.er {
+    color: var(--re);
+}
+
+.un {
+    font-size: 0.82rem;
+    color: var(--tm);
+    font-weight: 500;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ib {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    color: var(--tm);
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+}
+
+.ib:hover {
+    background: var(--bg);
+    color: var(--bd);
+}
+
+#mc {
+    height: calc(100vh - 58px);
+    width: 100%;
+    z-index: 1;
+    position: relative;
+}
+
+.bp2 {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    z-index: 1000;
+    max-height: 72vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.bp2.col {
+    transform: translateY(calc(100% - 4.5rem));
+}
+
+.ph {
+    padding: 0.6rem 1rem 0.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.hb {
+    width: 44px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 10px;
+    margin-bottom: 0.2rem;
+}
+
+.hl {
+    font-size: 0.75rem;
+    color: var(--tl);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+
+.zoom-indicator {
+    font-size: 0.7rem;
+    color: var(--bd);
+    background: var(--bg);
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+    margin-left: 0.5rem;
+}
+
+.pc {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+
+.pt {
+    display: flex;
+    padding: 0 0.75rem;
+    border-bottom: 1px solid var(--bo);
+    align-items: center;
+    flex-shrink: 0;
+    gap: 0.25rem;
+}
+
+.tb {
+    flex: 1;
+    padding: 0.65rem 0.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    font-weight: 600;
+    color: var(--tm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+}
+
+.tb.active {
+    color: var(--bd);
+    border-bottom-color: var(--bd);
+}
+
+.bge {
+    background: var(--bd);
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 1rem;
+    font-weight: 700;
+}
+
+.eb {
+    background: none;
+    border: none;
+    color: #16a34a;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.4rem;
+    flex-shrink: 0;
+}
+
+.eb:hover {
+    background: #dcfce7;
+}
+
+.pl {
+    overflow-y: auto;
+    padding: 0.75rem;
+    flex: 1;
+}
+
+.ll2 {
+    text-align: center;
+    color: var(--tl);
+    padding: 2rem 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.pi {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.6rem;
+    border: 1px solid var(--bo);
+    border-left: 4px solid var(--bd);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+}
+
+.pi:hover {
+    transform: translateX(3px);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+
+.ph2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+}
+
+.pn {
+    font-weight: 700;
+    color: var(--bd);
+    font-size: 0.9rem;
+}
+
+.pe {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1rem;
+    font-weight: 600;
+}
+
+.ep {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.ee {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.ec {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.pi2 {
+    font-size: 0.78rem;
+    color: var(--tm);
+    margin-bottom: 0.2rem;
+}
+
+.pd {
+    font-size: 0.87rem;
+    color: var(--td);
+    line-height: 1.3;
+}
+
+.pt2 {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.3rem;
+    font-weight: 700;
+    margin-top: 0.3rem;
+}
+
+.pc2 {
+    background: #fee2e2;
+    color: var(--re);
+}
+
+.pa {
+    background: #ffedd5;
+    color: var(--or);
+}
+
+.pm {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.pb {
+    background: #dbeafe;
+    color: var(--bd);
+}
+
+.pav {
+    margin-top: 0.45rem;
+    height: 3px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.ab {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bd), var(--bl));
+    border-radius: 2px;
+    transition: width 0.4s;
+}
+
+.fab-ubicacion {
+    position: absolute;
+    bottom: 6rem;
+    right: 1rem;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    background: #10b981;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 18px rgba(16,185,129,0.45);
+    font-size: 1.4rem;
+    cursor: pointer;
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.fab-ubicacion:hover {
+    transform: scale(1.1);
+}
+
+.fab-pedido-ubicacion {
+    position: absolute;
+    bottom: 10.5rem;
+    right: 1rem;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    background: #f59e0b;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 18px rgba(245,158,11,0.45);
+    font-size: 1.4rem;
+    cursor: pointer;
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.fab-pedido-ubicacion:hover {
+    transform: scale(1.1);
+}
+
+.mo {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.6);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    backdrop-filter: blur(2px);
+}
+
+.mo.active {
+    display: flex;
+}
+
+.mc {
+    background: white;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 520px;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+    animation: mIn 0.2s ease;
+}
+
+.mc.lg {
+    max-width: 680px;
+}
+
+@keyframes mIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.mh {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--bo);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    border-radius: 1rem 1rem 0 0;
+}
+
+.mh h3 {
+    color: var(--bd);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.cm {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: var(--tl);
+    padding: 0.3rem;
+    border-radius: 0.4rem;
+}
+
+.mb {
+    padding: 1.25rem;
+}
+
+.fg {
+    margin-bottom: 1rem;
+    padding: 0 1.25rem;
+}
+
+.fg:first-child {
+    padding-top: 1.1rem;
+}
+
+.fr {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.fr .hf {
+    flex: 1;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+    font-size: 0.83rem;
+    color: var(--tm);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 1.5px solid var(--bo);
+    border-radius: 0.5rem;
+    font-size: 0.93rem;
+    background: white;
+    color: var(--td);
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--bl);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.cc {
+    font-size: 0.75rem;
+    color: var(--tl);
+    display: block;
+    text-align: right;
+    margin-top: 0.2rem;
+}
+
+.ud {
+    padding: 0.65rem 0.8rem;
+    border: 1.5px dashed var(--bo);
+    border-radius: 0.5rem;
+    font-size: 0.87rem;
+    color: var(--tm);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+}
+
+.ud.sel {
+    border-color: var(--gr);
+    color: #166534;
+    background: #f0fdf4;
+}
+
+.fa2 {
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    border-top: 1px solid var(--bo);
+    margin-top: 0.25rem;
+}
+
+.dc {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.ds {
+    margin-bottom: 1rem;
+    background: var(--bg);
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--bo);
+}
+
+.ds h4 {
+    color: var(--bd);
+    margin-bottom: 0.65rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.dr {
+    display: flex;
+    margin-bottom: 0.4rem;
+    font-size: 0.88rem;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.dl {
+    min-width: 115px;
+    color: var(--tm);
+    flex-shrink: 0;
+    font-size: 0.82rem;
+}
+
+.dv {
+    flex: 1;
+    color: var(--td);
+    font-weight: 500;
+    word-break: break-word;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.dv-copy {
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    background: var(--bg);
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--bd);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dv-copy:hover {
+    background: var(--bo);
+}
+
+.dv-copy.copied {
+    background: var(--gr);
+    color: white;
+}
+
+.trb {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    font-size: 0.88rem;
+    color: #166534;
+    line-height: 1.5;
+    margin-top: 0.25rem;
+}
+
+.da {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ba2 {
+    padding: 0.45rem 1rem;
+    background: white;
+    border: 1.5px solid var(--bo);
+    border-radius: 2rem;
+    cursor: pointer;
+    font-size: 0.87rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 500;
+}
+
+.ba2:hover {
+    background: var(--bg);
+}
+
+.ba2.p2 {
+    background: var(--bd);
+    color: white;
+    border-color: var(--bd);
+}
+
+.ba2.s2 {
+    background: var(--gr);
+    color: white;
+    border-color: var(--gr);
+}
+
+.ba2.imprimir {
+    background: var(--or);
+    color: white;
+    border-color: var(--or);
+}
+
+.ci {
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 0.6rem;
+    padding: 0.8rem 1rem;
+    font-size: 0.88rem;
+    color: var(--bd);
+    line-height: 1.5;
+}
+
+.fotos-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.25rem;
+}
+
+.foto-miniatura {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 2px solid var(--bo);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.foto-miniatura:hover {
+    transform: scale(1.1);
+}
+
+.btn-foto {
+    background: var(--bd);
+    color: white;
+    border: none;
+    border-radius: 2rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.btn-foto i {
+    font-size: 1rem;
+}
+
+.modal-foto {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 3000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-foto.active {
+    display: flex;
+}
+
+.modal-foto .foto-toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    background: rgba(0,0,0,0.4);
+    z-index: 3002;
+}
+
+.modal-foto .foto-toolbar button {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.modal-foto .foto-toolbar button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.modal-foto .foto-zoom-info {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.8rem;
+}
+
+.modal-foto .img-container {
+    margin-top: 3.5rem;
+    width: 100%;
+    height: calc(100vh - 3.5rem);
+    overflow: hidden;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.modal-foto .img-container:active {
+    cursor: grabbing;
+}
+
+.modal-foto img {
+    max-width: 95vw;
+    max-height: calc(95vh - 3.5rem);
+    object-fit: contain;
+    transform-origin: center center;
+    transition: transform 0.15s ease;
+    user-select: none;
+    pointer-events: none;
+}
+
+.cerrar-modal-foto {
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#print-container {
+    display: none;
+}
+
+#print-container.printing {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 10000;
+    overflow: auto;
+    padding: 2rem;
+}
+
+.print-content {
+    font-family: system-ui;
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 12pt;
+}
+
+.print-content h1 {
+    color: #1e3a8a;
+    border-bottom: 2px solid #1e3a8a;
+    padding-bottom: 0.5rem;
+    font-size: 18pt;
+}
+
+.print-content h2 {
+    color: #1e3a8a;
+    margin-top: 1.5rem;
+    font-size: 14pt;
+}
+
+.print-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 11pt;
+}
+
+.print-content td {
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.print-content td:first-child {
+    background: #f1f5f9;
+    font-weight: bold;
+    width: 150px;
+}
+
+.avance-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 4000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.avance-modal.active {
+    display: flex;
+}
+
+.avance-content {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 400px;
+    width: 90%;
+}
+
+.avance-content h3 {
+    color: var(--bd);
+    margin-bottom: 1rem;
+}
+
+.avance-slider {
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.avance-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1.5px solid var(--bo);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.avance-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.avance-buttons button {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+
+.avance-buttons .guardar {
+    background: var(--bd);
+    color: white;
+}
+
+.avance-buttons .cancelar {
+    background: var(--bg);
+    color: var(--td);
+}
+
+#toast {
+    position: fixed;
+    bottom: 6rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--td);
+    color: white;
+    padding: 0.65rem 1.25rem;
+    border-radius: 2rem;
+    font-size: 0.88rem;
+    z-index: 9999;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+#toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+#toast.success {
+    background: #059669;
+}
+
+#toast.error {
+    background: #dc2626;
+}
+
+#toast.info {
+    background: var(--bd);
+}
+
+@media (min-width: 1024px) {
+    .bp2 {
+        left: auto;
+        right: 1rem;
+        bottom: 1rem;
+        width: 370px;
+        border-radius: 1rem;
+        transform: none !important;
+        max-height: calc(100vh - 78px);
+    }
+    .fab-ubicacion {
+        bottom: 1.5rem;
+        right: 390px;
+    }
+    .fab-pedido-ubicacion {
+        bottom: 6rem;
+        right: 390px;
+    }
+    .hl {
+        display: none;
+    }
+}
+
+@keyframes pulse-gps {
+    0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+
+/* ===== MODAL CÁMARA CORREGIDO - VISIBLE EN TODOS LOS DISPOSITIVOS ===== */
+#modal-camara-inline {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 10000;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#modal-camara-inline.active {
+    display: flex;
+}
+
+#camara-video {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    object-fit: cover;
+    background: #000;
+}
+
+.camara-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.85);
+    gap: 12px;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    min-height: 70px;
+}
+
+.camara-toolbar button {
+    border: none;
+    border-radius: 40px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.camara-toolbar button:active {
+    transform: scale(0.95);
+}
+
+#btn-cancelar-camara {
+    background: #ef4444;
+    color: white;
+    flex: 0 0 auto;
+}
+
 #btn-capturar {
     background: #10b981;
     color: white;
     flex: 1;
     font-size: 1.1rem;
-    padding: 0.75rem 1rem;
+    padding: 12px 24px;
+    margin: 0 4px;
 }
-#btn-cancelar-camara {
-    background: #ef4444;
-    color: white;
-}
+
 #btn-cambiar-camara {
     background: #475569;
     color: white;
-    min-width: 60px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 1.2rem;
+    flex: 0 0 auto;
 }
+
 .camara-info {
-    color: rgba(255,255,255,0.8);
-    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
     text-align: center;
-    padding: 0.5rem;
-    background: rgba(0,0,0,0.6);
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.6);
     flex-shrink: 0;
+    font-weight: 500;
+    letter-spacing: 0.3px;
 }
-/* ── MODO OFFLINE ── */
-#offline-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#dc2626;color:white;padding:.45rem 1rem;font-size:.82rem;font-weight:600;text-align:center;align-items:center;justify-content:center;gap:.5rem}
-#offline-banner.visible{display:flex}
-#offline-badge{display:none;position:absolute;top:-6px;right:-6px;background:#f97316;color:white;border-radius:50%;width:20px;height:20px;font-size:.65rem;font-weight:700;align-items:center;justify-content:center;border:2px solid white}
-#offline-badge.visible{display:flex}
-.offline-tag{display:inline-block;background:#f97316;color:white;font-size:.65rem;padding:.1rem .4rem;border-radius:.3rem;font-weight:700;margin-left:.3rem;vertical-align:middle}
-.sync-btn{background:white;color:#dc2626;border:none;border-radius:1rem;padding:.2rem .7rem;font-size:.78rem;font-weight:700;cursor:pointer;margin-left:.5rem}
-.sync-btn:hover{background:#fee2e2}
+
+/* Ajustes específicos para iOS */
+@supports (-webkit-touch-callout: none) {
+    .camara-toolbar {
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+}
+
+/* ===== MODO OFFLINE ===== */
+#offline-banner {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9000;
+    background: #dc2626;
+    color: white;
+    padding: 0.45rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+#offline-banner.visible {
+    display: flex;
+}
+
+#offline-badge {
+    display: none;
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #f97316;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+}
+
+#offline-badge.visible {
+    display: flex;
+}
+
+.offline-tag {
+    display: inline-block;
+    background: #f97316;
+    color: white;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    font-weight: 700;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+}
+
+.sync-btn {
+    background: white;
+    color: #dc2626;
+    border: none;
+    border-radius: 1rem;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+.sync-btn:hover {
+    background: #fee2e2;
+}
 </style>
 </head>
 <body>
@@ -368,9 +1499,9 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Fotos del trabajo</label>
         <div style="display:flex; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
           <button type="button" id="btn-tomar-foto" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
+          <!-- SOLUCIÓN XIAOMI: Label directo sin JavaScript intermedio -->
           <label for="input-foto-galeria" class="btn-foto" style="cursor:pointer"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
-        <!-- Input de galería: el label lo activa directamente sin JS -->
         <input type="file" id="input-foto-galeria" accept="image/*" style="display:none" multiple>
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
@@ -410,9 +1541,9 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Foto del cierre (opcional)</label>
         <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;">
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
+          <!-- SOLUCIÓN XIAOMI: Label directo sin JavaScript -->
           <label for="input-foto-cierre-galeria" class="btn-foto" style="cursor:pointer"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
-        <!-- Input de galería cierre: label directo sin JS -->
         <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
@@ -454,10 +1585,10 @@ textarea{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- MODAL CÁMARA INLINE — CORREGIDO PARA ANDROID -->
+<!-- MODAL CÁMARA INLINE - REDISEÑADO PARA VISIBILIDAD -->
 <div id="modal-camara-inline">
-  <div class="camara-info" id="camara-info-txt">Apuntá la cámara y presioná Capturar</div>
-  <video id="camara-video" autoplay playsinline muted></video>
+  <div class="camara-info" id="camara-info-txt">Preparando cámara...</div>
+  <video id="camara-video" autoplay playsinline></video>
   <canvas id="camara-canvas" style="display:none"></canvas>
   <div class="camara-toolbar">
     <button id="btn-cancelar-camara"><i class="fas fa-times"></i> Cancelar</button>
@@ -475,7 +1606,6 @@ textarea{resize:vertical;min-height:80px}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-// Detectar si el navegador soporta módulos ES + dynamic import
 window._supportsModules = false;
 try {
     if (typeof Promise !== 'undefined' && typeof fetch !== 'undefined') {
@@ -483,15 +1613,20 @@ try {
     }
 } catch(_) {}
 </script>
+
 <script type="module">
 // =============================================================
-//  PEDIDOS MG — VERSIÓN CON FOTOS CORREGIDAS (ROTACIÓN + VISIBILIDAD)
+//  PEDIDOS MG — VERSIÓN FINAL CORREGIDA
+//  - Botones de cámara SIEMPRE visibles en Android/iOS
+//  - Carga desde dispositivo FUNCIONA en Xiaomi/Android 14
+//  - Rotación automática de fotos
 // =============================================================
 
-// Inicializar variable global
+// =============================================================
+//  CONFIGURACIÓN INICIAL
+// =============================================================
 window.__dialogoAbierto = false;
 
-// Definir proyección para coordenadas Inchauspe
 proj4.defs('INCHAUSPE', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
 
 let NEON_OK = false;
@@ -600,6 +1735,8 @@ async function sincronizarOffline() {
     }
 }
 
+window.sincronizarOffline = sincronizarOffline;
+
 window.addEventListener('online', async () => {
     console.log('Navegador: online (verificando conectividad real...)');
     const hayRed = await hayInternet();
@@ -624,6 +1761,7 @@ window.addEventListener('online', async () => {
         }
     } catch(_) {}
 });
+
 window.addEventListener('offline', () => {
     console.log('Navegador: offline');
     _netCache = { ok: false, ts: Date.now() };
@@ -641,6 +1779,7 @@ function guardarUsuarioOffline(u, pw) {
         localStorage.setItem(OU_KEY, JSON.stringify(lista));
     } catch(_) {}
 }
+
 function verificarUsuarioOffline(em, pw) {
     try {
         const lista = JSON.parse(localStorage.getItem(OU_KEY) || '[]');
@@ -653,15 +1792,18 @@ async function solicitarPermisos() {
     try {
         await new Promise((res, rej) =>
             navigator.geolocation.getCurrentPosition(
-                p => { ultimaUbicacion = { lat: p.coords.latitude, lon: p.coords.longitude };
-                       try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-                       res(); },
+                p => { 
+                    ultimaUbicacion = { lat: p.coords.latitude, lon: p.coords.longitude };
+                    try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+                    res(); 
+                },
                 e => rej(e),
                 { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
             )
         );
         resultados.gps = true;
     } catch(_) { resultados.gps = false; }
+    
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -671,8 +1813,6 @@ async function solicitarPermisos() {
     }
     return resultados;
 }
-
-window.sincronizarOffline = sincronizarOffline;
 
 try {
     const ubicacionGuardada = localStorage.getItem('ultima_ubicacion');
@@ -922,6 +2062,9 @@ async function initNeon() {
     return false;
 }
 
+// =============================================================
+//  DATOS ESTÁTICOS
+// =============================================================
 const DIST = [
     {v:'5D02',l:'5D02 - AVENIDA (SET M. GRANDE)',g:'13200 V'},
     {v:'5D03',l:'5D03 - AVENIDA',g:'13200 V'},
@@ -995,7 +2138,9 @@ const app = {
     ok: false
 };
 
-// ── CONEXIÓN INICIAL ──
+// =============================================================
+//  CONEXIÓN INICIAL
+// =============================================================
 const dbs = document.getElementById('dbs');
 const lb  = document.getElementById('lb');
 
@@ -1220,7 +2365,6 @@ function convertirAInchauspe(lat, lng) {
 // =============================================================
 //  MAPA Y GEOLOCALIZACIÓN
 // =============================================================
-
 function calcularEscalaReal(zoom) {
     const lat = app.map ? app.map.getCenter().lat : -31.5;
     const latRad = lat * Math.PI / 180;
@@ -1623,7 +2767,9 @@ window._zm = id => {
     }
 };
 
-// ── FUNCIÓN DE IMPRESIÓN ──
+// =============================================================
+//  FUNCIÓN DE IMPRESIÓN
+// =============================================================
 window.imprimirPedido = function(p) {
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
     const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
@@ -1690,7 +2836,9 @@ window.imprimirPedido = function(p) {
     contenedor.innerHTML = '';
 };
 
-// ── FUNCIONES PARA FOTOS ──
+// =============================================================
+//  FUNCIONES PARA FOTOS (EXIF y compresión)
+// =============================================================
 function leerOrientacionEXIF(arrayBuffer) {
     try {
         const view = new DataView(arrayBuffer);
@@ -1698,7 +2846,10 @@ function leerOrientacionEXIF(arrayBuffer) {
         const length = view.byteLength;
         let offset = 2;
         while (offset < length) {
-            if (view.getUint16(offset, false) !== 0xFFE1) { offset += 2 + view.getUint16(offset + 2, false); continue; }
+            if (view.getUint16(offset, false) !== 0xFFE1) { 
+                offset += 2 + view.getUint16(offset + 2, false); 
+                continue; 
+            }
             if (view.getUint32(offset + 4, false) !== 0x45786966) return 1;
             const little = view.getUint16(offset + 10, false) === 0x4949;
             const ifdOffset = offset + 10 + view.getUint32(offset + 14, little);
@@ -1735,12 +2886,17 @@ function comprimirImagen(file) {
                     h = Math.round(h * r);
                 }
 
-                if (rotar) { canvas.width = h; canvas.height = w; }
-                else       { canvas.width = w; canvas.height = h; }
+                if (rotar) { 
+                    canvas.width = h; 
+                    canvas.height = w; 
+                } else { 
+                    canvas.width = w; 
+                    canvas.height = h; 
+                }
 
                 const ctx = canvas.getContext('2d');
                 ctx.save();
-                if      (orientacion === 2) { ctx.transform(-1,0,0,1,w,0); }
+                if (orientacion === 2) { ctx.transform(-1,0,0,1,w,0); }
                 else if (orientacion === 3) { ctx.transform(-1,0,0,-1,w,h); }
                 else if (orientacion === 4) { ctx.transform(1,0,0,-1,0,h); }
                 else if (orientacion === 5) { ctx.transform(0,1,1,0,0,0); }
@@ -1760,7 +2916,9 @@ function comprimirImagen(file) {
     });
 }
 
-// ── VISOR DE FOTOS CON ZOOM ──
+// =============================================================
+//  VISOR DE FOTOS CON ZOOM
+// =============================================================
 (function() {
     const modal = document.getElementById('modal-foto-ampliada');
     const img   = document.getElementById('foto-ampliada');
@@ -1791,6 +2949,7 @@ function comprimirImagen(file) {
     }
 
     function resetZoom() { scale = 1; tx = 0; ty = 0; applyTransform(true); }
+    
     function zoomBy(delta, cx, cy) {
         const prev = scale;
         scale = Math.max(1, Math.min(8, scale * delta));
@@ -1817,25 +2976,38 @@ function comprimirImagen(file) {
         modal.classList.remove('active');
         resetZoom();
     });
+    
     modal.addEventListener('click', e => {
-        if (e.target === modal) { modal.classList.remove('active'); resetZoom(); }
+        if (e.target === modal) { 
+            modal.classList.remove('active'); 
+            resetZoom(); 
+        }
     });
+    
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && modal.classList.contains('active'))
-            { modal.classList.remove('active'); resetZoom(); }
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            modal.classList.remove('active'); 
+            resetZoom(); 
+        }
     });
 
     document.getElementById('foto-zoom-in').addEventListener('click', e => {
-        e.stopPropagation(); zoomBy(1.4);
+        e.stopPropagation(); 
+        zoomBy(1.4);
     });
+    
     document.getElementById('foto-zoom-out').addEventListener('click', e => {
-        e.stopPropagation(); zoomBy(1/1.4);
+        e.stopPropagation(); 
+        zoomBy(1/1.4);
     });
+    
     document.getElementById('foto-zoom-reset').addEventListener('click', e => {
-        e.stopPropagation(); resetZoom();
+        e.stopPropagation(); 
+        resetZoom();
     });
 
     let hasMoved = false;
+    
     cont.addEventListener('mousedown', e => {
         if (scale < 1.05) return;
         isDragging = true;
@@ -1844,6 +3016,7 @@ function comprimirImagen(file) {
         cont.style.cursor = 'grabbing';
         e.preventDefault();
     });
+    
     document.addEventListener('mousemove', e => {
         if (!isDragging) return;
         const dx = e.clientX - lastX;
@@ -1854,6 +3027,7 @@ function comprimirImagen(file) {
         clampTranslation();
         applyTransform(false);
     });
+    
     document.addEventListener('mouseup', () => {
         if (!isDragging) return;
         isDragging = false;
@@ -1901,34 +3075,30 @@ function comprimirImagen(file) {
             isDragging = false;
         }
     });
-
 })();
 
 // =============================================================
-//  SISTEMA DE FOTOS CORREGIDO
-//  - Botón Capturar siempre visible (CSS mejorado)
-//  - Rotación automática de fotos según orientación del dispositivo
+//  SISTEMA DE CÁMARA Y GALERÍA - CORREGIDO
 // =============================================================
-
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
-// ── CÁMARA INLINE CON ROTACIÓN AUTOMÁTICA ──
+// Variables para la cámara
 let _streamCamara     = null;
 let _camaraFacing     = 'environment';
 let _callbackCaptura  = null;
 
-// Función para obtener la orientación actual del dispositivo
+// Función para obtener la orientación
 function getOrientacion() {
     if (screen.orientation && screen.orientation.angle !== undefined) {
         return screen.orientation.angle;
     }
-    // Fallback para navegadores antiguos
     if (window.orientation !== undefined) {
         return window.orientation;
     }
     return 0;
 }
 
+// Abrir cámara inline
 async function abrirCamaraInline(callback) {
     _callbackCaptura = callback;
     const modal  = document.getElementById('modal-camara-inline');
@@ -1943,70 +3113,78 @@ async function abrirCamaraInline(callback) {
     modal.classList.add('active');
     infoEl.textContent = 'Iniciando cámara...';
     
-    // Pequeño retraso para que el modal se renderice completamente
+    // Pequeño retraso para asegurar renderizado
     setTimeout(async () => {
         await iniciarStreamCamara(video, infoEl);
     }, 100);
 }
 
+// Iniciar stream de cámara
 async function iniciarStreamCamara(video, infoEl) {
     if (_streamCamara) {
         _streamCamara.getTracks().forEach(t => t.stop());
         _streamCamara = null;
     }
+    
     try {
-        _streamCamara = await navigator.mediaDevices.getUserMedia({
+        const constraints = {
             video: {
-                facingMode: { ideal: _camaraFacing },
+                facingMode: _camaraFacing === 'environment' ? 'environment' : 'user',
                 width: { ideal: 1920 },
                 height: { ideal: 1080 }
             },
             audio: false
-        });
+        };
+        
+        _streamCamara = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = _streamCamara;
-        await video.play();
+        
+        // Esperar a que el video esté listo
+        await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+                video.play();
+                resolve();
+            };
+        });
         
         const track = _streamCamara.getVideoTracks()[0];
         const settings = track.getSettings();
         const facing = settings.facingMode === 'user' ? 'Cámara frontal' : 'Cámara trasera';
         
-        // Mostrar información de la cámara y orientación
         const orientacion = getOrientacion();
         const orientacionTexto = orientacion === 0 || orientacion === 180 ? 'Vertical' : 'Horizontal';
-        infoEl.textContent = `${facing} — ${orientacionTexto} — presioná Capturar`;
+        infoEl.textContent = `${facing} — ${orientacionTexto}`;
         
-        // Actualizar información cuando cambie la orientación
+        // Actualizar al cambiar orientación
         const orientacionHandler = () => {
             if (modal.classList.contains('active')) {
                 const nuevaOrientacion = getOrientacion();
                 const nuevoTexto = nuevaOrientacion === 0 || nuevaOrientacion === 180 ? 'Vertical' : 'Horizontal';
-                infoEl.textContent = `${facing} — ${nuevoTexto} — presioná Capturar`;
+                infoEl.textContent = `${facing} — ${nuevoTexto}`;
             }
         };
         window.addEventListener('orientationchange', orientacionHandler);
-        
-        // Guardar referencia para limpiar después
         video._orientacionHandler = orientacionHandler;
         
     } catch(e) {
         console.error('[camara]', e.name, e.message);
         const msg = e.name === 'NotAllowedError'
-            ? 'Permiso de cámara denegado — activalo en Configuración del sitio'
+            ? 'Permiso de cámara denegado'
             : e.name === 'NotFoundError'
-            ? 'No se encontró cámara en este dispositivo'
-            : 'No se pudo iniciar la cámara: ' + e.message;
+            ? 'No se encontró cámara'
+            : 'Error al iniciar cámara';
         infoEl.textContent = msg;
         toast(msg, 'error');
     }
 }
 
+// Cerrar cámara
 function cerrarCamaraInline() {
     if (_streamCamara) {
         _streamCamara.getTracks().forEach(t => t.stop());
         _streamCamara = null;
     }
     
-    // Limpiar event listener de orientación
     const video = document.getElementById('camara-video');
     if (video._orientacionHandler) {
         window.removeEventListener('orientationchange', video._orientacionHandler);
@@ -2019,6 +3197,7 @@ function cerrarCamaraInline() {
     _callbackCaptura = null;
 }
 
+// Capturar foto con corrección de orientación
 function capturarFoto() {
     const video  = document.getElementById('camara-video');
     const canvas = document.getElementById('camara-canvas');
@@ -2028,21 +3207,13 @@ function capturarFoto() {
         return; 
     }
 
-    // Obtener dimensiones del video
-    let videoWidth = video.videoWidth;
-    let videoHeight = video.videoHeight;
-    
-    // Determinar orientación real para rotar correctamente
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
     const orientacion = getOrientacion();
-    
-    // En dispositivos móviles, el video puede venir ya orientado visualmente
-    // pero el canvas necesita saber si debe intercambiar ancho/alto
     const esVertical = Math.abs(orientacion) === 90 || Math.abs(orientacion) === 270;
     
-    // Configurar canvas según la orientación
+    // Configurar canvas según orientación
     if (esVertical) {
-        // Si el dispositivo está en vertical, intercambiamos dimensiones
-        // para que la foto salga vertical
         canvas.width = videoHeight;
         canvas.height = videoWidth;
     } else {
@@ -2051,26 +3222,21 @@ function capturarFoto() {
     }
     
     const ctx = canvas.getContext('2d');
-    
-    // Aplicar transformaciones según orientación y cámara frontal/trasera
     ctx.save();
     
-    // Primero, aplicar rotación según orientación
+    // Aplicar rotación según orientación
     if (esVertical) {
         if (orientacion === 90 || orientacion === -270) {
-            // Rotar 90 grados
             ctx.translate(canvas.width, 0);
             ctx.rotate(90 * Math.PI / 180);
         } else if (orientacion === -90 || orientacion === 270) {
-            // Rotar -90 grados
             ctx.translate(0, canvas.height);
             ctx.rotate(-90 * Math.PI / 180);
         }
     }
     
-    // Luego, aplicar espejo si es cámara frontal
+    // Espejo para cámara frontal
     if (_camaraFacing === 'user') {
-        // Para cámara frontal, también necesitamos espejo
         if (esVertical) {
             ctx.translate(canvas.height, 0);
             ctx.scale(-1, 1);
@@ -2080,7 +3246,6 @@ function capturarFoto() {
         }
     }
     
-    // Dibujar el video
     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
     ctx.restore();
 
@@ -2090,7 +3255,12 @@ function capturarFoto() {
     if (_callbackCaptura) _callbackCaptura(dataUrl);
 }
 
-// ── GALERÍA / ARCHIVOS ──
+// =============================================================
+//  GALERÍA - Usando LABEL en lugar de JavaScript para Xiaomi
+//  (los botones ya son <label> en el HTML, solo necesitamos change)
+// =============================================================
+
+// Input de galería para nuevo pedido
 document.getElementById('input-foto-galeria').addEventListener('change', async function(e) {
     window.__dialogoAbierto = true;
     setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
@@ -2104,6 +3274,7 @@ document.getElementById('input-foto-galeria').addEventListener('change', async f
     e.target.value = '';
 });
 
+// Input de galería para cierre
 document.getElementById('input-foto-cierre-galeria').addEventListener('change', async function(e) {
     window.__dialogoAbierto = true;
     setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
@@ -2116,7 +3287,9 @@ document.getElementById('input-foto-cierre-galeria').addEventListener('change', 
     e.target.value = '';
 });
 
-// ── FUNCIÓN PARA PROCESAR FOTO SELECCIONADA ──
+// =============================================================
+//  FUNCIONES PARA PROCESAR FOTOS
+// =============================================================
 async function procesarFotoSeleccionada(file) {
     if (!file) return;
     try {
@@ -2149,7 +3322,9 @@ async function procesarFotoCierre(fotoDataUrl) {
     }
 }
 
-// ── BOTONES DE CÁMARA ──
+// =============================================================
+//  BOTONES DE CÁMARA
+// =============================================================
 document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     abrirCamaraInline(async dataUrl => {
         fotosTemporales.push(dataUrl);
@@ -2165,7 +3340,9 @@ document.getElementById('btn-foto-cierre-camara').addEventListener('click', () =
     });
 });
 
-// ── ACTUALIZAR VISTAS PREVIAS ──
+// =============================================================
+//  ACTUALIZAR VISTAS PREVIAS
+// =============================================================
 function actualizarVistaPreviaFotos() {
     const container = document.getElementById('vista-previa-fotos');
     if (!container) return;
@@ -2241,7 +3418,9 @@ function actualizarVistaPreviaFotoCierre() {
     container.appendChild(cnt);
 }
 
-// ── EVENTOS DEL MODAL DE CÁMARA ──
+// =============================================================
+//  EVENTOS DEL MODAL DE CÁMARA
+// =============================================================
 document.getElementById('btn-cancelar-camara').addEventListener('click', () => {
     cerrarCamaraInline();
     toast('Foto cancelada', 'info');
@@ -2256,7 +3435,9 @@ document.getElementById('btn-cambiar-camara').addEventListener('click', async ()
     await iniciarStreamCamara(video, infoEl);
 });
 
-// ── FUNCIONES PARA AVANCE ──
+// =============================================================
+//  FUNCIONES PARA AVANCE
+// =============================================================
 function abrirAvance(id) {
     const pedido = app.p.find(x => String(x.id) === String(id));
     if (!pedido) return;
@@ -2297,7 +3478,9 @@ document.getElementById('cancelar-avance').addEventListener('click', () => {
     pedidoActualParaAvance = null;
 });
 
-// ── GUARDAR PEDIDO ──
+// =============================================================
+//  GUARDAR PEDIDO
+// =============================================================
 document.getElementById('pf').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -2365,7 +3548,7 @@ document.getElementById('pf').addEventListener('submit', async e => {
             };
             app.p.unshift(pedidoLocal);
             offlinePedidosSave(app.p);
-            toast('📴 Pedido guardado localmente — se sincronizará al conectarse', 'success');
+            toast('📴 Pedido guardado localmente', 'success');
         } else {
             await ejecutarSQLConReintentos(queryInsert);
             toast('Pedido guardado', 'success');
@@ -2381,7 +3564,7 @@ document.getElementById('pf').addEventListener('submit', async e => {
         console.error(e);
         if (e.message && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
             setModoOffline(true);
-            toast('Sin conexión — reintentá guardar en modo offline', 'error');
+            toast('Sin conexión — reintentá en modo offline', 'error');
         } else {
             toast('Error: ' + (e.message || 'Error al guardar'), 'error');
         }
@@ -2516,7 +3699,9 @@ document.getElementById('cc2').addEventListener('click', async () => {
     }
 });
 
-// ── DETALLE ──
+// =============================================================
+//  DETALLE
+// =============================================================
 function detalle(p) {
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
     const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
@@ -2591,7 +3776,7 @@ function detalle(p) {
             <div class="dr"><span class="dl">Inchauspe X:</span><span class="dv">${p.x_inchauspe.toString().replace('.', ',')} <span class="dv-copy" onclick="copiarTexto('${p.x_inchauspe.toString().replace('.', ',')}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
             <div class="dr"><span class="dl">Inchauspe Y:</span><span class="dv">${p.y_inchauspe.toString().replace('.', ',')} <span class="dv-copy" onclick="copiarTexto('${p.y_inchauspe.toString().replace('.', ',')}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
             ` : ''}
-            <button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa (zoom máximo)</button>
+            <button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa</button>
         </div>
         
         ${fotosHtml ? `
@@ -2601,8 +3786,8 @@ function detalle(p) {
         </div>` : ''}
         
         <div class="da">
-            ${ed && p.es === 'Pendiente' ? `<button class="ba2 p2" onclick="_a('i','${p.id}')"><i class="fas fa-play"></i> Iniciar</button><button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button>` : ''}
-            ${ed && p.es === 'En ejecución' ? `<button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button><button class="ba2 p2" onclick="_a('av','${p.id}')"><i class="fas fa-percent"></i> Cargar Avance (${p.av}%)</button>` : ''}
+            ${ed && p.es === 'Pendiente' ? `<button class="ba2 p2" onclick="_a('i','${p.id}')"><i class="fas fa-play"></i> Iniciar</button><button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar</button>` : ''}
+            ${ed && p.es === 'En ejecución' ? `<button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar</button><button class="ba2 p2" onclick="_a('av','${p.id}')"><i class="fas fa-percent"></i> Avance (${p.av}%)</button>` : ''}
             <button class="ba2 imprimir" onclick="imprimirPedido(${JSON.stringify(p).replace(/"/g, '&quot;')})"><i class="fas fa-print"></i> Imprimir</button>
             <button class="ba2" onclick="_xl('${p.id}')"><i class="fas fa-file-excel"></i> Exportar</button>
         </div>
@@ -2611,7 +3796,9 @@ function detalle(p) {
     document.getElementById('dm').classList.add('active');
 }
 
-// ── FUNCIÓN PARA COPIAR TEXTO ──
+// =============================================================
+//  FUNCIÓN PARA COPIAR TEXTO
+// =============================================================
 window.copiarTexto = function(texto) {
     navigator.clipboard.writeText(texto).then(() => {
         toast('Copiado al portapapeles', 'success');
@@ -2620,7 +3807,9 @@ window.copiarTexto = function(texto) {
     });
 };
 
-// ── EXPORTACIÓN A EXCEL ──
+// =============================================================
+//  EXPORTACIÓN A EXCEL
+// =============================================================
 function exportPedido(pedidos, nombre) {
     if (!pedidos || pedidos.length === 0) {
         toast('No hay datos para exportar', 'error');
@@ -2714,7 +3903,9 @@ window._xl = id => {
     if (p) exportPedido([p], 'pedido_' + p.np);
 };
 
-// ── RENDER LISTA ──
+// =============================================================
+//  RENDER LISTA
+// =============================================================
 function render() {
     const cer = app.p.filter(p => p.es === 'Cerrado').length;
     document.getElementById('pc').textContent = app.p.length - cer;
@@ -2781,7 +3972,9 @@ function render() {
     renderMk();
 }
 
-// ── HELPERS ──
+// =============================================================
+//  HELPERS
+// =============================================================
 function closeAll() {
     document.querySelectorAll('.mo').forEach(m => m.classList.remove('active'));
     document.getElementById('pf').reset();
@@ -2806,7 +3999,9 @@ function switchTab(t) {
     render();
 }
 
-// ── EVENTOS UI ──
+// =============================================================
+//  EVENTOS UI
+// =============================================================
 document.getElementById('mt').addEventListener('click', togglePanel);
 document.getElementById('ph').addEventListener('click', togglePanel);
 
@@ -2854,7 +4049,9 @@ document.getElementById('ui').addEventListener('click', () => {
     toast('Hacé clic en el mapa para seleccionar la ubicación', 'info');
 });
 
-// ── POBLAR SELECTORES ──
+// =============================================================
+//  POBLAR SELECTORES
+// =============================================================
 const sd = document.getElementById('di2');
 [...new Set(DIST.map(d => d.g))].forEach(g => {
     const og = document.createElement('optgroup');
@@ -2876,7 +4073,9 @@ TIPOS.forEach(t => {
     st.appendChild(o);
 });
 
-// ── RESTAURAR SESIÓN ──
+// =============================================================
+//  RESTAURAR SESIÓN
+// =============================================================
 try {
     const s = localStorage.getItem('pmg');
     if (s) {
@@ -2897,7 +4096,9 @@ try {
     }
 } catch(_) {}
 
-// ── CARGAR XLSX ──
+// =============================================================
+//  CARGAR XLSX
+// =============================================================
 const xscript = document.createElement('script');
 xscript.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
 xscript.onerror = () => console.log('XLSX no disponible - se usará CSV');
