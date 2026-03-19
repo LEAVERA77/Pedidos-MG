@@ -306,10 +306,10 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Fotos del trabajo</label>
         <div style="display:flex; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
           <button type="button" id="btn-tomar-foto" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
+          <label for="input-foto-galeria" class="btn-foto" style="cursor:pointer"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
-        <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
-        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
+        <!-- Input de galería: el label lo activa directamente sin JS — funciona en Chrome Android 14 -->
+        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none" multiple>
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
       
@@ -348,10 +348,10 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Foto del cierre (opcional)</label>
         <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;">
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
+          <label for="input-foto-cierre-galeria" class="btn-foto" style="cursor:pointer"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
-        <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
-        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;">
+        <!-- Input de galería cierre: label directo sin JS -->
+        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
       <div class="fa2" style="padding:1.25rem 0 0">
@@ -429,7 +429,6 @@ try {
 // =============================================================
 
 // Inicializar variable global para el sistema de respaldo
-window.__dialogoAbierto = false;
 
 // Definir proyección para coordenadas Inchauspe (Campo Inchauspe 1969, faja 5)
 proj4.defs('INCHAUSPE', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
@@ -2015,28 +2014,13 @@ function comprimirImagen(file) {
 })(); // fin IIFE visor de fotos
 
 // =============================================================
-//  SISTEMA DE FOTOS — SOLUCIÓN DEFINITIVA PARA XIAOMI ANDROID 14
-// =============================================================
-//
-//  PROBLEMA: En Xiaomi Poco X6 / Android 14 / Chrome:
-//  - El click en input file después de CUALQUIER operación (incluso síncrona)
-//    puede perder el "user gesture" y no abrir el selector.
-//  - MIUI intercepta eventos táctiles de manera diferente.
-//  - Android 14 cambió permisos de almacenamiento.
-//
-//  SOLUCIÓN:
-//  1. Click DIRECTO desde el event listener, sin funciones intermedias
-//  2. Múltiples métodos de respaldo que se activan si el principal falla
-//  3. Input file oculto pero accesible
-//  4. Detección de Xiaomi para aplicar correcciones específicas
+//  SISTEMA DE FOTOS
+//  Cámara: getUserMedia inline (sin input file, sin permiso storage)
+//  Galería: <label for="input"> — el browser lo activa sin JS,
+//           funciona en Chrome Android 14, MIUI, iOS, Edge, Firefox
 // =============================================================
 
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const esXiaomi = /Mi|Xiaomi|Redmi|POCO/i.test(navigator.userAgent) || 
-                 navigator.userAgent.includes('MIUI') ||
-                 navigator.userAgent.includes('HyperOS');
-
-console.log('Dispositivo:', esXiaomi ? 'Xiaomi/Android 14 detectado' : 'Otro dispositivo');
 
 // ── CÁMARA INLINE (getUserMedia) ──
 let _streamCamara     = null;
@@ -2124,144 +2108,27 @@ function capturarFoto() {
     if (_callbackCaptura) _callbackCaptura(dataUrl);
 }
 
-// ── GALERÍA / ARCHIVOS — SOLUCIÓN ESPECÍFICA PARA XIAOMI ANDROID 14 ──
-// Estrategia de 3 niveles para garantizar que funcione en todos los dispositivos
+// ── GALERÍA / ARCHIVOS ──────────────────────────────────────
+// Los botones son <label for="input-id"> — el browser abre el
+// selector de archivos DIRECTAMENTE sin ningún JS intermedio.
+// Esto funciona en Chrome Android 14, MIUI, iOS Safari, Edge, etc.
+// Solo necesitamos el handler de 'change' para procesar el archivo.
 
-// NIVEL 1: Click DIRECTO (máxima prioridad)
-// Los event listeners llaman a input.click() INMEDIATAMENTE, sin pasar por funciones
-
-// Botón "Cargar desde dispositivo" en NUEVO PEDIDO
-document.getElementById('btn-subir-foto').addEventListener('click', function(e) {
-    e.preventDefault();      // Importante en MIUI
-    e.stopPropagation();     // Evita que MIUI intercepte
-    
-    const input = document.getElementById('input-foto-galeria');
-    input.value = '';        // Limpiar para forzar evento change
-    
-    // En Xiaomi, el click debe ser 100% directo
-    input.click();
-    
-    // Marcar tiempo para sistema de respaldo
-    window.__ultimoClickGaleria = Date.now();
-});
-
-// Botón "Cargar desde dispositivo" en CIERRE
-document.getElementById('btn-foto-cierre-galeria').addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const input = document.getElementById('input-foto-cierre-galeria');
-    input.value = '';
-    input.click();
-    
-    window.__ultimoClickCierre = Date.now();
-});
-
-// NIVEL 2: Sistema de respaldo para Xiaomi (si el click directo falla)
-// Detecta cuando el click no abrió el selector y aplica método alternativo
-if (esXiaomi) {
-    console.log('Aplicando correcciones específicas para Xiaomi/Android 14');
-    
-    // Observador para detectar si el input recibió focus pero no abrió diálogo
-    const inputs = ['input-foto-galeria', 'input-foto-cierre-galeria'];
-    inputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('focus', function() {
-                // Si después de 300ms no se abrió el diálogo, intentar método 2
-                setTimeout(() => {
-                    if (!window.__dialogoAbierto) {
-                        console.log('Método 1 falló, aplicando respaldo');
-                        abrirSelectorRespaldo(this);
-                    }
-                }, 300);
-            });
-        }
-    });
-}
-
-function abrirSelectorRespaldo(inputElement) {
-    if (!inputElement) return;
-    
-    // Método 2: Crear y disparar evento sintético
-    try {
-        const event = new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true
-        });
-        inputElement.dispatchEvent(event);
-    } catch(e) {
-        console.warn('Evento sintético falló', e);
-    }
-    
-    // Método 3: Como último recurso, hacer el input visible temporalmente
-    setTimeout(() => {
-        if (!window.__dialogoAbierto) {
-            const originalDisplay = inputElement.style.display;
-            inputElement.style.display = 'block';
-            inputElement.style.position = 'fixed';
-            inputElement.style.top = '50%';
-            inputElement.style.left = '50%';
-            inputElement.style.transform = 'translate(-50%, -50%)';
-            inputElement.style.zIndex = '9999';
-            inputElement.style.opacity = '0.01';
-            
-            toast('Toca directamente "Examinar" si el selector no aparece', 'info');
-            
-            // Restaurar después de 3 segundos
-            setTimeout(() => {
-                inputElement.style.display = originalDisplay;
-            }, 3000);
-        }
-    }, 500);
-}
-
-// NIVEL 3: Inputs "invisibles pero accesibles" (para depuración)
-// Útil si el usuario quiere tocar directamente el input
-document.addEventListener('dblclick', function(e) {
-    // Doble clic en cualquier parte muestra los inputs temporalmente (debug)
-    if (e.ctrlKey) {  // Solo con Ctrl + doble clic
-        const inputs = ['input-foto-galeria', 'input-foto-cierre-galeria'];
-        inputs.forEach(id => {
-            const inp = document.getElementById(id);
-            if (inp) {
-                inp.style.display = 'block';
-                inp.style.position = 'fixed';
-                inp.style.top = '10px';
-                inp.style.left = '10px';
-                inp.style.width = '200px';
-                inp.style.zIndex = '9999';
-                inp.style.opacity = '0.8';
-                inp.style.background = 'white';
-                setTimeout(() => {
-                    inp.style.display = 'none';
-                }, 5000);
-            }
-        });
-        toast('Modo debug: inputs visibles por 5 segundos', 'info');
-    }
-});
-
-// ── PROCESAR FOTOS SELECCIONADAS ──
-// Change handler para input de galería (nuevo pedido)
 document.getElementById('input-foto-galeria').addEventListener('change', async function(e) {
-    window.__dialogoAbierto = true;
-    setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
-    
-    if (e.target.files && e.target.files[0]) {
-        await procesarFotoSeleccionada(e.target.files[0]);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        // Procesar todas las fotos seleccionadas (multiple está activado)
+        for (const file of Array.from(files)) {
+            await procesarFotoSeleccionada(file);
+        }
     }
-    e.target.value = ''; // Limpiar para permitir seleccionar la misma foto otra vez
+    e.target.value = '';
 });
 
-// Change handler para input de galería (cierre)
 document.getElementById('input-foto-cierre-galeria').addEventListener('change', async function(e) {
-    window.__dialogoAbierto = true;
-    setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
-    
-    if (e.target.files && e.target.files[0]) {
-        const comprimida = await comprimirImagen(e.target.files[0]);
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+        const comprimida = await comprimirImagen(file);
         await procesarFotoCierre(comprimida);
     }
     e.target.value = '';
