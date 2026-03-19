@@ -428,6 +428,9 @@ try {
 //  PEDIDOS MG — VERSIÓN CON KEEP-ALIVE, REINTENTOS Y ZOOM CORREGIDO
 // =============================================================
 
+// Inicializar variable global para el sistema de respaldo
+window.__dialogoAbierto = false;
+
 // Definir proyección para coordenadas Inchauspe (Campo Inchauspe 1969, faja 5)
 proj4.defs('INCHAUSPE', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
 
@@ -2011,49 +2014,34 @@ function comprimirImagen(file) {
 
 })(); // fin IIFE visor de fotos
 
-// Función compartida para procesar una foto seleccionada
-async function procesarFotoSeleccionada(file) {
-    if (!file) return;
-    try {
-        toast('Procesando imagen...', 'info');
-        const compressedImage = await comprimirImagen(file);
-        fotosTemporales.push(compressedImage);
-        actualizarVistaPreviaFotos();
-        // Mostrar tamaño aproximado al usuario
-        const kb = Math.round(compressedImage.length * 0.75 / 1024);
-        toast(`✓ Foto lista (≈${kb} KB)`, 'success');
-    } catch (error) {
-        console.error('Error al procesar imagen:', error);
-        toast('Error al procesar la imagen', 'error');
-    }
-}
-
 // =============================================================
-//  SISTEMA DE FOTOS — solución definitiva para Chrome Android 14
+//  SISTEMA DE FOTOS — SOLUCIÓN DEFINITIVA PARA XIAOMI ANDROID 14
+// =============================================================
 //
-//  Diagnóstico del problema en Xiaomi Poco X6 / Chrome / Android 14:
-//  1. input.click() después de un await pierde el "user gesture" —
-//     Chrome bloquea el selector de archivos si no viene de un
-//     evento síncrono directo del usuario.
-//  2. Android 14 eliminó READ_EXTERNAL_STORAGE; Chrome no pide
-//     READ_MEDIA_IMAGES automáticamente desde una página web.
-//  3. El resultado: el botón hace algo (notificación breve) pero
-//     no abre ningún selector.
+//  PROBLEMA: En Xiaomi Poco X6 / Android 14 / Chrome:
+//  - El click en input file después de CUALQUIER operación (incluso síncrona)
+//    puede perder el "user gesture" y no abrir el selector.
+//  - MIUI intercepta eventos táctiles de manera diferente.
+//  - Android 14 cambió permisos de almacenamiento.
 //
 //  SOLUCIÓN:
-//  - Cámara: usar getUserMedia() directamente con <video> inline.
-//     No toca el sistema de archivos → no necesita permiso de storage.
-//     Captura el frame como canvas → blob → comprime → listo.
-//  - Galería/PC: click SÍNCRONO (sin await previo) en el input.
-//     El gesto del usuario llega directo al input.click() sin interrupciones.
+//  1. Click DIRECTO desde el event listener, sin funciones intermedias
+//  2. Múltiples métodos de respaldo que se activan si el principal falla
+//  3. Input file oculto pero accesible
+//  4. Detección de Xiaomi para aplicar correcciones específicas
 // =============================================================
 
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const esXiaomi = /Mi|Xiaomi|Redmi|POCO/i.test(navigator.userAgent) || 
+                 navigator.userAgent.includes('MIUI') ||
+                 navigator.userAgent.includes('HyperOS');
 
-// ── CÁMARA INLINE (getUserMedia) ────────────────────────────
-let _streamCamara     = null;   // MediaStream activo
-let _camaraFacing     = 'environment'; // 'environment' = trasera, 'user' = frontal
-let _callbackCaptura  = null;   // función a llamar con el dataUrl de la foto
+console.log('Dispositivo:', esXiaomi ? 'Xiaomi/Android 14 detectado' : 'Otro dispositivo');
+
+// ── CÁMARA INLINE (getUserMedia) ──
+let _streamCamara     = null;
+let _camaraFacing     = 'environment';
+let _callbackCaptura  = null;
 
 async function abrirCamaraInline(callback) {
     _callbackCaptura = callback;
@@ -2068,12 +2056,10 @@ async function abrirCamaraInline(callback) {
 
     modal.classList.add('active');
     infoEl.textContent = 'Iniciando cámara...';
-
     await iniciarStreamCamara(video, infoEl);
 }
 
 async function iniciarStreamCamara(video, infoEl) {
-    // Detener stream anterior si existe
     if (_streamCamara) {
         _streamCamara.getTracks().forEach(t => t.stop());
         _streamCamara = null;
@@ -2126,48 +2112,180 @@ function capturarFoto() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
 
-    // Espejo para cámara frontal
     if (_camaraFacing === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
     ctx.drawImage(video, 0, 0);
 
-    // Comprimir a JPEG 0.82
     const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     cerrarCamaraInline();
 
     if (_callbackCaptura) _callbackCaptura(dataUrl);
 }
 
-// Eventos del modal de cámara
-document.getElementById('btn-cancelar-camara').addEventListener('click', () => {
-    cerrarCamaraInline();
-    toast('Foto cancelada', 'info');
-});
-document.getElementById('btn-capturar').addEventListener('click', capturarFoto);
-document.getElementById('btn-cambiar-camara').addEventListener('click', async () => {
-    _camaraFacing = _camaraFacing === 'environment' ? 'user' : 'environment';
-    const video  = document.getElementById('camara-video');
-    const infoEl = document.getElementById('camara-info-txt');
-    await iniciarStreamCamara(video, infoEl);
+// ── GALERÍA / ARCHIVOS — SOLUCIÓN ESPECÍFICA PARA XIAOMI ANDROID 14 ──
+// Estrategia de 3 niveles para garantizar que funcione en todos los dispositivos
+
+// NIVEL 1: Click DIRECTO (máxima prioridad)
+// Los event listeners llaman a input.click() INMEDIATAMENTE, sin pasar por funciones
+
+// Botón "Cargar desde dispositivo" en NUEVO PEDIDO
+document.getElementById('btn-subir-foto').addEventListener('click', function(e) {
+    e.preventDefault();      // Importante en MIUI
+    e.stopPropagation();     // Evita que MIUI intercepte
+    
+    const input = document.getElementById('input-foto-galeria');
+    input.value = '';        // Limpiar para forzar evento change
+    
+    // En Xiaomi, el click debe ser 100% directo
+    input.click();
+    
+    // Marcar tiempo para sistema de respaldo
+    window.__ultimoClickGaleria = Date.now();
 });
 
-// ── GALERÍA / ARCHIVOS (click síncrono — mantiene user gesture) ──
-// CRÍTICO: NO poner ningún await antes del input.click()
-// Si hay un await previo Chrome Android cancela el gesto y no abre el picker
+// Botón "Cargar desde dispositivo" en CIERRE
+document.getElementById('btn-foto-cierre-galeria').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const input = document.getElementById('input-foto-cierre-galeria');
+    input.value = '';
+    input.click();
+    
+    window.__ultimoClickCierre = Date.now();
+});
 
-function abrirGaleria(inputId) {
-    // Click SÍNCRONO directo — sin ningún await antes
-    const input = document.getElementById(inputId);
-    if (input) input.click();
+// NIVEL 2: Sistema de respaldo para Xiaomi (si el click directo falla)
+// Detecta cuando el click no abrió el selector y aplica método alternativo
+if (esXiaomi) {
+    console.log('Aplicando correcciones específicas para Xiaomi/Android 14');
+    
+    // Observador para detectar si el input recibió focus pero no abrió diálogo
+    const inputs = ['input-foto-galeria', 'input-foto-cierre-galeria'];
+    inputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('focus', function() {
+                // Si después de 300ms no se abrió el diálogo, intentar método 2
+                setTimeout(() => {
+                    if (!window.__dialogoAbierto) {
+                        console.log('Método 1 falló, aplicando respaldo');
+                        abrirSelectorRespaldo(this);
+                    }
+                }, 300);
+            });
+        }
+    });
 }
 
-// ── PROCESAR FOTO DE CIERRE ──────────────────────────────────
+function abrirSelectorRespaldo(inputElement) {
+    if (!inputElement) return;
+    
+    // Método 2: Crear y disparar evento sintético
+    try {
+        const event = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true
+        });
+        inputElement.dispatchEvent(event);
+    } catch(e) {
+        console.warn('Evento sintético falló', e);
+    }
+    
+    // Método 3: Como último recurso, hacer el input visible temporalmente
+    setTimeout(() => {
+        if (!window.__dialogoAbierto) {
+            const originalDisplay = inputElement.style.display;
+            inputElement.style.display = 'block';
+            inputElement.style.position = 'fixed';
+            inputElement.style.top = '50%';
+            inputElement.style.left = '50%';
+            inputElement.style.transform = 'translate(-50%, -50%)';
+            inputElement.style.zIndex = '9999';
+            inputElement.style.opacity = '0.01';
+            
+            toast('Toca directamente "Examinar" si el selector no aparece', 'info');
+            
+            // Restaurar después de 3 segundos
+            setTimeout(() => {
+                inputElement.style.display = originalDisplay;
+            }, 3000);
+        }
+    }, 500);
+}
+
+// NIVEL 3: Inputs "invisibles pero accesibles" (para depuración)
+// Útil si el usuario quiere tocar directamente el input
+document.addEventListener('dblclick', function(e) {
+    // Doble clic en cualquier parte muestra los inputs temporalmente (debug)
+    if (e.ctrlKey) {  // Solo con Ctrl + doble clic
+        const inputs = ['input-foto-galeria', 'input-foto-cierre-galeria'];
+        inputs.forEach(id => {
+            const inp = document.getElementById(id);
+            if (inp) {
+                inp.style.display = 'block';
+                inp.style.position = 'fixed';
+                inp.style.top = '10px';
+                inp.style.left = '10px';
+                inp.style.width = '200px';
+                inp.style.zIndex = '9999';
+                inp.style.opacity = '0.8';
+                inp.style.background = 'white';
+                setTimeout(() => {
+                    inp.style.display = 'none';
+                }, 5000);
+            }
+        });
+        toast('Modo debug: inputs visibles por 5 segundos', 'info');
+    }
+});
+
+// ── PROCESAR FOTOS SELECCIONADAS ──
+// Change handler para input de galería (nuevo pedido)
+document.getElementById('input-foto-galeria').addEventListener('change', async function(e) {
+    window.__dialogoAbierto = true;
+    setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
+    
+    if (e.target.files && e.target.files[0]) {
+        await procesarFotoSeleccionada(e.target.files[0]);
+    }
+    e.target.value = ''; // Limpiar para permitir seleccionar la misma foto otra vez
+});
+
+// Change handler para input de galería (cierre)
+document.getElementById('input-foto-cierre-galeria').addEventListener('change', async function(e) {
+    window.__dialogoAbierto = true;
+    setTimeout(() => { window.__dialogoAbierto = false; }, 1000);
+    
+    if (e.target.files && e.target.files[0]) {
+        const comprimida = await comprimirImagen(e.target.files[0]);
+        await procesarFotoCierre(comprimida);
+    }
+    e.target.value = '';
+});
+
+// ── FUNCIÓN PARA PROCESAR FOTO SELECCIONADA ──
+async function procesarFotoSeleccionada(file) {
+    if (!file) return;
+    try {
+        toast('Procesando imagen...', 'info');
+        const compressedImage = await comprimirImagen(file);
+        fotosTemporales.push(compressedImage);
+        actualizarVistaPreviaFotos();
+        const kb = Math.round(compressedImage.length * 0.75 / 1024);
+        toast(`✓ Foto lista (≈${kb} KB)`, 'success');
+    } catch (error) {
+        console.error('Error al procesar imagen:', error);
+        toast('Error al procesar la imagen', 'error');
+    }
+}
+
 async function procesarFotoCierre(fotoDataUrl) {
     if (!fotoDataUrl) return;
     try {
-        // Si es dataUrl de cámara ya está comprimido; si es File, comprimir
         if (typeof fotoDataUrl === 'string' && fotoDataUrl.startsWith('data:')) {
             fotoCierreTemp = fotoDataUrl;
         } else {
@@ -2182,11 +2300,9 @@ async function procesarFotoCierre(fotoDataUrl) {
     }
 }
 
-// ── BOTONES NUEVO PEDIDO ─────────────────────────────────────
-// Tomar foto: usa cámara inline (no input file)
+// ── BOTONES DE CÁMARA ──
 document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     abrirCamaraInline(async dataUrl => {
-        // La foto ya está comprimida desde el canvas
         fotosTemporales.push(dataUrl);
         actualizarVistaPreviaFotos();
         const kb = Math.round(dataUrl.length * 0.75 / 1024);
@@ -2194,48 +2310,27 @@ document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     });
 });
 
-// Cargar desde dispositivo: click síncrono en input (sin await)
-document.getElementById('btn-subir-foto').addEventListener('click', () => {
-    abrirGaleria('input-foto-galeria');
-});
-
-// Change handlers para galería (nuevo pedido)
-document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
-    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
-    e.target.value = '';
-});
-
-// ── BOTONES CIERRE DE PEDIDO ─────────────────────────────────
 document.getElementById('btn-foto-cierre-camara').addEventListener('click', () => {
     abrirCamaraInline(async dataUrl => {
         await procesarFotoCierre(dataUrl);
     });
 });
 
-document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
-    abrirGaleria('input-foto-cierre-galeria');
-});
-
-// Change handlers para galería (cierre)
-document.getElementById('input-foto-cierre-galeria').addEventListener('change', async (e) => {
-    if (e.target.files[0]) {
-        const comprimida = await comprimirImagen(e.target.files[0]);
-        await procesarFotoCierre(comprimida);
-    }
-    e.target.value = '';
-});
-
+// ── ACTUALIZAR VISTAS PREVIAS ──
 function actualizarVistaPreviaFotos() {
     const container = document.getElementById('vista-previa-fotos');
+    if (!container) return;
+    
     container.innerHTML = '';
     fotosTemporales.forEach((foto, index) => {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'position:relative;display:inline-block';
+        
         const img = document.createElement('img');
         img.src = foto;
         img.className = 'foto-miniatura';
         img.onclick = () => window.verFotoAmpliada(foto);
-        // Botón eliminar
+        
         const del = document.createElement('button');
         del.type = 'button';
         del.innerHTML = '✕';
@@ -2246,11 +2341,12 @@ function actualizarVistaPreviaFotos() {
             fotosTemporales.splice(index, 1);
             actualizarVistaPreviaFotos();
         };
+        
         wrap.appendChild(img);
         wrap.appendChild(del);
         container.appendChild(wrap);
     });
-    // Contador
+    
     if (fotosTemporales.length > 0) {
         const cnt = document.createElement('div');
         cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
@@ -2258,6 +2354,58 @@ function actualizarVistaPreviaFotos() {
         container.appendChild(cnt);
     }
 }
+
+function actualizarVistaPreviaFotoCierre() {
+    const container = document.getElementById('vista-previa-foto-cierre');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    if (!fotoCierreTemp) return;
+    
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-block';
+    
+    const img = document.createElement('img');
+    img.src = fotoCierreTemp;
+    img.className = 'foto-miniatura';
+    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp);
+    
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.innerHTML = '✕';
+    del.title = 'Eliminar foto';
+    del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
+    del.onclick = (e) => { 
+        e.stopPropagation(); 
+        fotoCierreTemp = null; 
+        actualizarVistaPreviaFotoCierre(); 
+    };
+    
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    container.appendChild(wrap);
+    
+    const cnt = document.createElement('div');
+    cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
+    const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
+    cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
+    container.appendChild(cnt);
+}
+
+// ── EVENTOS DEL MODAL DE CÁMARA ──
+document.getElementById('btn-cancelar-camara').addEventListener('click', () => {
+    cerrarCamaraInline();
+    toast('Foto cancelada', 'info');
+});
+
+document.getElementById('btn-capturar').addEventListener('click', capturarFoto);
+
+document.getElementById('btn-cambiar-camara').addEventListener('click', async () => {
+    _camaraFacing = _camaraFacing === 'environment' ? 'user' : 'environment';
+    const video  = document.getElementById('camara-video');
+    const infoEl = document.getElementById('camara-info-txt');
+    await iniciarStreamCamara(video, infoEl);
+});
 
 // ── FUNCIONES PARA AVANCE ────────────────────────────────────
 function abrirAvance(id) {
@@ -2478,33 +2626,6 @@ async function iniciar(id) {
     } catch(e) {
         toast('Error: ' + e.message, 'error');
     }
-}
-
-function actualizarVistaPreviaFotoCierre() {
-    const container = document.getElementById('vista-previa-foto-cierre');
-    if (!container) return;
-    container.innerHTML = '';
-    if (!fotoCierreTemp) return;
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;display:inline-block';
-    const img = document.createElement('img');
-    img.src = fotoCierreTemp;
-    img.className = 'foto-miniatura';
-    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp);
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.innerHTML = '✕';
-    del.title = 'Eliminar foto';
-    del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
-    del.onclick = (e) => { e.stopPropagation(); fotoCierreTemp = null; actualizarVistaPreviaFotoCierre(); };
-    wrap.appendChild(img);
-    wrap.appendChild(del);
-    container.appendChild(wrap);
-    const cnt = document.createElement('div');
-    cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
-    const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
-    cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
-    container.appendChild(cnt);
 }
 
 function abrirCierre(id) {
