@@ -4,20 +4,6 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<!-- INICIALIZACIÓN DE PERMISOS PARA ANDROID 14+ -->
-<script>
-// Solicitar permisos de almacenamiento al cargar la página
-// Esto asegura que Chrome muestre el diálogo de permisos antes de que el usuario
-// intente cargar una foto desde el dispositivo
-if (navigator.permissions && navigator.permissions.query && /Android/.test(navigator.userAgent)) {
-    Promise.allSettled([
-        navigator.permissions.query({ name: 'camera' }),
-        navigator.permissions.query({ name: 'read-media-images' }).catch(() => Promise.resolve()),
-        navigator.permissions.query({ name: 'read-media-video' }).catch(() => Promise.resolve())
-    ]).catch(() => {});
-}
-</script>
-
 <title>Pedidos de Mantenimiento - Maria Grande</title>
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -323,7 +309,7 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
         <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
-        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;" role="button" aria-hidden="true" webkitdirectory="false">
+        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
       
@@ -365,7 +351,7 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
         <!-- Input de galería/archivos — la cámara usa getUserMedia directo -->
-        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;" role="button" aria-hidden="true" webkitdirectory="false">
+        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
       <div class="fa2" style="padding:1.25rem 0 0">
@@ -638,24 +624,6 @@ async function solicitarPermisos() {
             stream.getTracks().forEach(t => t.stop()); // liberar cámara inmediatamente
             resultados.camara = true;
         } catch(_) { resultados.camara = false; }
-    }
-    // 3. Permisos de almacenamiento (Android 14+) — Permissions API
-    // En Android 14+, se requiere READ_MEDIA_IMAGES para acceder a la galería
-    if (navigator.permissions && navigator.permissions.query) {
-        try {
-            // Intentar solicitar permisos de lectura de imágenes
-            const permissionStatuses = await Promise.allSettled([
-                navigator.permissions.query({ name: 'camera' }),
-                // Para Android 14+, se usa READ_MEDIA_IMAGES
-                navigator.permissions.query({ name: 'read-media-images' }).catch(() => ({ state: 'unknown' }))
-            ]);
-            resultados.almacenamiento = permissionStatuses.some(p => p.status === 'fulfilled' && p.value.state !== 'denied');
-        } catch(_) {
-            // Si la Permissions API no está disponible, asumir que está permitido
-            resultados.almacenamiento = true;
-        }
-    } else {
-        resultados.almacenamiento = true;
     }
     return resultados;
 }
@@ -2192,35 +2160,7 @@ document.getElementById('btn-cambiar-camara').addEventListener('click', async ()
 function abrirGaleria(inputId) {
     // Click SÍNCRONO directo — sin ningún await antes
     const input = document.getElementById(inputId);
-    if (!input) {
-        toast('Error: No se pudo acceder al selector de archivos', 'error');
-        return;
-    }
-    
-    try {
-        // Resetear el valor para permitir seleccionar el mismo archivo nuevamente
-        input.value = '';
-        
-        // Click síncrono — crítico para Android
-        input.click();
-        
-        // Timeout de seguridad: si no responde en 3 segundos, mostrar error
-        const timeoutId = setTimeout(() => {
-            console.warn('[abrirGaleria] Timeout: el input file no respondió');
-            toast('El selector de archivos no respondió. Intenta de nuevo.', 'error');
-        }, 3000);
-        
-        // Limpiar timeout si el usuario selecciona un archivo
-        const handleChange = () => {
-            clearTimeout(timeoutId);
-            input.removeEventListener('change', handleChange);
-        };
-        input.addEventListener('change', handleChange);
-        
-    } catch (error) {
-        console.error('[abrirGaleria] Error:', error);
-        toast('Error al abrir el selector de archivos: ' + error.message, 'error');
-    }
+    if (input) input.click();
 }
 
 // ── PROCESAR FOTO DE CIERRE ──────────────────────────────────
@@ -2255,24 +2195,14 @@ document.getElementById('btn-tomar-foto').addEventListener('click', () => {
 });
 
 // Cargar desde dispositivo: click síncrono en input (sin await)
-document.getElementById('btn-subir-foto').addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+document.getElementById('btn-subir-foto').addEventListener('click', () => {
     abrirGaleria('input-foto-galeria');
 });
 
 // Change handlers para galería (nuevo pedido)
 document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
-    try {
-        if (e.target.files && e.target.files[0]) {
-            await procesarFotoSeleccionada(e.target.files[0]);
-        }
-    } catch (error) {
-        console.error('Error procesando foto:', error);
-        toast('Error al procesar la foto: ' + error.message, 'error');
-    } finally {
-        e.target.value = '';
-    }
+    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0]);
+    e.target.value = '';
 });
 
 // ── BOTONES CIERRE DE PEDIDO ─────────────────────────────────
@@ -2282,25 +2212,17 @@ document.getElementById('btn-foto-cierre-camara').addEventListener('click', () =
     });
 });
 
-document.getElementById('btn-foto-cierre-galeria').addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
     abrirGaleria('input-foto-cierre-galeria');
 });
 
 // Change handlers para galería (cierre)
 document.getElementById('input-foto-cierre-galeria').addEventListener('change', async (e) => {
-    try {
-        if (e.target.files && e.target.files[0]) {
-            const comprimida = await comprimirImagen(e.target.files[0]);
-            await procesarFotoCierre(comprimida);
-        }
-    } catch (error) {
-        console.error('Error procesando foto de cierre:', error);
-        toast('Error al procesar la foto: ' + error.message, 'error');
-    } finally {
-        e.target.value = '';
+    if (e.target.files[0]) {
+        const comprimida = await comprimirImagen(e.target.files[0]);
+        await procesarFotoCierre(comprimida);
     }
+    e.target.value = '';
 });
 
 function actualizarVistaPreviaFotos() {
