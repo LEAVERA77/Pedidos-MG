@@ -3079,5 +3079,30 @@ xscript.onerror = () => console.log('XLSX no disponible - se usará CSV');
 document.head.appendChild(xscript);
 
 </script>
+
+<script>
+// ── SERVICE WORKER — cache de tiles de Entre Ríos ────────────
+// Registra el SW que precarga ~713 tiles (zooms 5-11) en la
+// primera visita para poder usar el mapa sin internet.
+// El archivo sw.js debe estar en la raíz del repositorio.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => {
+                console.log('[SW] Registrado, scope:', reg.scope);
+                // Si hay una actualización disponible, activarla
+                reg.addEventListener('updatefound', () => {
+                    const sw = reg.installing;
+                    sw.addEventListener('statechange', () => {
+                        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('[SW] Actualización disponible');
+                        }
+                    });
+                });
+            })
+            .catch(err => console.warn('[SW] Error al registrar:', err.message));
+    });
+}
+</script>
 </body>
 </html>
