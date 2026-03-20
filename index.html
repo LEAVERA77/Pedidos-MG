@@ -376,6 +376,7 @@ textarea{resize:vertical;min-height:80px}
       <button id="foto-zoom-out"><i class="fas fa-search-minus"></i></button>
       <button id="foto-zoom-in"><i class="fas fa-search-plus"></i></button>
       <button id="foto-zoom-reset"><i class="fas fa-expand"></i></button>
+      <button id="foto-rotate-90" title="Rotar 90°" type="button"><span style="font-size:1.1rem;line-height:1">↻</span></button>
     </div>
   </div>
   <div class="img-container" id="img-container">
@@ -1844,6 +1845,7 @@ function comprimirImagen(file, opts = {}) {
     
     let scale = 1;       // zoom actual
     let tx = 0, ty = 0; // traslación acumulada
+    let rot = 0;         // rotación en grados (múltiplos de 90)
     let isDragging = false;
     let lastX = 0, lastY = 0;
     // Para pinch en móvil
@@ -1851,15 +1853,20 @@ function comprimirImagen(file, opts = {}) {
 
     function applyTransform(animate) {
         img.style.transition = animate ? 'transform .2s' : 'none';
-        img.style.transform  = `translate(${tx}px, ${ty}px) scale(${scale})`;
+        img.style.transform  = `translate(${tx}px, ${ty}px) scale(${scale}) rotate(${rot}deg)`;
         info.textContent = Math.round(scale * 100) + '%';
         cont.style.cursor = scale > 1 ? 'grab' : 'zoom-in';
     }
 
     function clampTranslation() {
         if (scale <= 1) { tx = 0; ty = 0; return; }
-        const imgW = img.naturalWidth  || img.offsetWidth;
-        const imgH = img.naturalHeight || img.offsetHeight;
+        let imgW = img.naturalWidth  || img.offsetWidth;
+        let imgH = img.naturalHeight || img.offsetHeight;
+        // Si está rotada 90/270, el ancho/alto efectivos se intercambian.
+        const rotNorm = ((rot % 360) + 360) % 360;
+        if (rotNorm === 90 || rotNorm === 270) {
+            const t = imgW; imgW = imgH; imgH = t;
+        }
         // El exceso máximo que podemos desplazar
         const maxX = Math.max(0, (imgW  * scale - cont.clientWidth)  / 2);
         const maxY = Math.max(0, (imgH  * scale - cont.clientHeight) / 2);
@@ -1867,7 +1874,7 @@ function comprimirImagen(file, opts = {}) {
         ty = Math.max(-maxY, Math.min(maxY, ty));
     }
 
-    function resetZoom() { scale = 1; tx = 0; ty = 0; applyTransform(true); }
+    function resetZoom() { scale = 1; tx = 0; ty = 0; rot = 0; applyTransform(true); }
     function zoomBy(delta, cx, cy) {
         const prev = scale;
         scale = Math.max(1, Math.min(8, scale * delta));
@@ -1887,9 +1894,12 @@ function comprimirImagen(file, opts = {}) {
     window.verFotoAmpliada = function(src) {
         img.src = src;
         resetZoom();
-        img.style.transition = 'none';
-        img.style.transform  = 'translate(0,0) scale(1)';
         modal.classList.add('active');
+        // Asegurar estado inicial exacto
+        img.style.transition = 'none';
+        rot = 0;
+        tx = 0; ty = 0; scale = 1;
+        applyTransform(false);
     };
 
     // Cerrar
@@ -1916,6 +1926,18 @@ function comprimirImagen(file, opts = {}) {
     });
     document.getElementById('foto-zoom-reset').addEventListener('click', e => {
         e.stopPropagation(); resetZoom();
+    });
+
+    // Rotar imagen 90° (para corregir posibles rotaciones erróneas en algunos Android)
+    document.getElementById('foto-rotate-90').addEventListener('click', e => {
+        e.stopPropagation();
+        // Siempre rota en pasos de 90°.
+        rot = ((rot + 90) % 360);
+        // Para evitar inconsistencias de bounds al rotar, reiniciamos traslación.
+        tx = 0;
+        ty = 0;
+        clampTranslation();
+        applyTransform(true);
     });
 
     // Click en la imagen: zoom in / zoom out al 100%
