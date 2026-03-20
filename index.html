@@ -1302,16 +1302,6 @@ function initMap() {
         ui.className = 'ud sel';
         document.getElementById('pm').classList.add('active');
     });
-
-// 3) En el handler global del mapa: ignorar toques sobre capas interactivas o con popup abierto
-app.map.on('click', (e) => {
-  const t = e.originalEvent && e.originalEvent.target;
-  const clicEnCapa = t && (t.closest && (t.closest('.leaflet-interactive') || t.closest('.leaflet-popup')));
-  const hayPopup = document.querySelector('.leaflet-popup-pane .leaflet-popup');
-  if (clicEnCapa || hayPopup) return;   // << PATCH
-
-  // ... (abrir selección/nuevo pedido)
-});
     
     mapaInicializado = true;
     renderMk();
@@ -1629,20 +1619,15 @@ function renderMk() {
         'Baja': '#3b82f6'
     };
     
-    
-// 1) En renderMk(): los marcadores no propagan el click al mapa
-const m = L.circleMarker([p.la, p.ln], {
-  radius: cer ? 6 : 9,
-  fillColor: cer ? '#94a3b8' : (fill[p.pr] || '#3b82f6'),
-  color: '#fff',
-  weight: 2,
-  fillOpacity: cer ? 0.5 : 0.9,
-  bubblingMouseEvents: false          // << PATCH
-}).addTo(app.map);
-
-// 2) Al tocar el marcador: abrir popup y frenar propagación
-m.on('click', (ev) => { L.DomEvent.stopPropagation(ev); m.openPopup(); });
-
+    app.p.filter(p => p.la && p.ln).forEach(p => {
+        const cer = p.es === 'Cerrado';
+        const m = L.circleMarker([p.la, p.ln], {
+            radius: cer ? 6 : 9,
+            fillColor: cer ? '#94a3b8' : (fill[p.pr] || '#3b82f6'),
+            color: '#fff',
+            weight: 2,
+            fillOpacity: cer ? 0.5 : 0.9
+        }).addTo(app.map);
         
         m.bindPopup(`
             <div style="min-width:160px;font-family:system-ui">
