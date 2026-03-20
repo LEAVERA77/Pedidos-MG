@@ -299,8 +299,8 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
         <!-- Dos inputs separados: uno para cámara, uno para galería/PC -->
-        <input type="file" id="input-foto-camara"  accept="image/*" style="display:none;">
-        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
+        <input type="file" id="input-foto-camara"  accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
+        <input type="file" id="input-foto-galeria" accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
       
@@ -341,8 +341,8 @@ textarea{resize:vertical;min-height:80px}
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
           <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
         </div>
-        <input type="file" id="input-foto-cierre-camara"  accept="image/*" style="display:none;">
-        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none;">
+        <input type="file" id="input-foto-cierre-camara"  accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
+        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
       <div class="fa2" style="padding:1.25rem 0 0">
@@ -2024,6 +2024,16 @@ async function procesarFotoSeleccionada(file) {
 // Detectar dispositivo móvil
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
+// Disparar el picker de archivos de forma robusta en Chrome Android.
+// Algunos navegadores ignoran `input.click()` si el input quedó con valor previo
+// o si no recibe foco.
+function dispararSelectorArchivos(input) {
+    if (!input) return;
+    try { input.value = ''; } catch(_) {}
+    try { input.focus(); } catch(_) {}
+    input.click();
+}
+
 // Pedir permiso de cámara y devolver true/false
 async function pedirPermisoCamara() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
@@ -2062,7 +2072,7 @@ async function abrirCamara(inputId) {
         // En PC/desktop: no usar capture (abre el explorador de archivos)
         input.removeAttribute('capture');
     }
-    input.click();
+    dispararSelectorArchivos(input);
 }
 
 // Procesar foto de cierre
@@ -2089,7 +2099,7 @@ document.getElementById('btn-tomar-foto').addEventListener('click', async () => 
 document.getElementById('btn-subir-foto').addEventListener('click', () => {
     const input = document.getElementById('input-foto-galeria');
     input.removeAttribute('capture');
-    input.click();
+    dispararSelectorArchivos(input);
 });
 
 // Eventos de cambio de inputs (nuevo pedido)
@@ -2111,7 +2121,7 @@ document.getElementById('btn-foto-cierre-camara').addEventListener('click', asyn
 document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
     const input = document.getElementById('input-foto-cierre-galeria');
     input.removeAttribute('capture');
-    input.click();
+    dispararSelectorArchivos(input);
 });
 
 // Eventos de cambio de inputs (cierre)
