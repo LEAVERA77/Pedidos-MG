@@ -377,7 +377,8 @@ textarea{resize:vertical;min-height:80px}
       <button id="foto-zoom-in"><i class="fas fa-search-plus"></i></button>
       <button id="foto-zoom-reset"><i class="fas fa-expand"></i></button>
       <button id="foto-rotate-90" title="Rotar 90°" type="button"><span style="font-size:1.1rem;line-height:1">↻</span></button>
-      <button id="foto-guardar" title="Guardar con rotación aplicada" type="button" style="display:none"><i class="fas fa-download"></i></button>
+      <button id="foto-guardar-bd" title="Guardar rotación en pedido" type="button" style="display:none;background:rgba(16,185,129,.85);color:white;border:none;border-radius:.4rem;padding:.35rem .7rem;cursor:pointer;font-size:.85rem;font-weight:600;align-items:center;gap:.3rem"><i class="fas fa-save"></i> Guardar</button>
+      <button id="foto-guardar" title="Descargar foto" type="button" style="display:none"><i class="fas fa-download"></i></button>
     </div>
   </div>
   <div class="img-container" id="img-container">
@@ -1923,15 +1924,23 @@ function comprimirImagen(file, opts = {}) {
     }
 
     // Abrir foto
-    window.verFotoAmpliada = function(src) {
+    // ctx: objeto con contexto para saber dónde guardar la rotación:
+    //   { tipo: 'temporal', idx: N }          → fotosTemporales[N]
+    //   { tipo: 'cierre_temp' }               → fotoCierreTemp
+    //   { tipo: 'pedido_fotos', id, idx: N }  → pedido en BD, foto[N]
+    //   { tipo: 'pedido_cierre', id }         → pedido en BD, foto_cierre
+    //   null                                  → solo visualización, sin guardar
+    window._fotoCtx = null; // contexto actual del visor
+    window.verFotoAmpliada = function(src, ctx) {
         img.src = src;
+        window._fotoCtx = ctx || null;
         resetZoom();
         modal.classList.add('active');
-        // Asegurar estado inicial exacto
         img.style.transition = 'none';
-        rot = 0;
-        tx = 0; ty = 0; scale = 1;
+        rot = 0; tx = 0; ty = 0; scale = 1;
         applyTransform(false);
+        // Mostrar botón guardar BD solo si hay contexto de guardado
+        if (btnGuardarBD) btnGuardarBD.style.display = ctx ? 'flex' : 'none';
     };
 
     // Cerrar
@@ -1960,37 +1969,141 @@ function comprimirImagen(file, opts = {}) {
         e.stopPropagation(); resetZoom();
     });
 
-    // Rotar imagen 90°
-    const btnGuardar = document.getElementById('foto-guardar');
+    // ── Botones del visor ──────────────────────────────────────
+    const btnGuardar   = document.getElementById('foto-guardar');
+    const btnGuardarBD = document.getElementById('foto-guardar-bd');
+
+    // Función compartida: genera el dataUrl con la rotación aplicada al canvas
+    function aplicarRotacionAlCanvas() {
+        if (!img.src || img.src === window.location.href) return null;
+        const rotNorm = ((rot % 360) + 360) % 360;
+        if (rotNorm === 0) return null;
+        const canvas = document.createElement('canvas');
+        const swap = rotNorm === 90 || rotNorm === 270;
+        canvas.width  = swap ? img.naturalHeight : img.naturalWidth;
+        canvas.height = swap ? img.naturalWidth  : img.naturalHeight;
+        const ctx2 = canvas.getContext('2d');
+        ctx2.translate(canvas.width / 2, canvas.height / 2);
+        ctx2.rotate(rotNorm * Math.PI / 180);
+        ctx2.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        return canvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    // Rotar 90°
     document.getElementById('foto-rotate-90').addEventListener('click', e => {
         e.stopPropagation();
         rot = ((rot + 90) % 360);
         tx = 0; ty = 0;
         clampTranslation();
         applyTransform(true);
-        // Mostrar botón guardar solo cuando hay rotación aplicada
-        btnGuardar.style.display = rot !== 0 ? 'flex' : 'none';
+        const hayRot = rot !== 0;
+        btnGuardar.style.display   = hayRot ? 'flex' : 'none';
+        // Botón guardar en BD: solo si hay rotación Y hay contexto de guardado
+        if (btnGuardarBD) btnGuardarBD.style.display = (hayRot && window._fotoCtx) ? 'flex' : 'none';
     });
 
-    // Guardar foto con la rotación aplicada permanentemente
+    // ── GUARDAR ROTACIÓN EN EL PEDIDO (memoria + Neon) ──────────
+    if (btnGuardarBD) {
+        btnGuardarBD.addEventListener('click', async e => {
+            e.stopPropagation();
+            const dataUrl = aplicarRotacionAlCanvas();
+            if (!dataUrl) { toast('Sin rotación para guardar', 'info'); return; }
+            const ctx3 = window._fotoCtx;
+            if (!ctx3) { toast('Sin contexto de pedido', 'info'); return; }
+
+            btnGuardarBD.disabled = true;
+            btnGuardarBD.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+
+            try {
+                if (ctx3.tipo === 'temporal') {
+                    // Foto en pedido nuevo (aún no guardado en BD)
+                    fotosTemporales[ctx3.idx] = dataUrl;
+                    actualizarVistaPreviaFotos();
+                    // Actualizar la img del visor para reflejar el cambio
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    toast('✓ Rotación guardada en el pedido', 'success');
+
+                } else if (ctx3.tipo === 'cierre_temp') {
+                    // Foto de cierre aún no confirmada
+                    fotoCierreTemp = dataUrl;
+                    actualizarVistaPreviaFotoCierre();
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    toast('✓ Rotación guardada en la foto de cierre', 'success');
+
+                } else if (ctx3.tipo === 'pedido_fotos') {
+                    // Foto en pedido existente — actualizar en Neon
+                    const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (!pedido) throw new Error('Pedido no encontrado');
+                    pedido.fotos[ctx3.idx] = dataUrl;
+                    const nuevasCadena = pedido.fotos.join('||');
+                    if (!modoOffline && NEON_OK) {
+                        await ejecutarSQLConReintentos(
+                            `UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}`
+                        );
+                    } else {
+                        enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}` });
+                    }
+                    offlinePedidosSave(app.p);
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    // Refrescar las miniaturas en el detalle
+                    const pedidoActual = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (pedidoActual) detalle(pedidoActual);
+                    toast('✓ Rotación guardada en el pedido', 'success');
+
+                } else if (ctx3.tipo === 'pedido_cierre') {
+                    // Foto de cierre en pedido existente — actualizar en Neon
+                    const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (!pedido) throw new Error('Pedido no encontrado');
+                    pedido.foto_cierre = dataUrl;
+                    if (!modoOffline && NEON_OK) {
+                        await ejecutarSQLConReintentos(
+                            `UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}`
+                        );
+                    } else {
+                        enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}` });
+                    }
+                    offlinePedidosSave(app.p);
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    const pedidoActual2 = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (pedidoActual2) detalle(pedidoActual2);
+                    toast('✓ Rotación de foto de cierre guardada', 'success');
+                }
+            } catch(err) {
+                console.error('Error guardando rotación:', err);
+                toast('Error al guardar: ' + err.message, 'error');
+            } finally {
+                btnGuardarBD.disabled = false;
+                btnGuardarBD.innerHTML = '<i class="fas fa-save"></i> Guardar';
+            }
+        });
+    }
+
+    // ── DESCARGAR FOTO (botón descarga, siempre disponible) ─────
     btnGuardar.addEventListener('click', async e => {
         e.stopPropagation();
         if (!img.src || img.src === window.location.href) return;
         const rotNorm = ((rot % 360) + 360) % 360;
-        if (rotNorm === 0) { toast('Sin rotación para aplicar', 'info'); return; }
-
-        // Dibujar la imagen rotada en un canvas
-        const canvas = document.createElement('canvas');
-        const swap = rotNorm === 90 || rotNorm === 270;
-        canvas.width  = swap ? img.naturalHeight : img.naturalWidth;
-        canvas.height = swap ? img.naturalWidth  : img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(rotNorm * Math.PI / 180);
-        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
-        // Intentar Web Share API primero (Android Chrome — guarda o comparte)
+        // Si hay rotación, generar canvas rotado; si no, descargar la imagen original
+        let dataUrl;
+        if (rotNorm !== 0) {
+            dataUrl = aplicarRotacionAlCanvas();
+        } else {
+            dataUrl = img.src; // ya es dataUrl
+        }
+        if (!dataUrl) return;
+        // Web Share API en Android
         if (navigator.share && navigator.canShare) {
             try {
                 const res  = await fetch(dataUrl);
@@ -2005,14 +2118,13 @@ function comprimirImagen(file, opts = {}) {
                 if (err.name !== 'AbortError') console.warn('Share falló:', err.message);
             }
         }
-        // Fallback: descarga directa (PC, iOS Safari, navegadores sin Share)
         const a = document.createElement('a');
         a.href = dataUrl;
-        a.download = 'foto_pedido_rotada.jpg';
+        a.download = 'foto_pedido' + (rotNorm !== 0 ? '_rotada' : '') + '.jpg';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { document.body.removeChild(a); }, 500);
-        toast('Foto guardada', 'success');
+        toast('Foto descargada', 'success');
     });
 
     // Click en la imagen: zoom in / zoom out al 100%
@@ -2225,7 +2337,7 @@ function actualizarVistaPreviaFotos() {
         const img = document.createElement('img');
         img.src = foto;
         img.className = 'foto-miniatura';
-        img.onclick = () => window.verFotoAmpliada(foto);
+        img.onclick = () => window.verFotoAmpliada(foto, { tipo: 'temporal', idx: index });
         // Botón eliminar
         const del = document.createElement('button');
         del.type = 'button';
@@ -2506,7 +2618,7 @@ function actualizarVistaPreviaFotoCierre() {
     const img = document.createElement('img');
     img.src = fotoCierreTemp;
     img.className = 'foto-miniatura';
-    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp);
+    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp, { tipo: 'cierre_temp' });
     const del = document.createElement('button');
     del.type = 'button';
     del.innerHTML = '✕';
@@ -2591,13 +2703,14 @@ function detalle(p) {
     
     const ed = app.u?.rol === 'admin' || String(p.ui) === String(app.u?.id);
     
-    // Generar HTML para las fotos
+    // Generar HTML para las fotos — con contexto para guardar rotación
     let fotosHtml = '';
     if (p.fotos && p.fotos.length > 0) {
         fotosHtml = '<div class="fotos-container">';
-        p.fotos.forEach(foto => {
+        p.fotos.forEach((foto, idx) => {
             if (foto) {
-                fotosHtml += `<img src="${foto}" class="foto-miniatura" onclick="verFotoAmpliada('${foto}')">`;
+                const ctxStr = JSON.stringify({ tipo: 'pedido_fotos', id: p.id, idx }).replace(/"/g, '&quot;');
+                fotosHtml += `<img src="${foto}" class="foto-miniatura" onclick="verFotoAmpliada(this.src, JSON.parse(this.dataset.ctx))" data-ctx="${ctxStr}">`;
             }
         });
         fotosHtml += '</div>';
@@ -2636,7 +2749,7 @@ function detalle(p) {
             ${fc ? `<div class="dr"><span class="dl">Fecha cierre</span><span class="dv">${fc}</span></div>` : ''}
             ${p.tc ? `<div class="dr"><span class="dl">Técnico</span><span class="dv">${p.tc}</span></div>` : ''}
             ${p.tr ? `<div class="dr" style="flex-direction:column;gap:.3rem"><span class="dl">Trabajo</span><div class="trb">${p.tr}</div></div>` : ''}
-            ${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura" style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada('${p.foto_cierre}')"></div>` : ''}
+            ${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura" style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada(this.src, {tipo:'pedido_cierre',id:'${p.id}'})"></div>` : ''}
         </div>` : ''}
         
         <div class="ds">
