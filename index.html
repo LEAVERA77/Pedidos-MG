@@ -19,8 +19,8 @@
 /* ESTILOS COMPLETOS */
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 :root{--bd:#1e3a8a;--bm:#2563eb;--bl:#3b82f6;--gr:#10b981;--re:#ef4444;--or:#f97316;--ye:#eab308;--bg:#f1f5f9;--bo:#e2e8f0;--td:#1e293b;--tm:#475569;--tl:#94a3b8}
-html,body{height:100%;overflow:hidden;background:var(--bg)}
-#app{height:100vh;position:relative}
+html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
+#app{height:100vh;height:100dvh;position:relative}
 .screen{display:none;height:100%;width:100%;position:absolute;inset:0}
 #ls{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#2563eb 100%)}
 #ls.active{display:flex;align-items:center;justify-content:center}
@@ -52,7 +52,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg)}
 .un{font-size:.82rem;color:var(--tm);font-weight:500;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ib{background:none;border:none;font-size:1.3rem;color:var(--tm);cursor:pointer;padding:.4rem;border-radius:.4rem}
 .ib:hover{background:var(--bg);color:var(--bd)}
-#mc{height:calc(100vh - 58px);width:100%;z-index:1;position:relative}
+#mc{height:calc(100vh - 58px);height:calc(100dvh - 58px);width:100%;z-index:1;position:relative}
 .bp2{position:absolute;bottom:0;left:0;right:0;background:white;border-radius:1.25rem 1.25rem 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.12);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:1000;max-height:72vh;display:flex;flex-direction:column}
 .bp2.col{transform:translateY(calc(100% - 4.5rem))}
 .ph{padding:.6rem 1rem .4rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;flex-shrink:0}
@@ -296,11 +296,11 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Fotos del trabajo</label>
         <div style="display:flex; gap:.5rem; margin-bottom:.5rem; flex-wrap:wrap;">
           <button type="button" id="btn-tomar-foto" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <button type="button" id="btn-subir-foto" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
+          <label for="input-foto-galeria" class="btn-foto" style="cursor:pointer;display:inline-flex;align-items:center;gap:.5rem"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
         <!-- Dos inputs separados: uno para cámara, uno para galería/PC -->
         <input type="file" id="input-foto-camara"  accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
-        <input type="file" id="input-foto-galeria" accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
+        <input type="file" id="input-foto-galeria" accept="image/*" style="display:none">
         <div id="vista-previa-fotos" class="fotos-container"></div>
       </div>
       
@@ -339,10 +339,10 @@ textarea{resize:vertical;min-height:80px}
         <label><i class="fas fa-camera"></i> Foto del cierre (opcional)</label>
         <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;">
           <button type="button" id="btn-foto-cierre-camara" class="btn-foto"><i class="fas fa-camera"></i> Tomar foto</button>
-          <button type="button" id="btn-foto-cierre-galeria" class="btn-foto"><i class="fas fa-upload"></i> Cargar desde dispositivo</button>
+          <label for="input-foto-cierre-galeria" class="btn-foto" style="cursor:pointer;display:inline-flex;align-items:center;gap:.5rem"><i class="fas fa-upload"></i> Cargar desde dispositivo</label>
         </div>
         <input type="file" id="input-foto-cierre-camara"  accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
-        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;">
+        <input type="file" id="input-foto-cierre-galeria" accept="image/*" style="display:none">
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
       <div class="fa2" style="padding:1.25rem 0 0">
@@ -1285,6 +1285,18 @@ function initMap() {
     setTimeout(actualizarEscala, 200);
     
     app.map.on('click', e => {
+        // Ignorar si hay popup abierto — significa que el tap fue sobre un marcador
+        // (en Android los taps se propagan al mapa aunque estén sobre el popup)
+        if (app.map._popup && app.map._popup.isOpen && app.map._popup.isOpen()) return;
+
+        // Ignorar si el modal de detalle está visible — el usuario está viendo un pedido
+        const dmModal = document.getElementById('dm');
+        if (dmModal && dmModal.classList.contains('active')) return;
+
+        // Ignorar si ya hay algún modal abierto (evita abrir nuevo pedido sobre otro modal)
+        const hayModalAbierto = document.querySelector('.mo.active');
+        if (hayModalAbierto) return;
+
         app.sel = e.latlng;
         document.getElementById('li').value = e.latlng.lat;
         document.getElementById('gi').value = e.latlng.lng;
@@ -2110,12 +2122,7 @@ document.getElementById('btn-tomar-foto').addEventListener('click', () => {
     abrirCamara('input-foto-camara');
 });
 
-// Botón "Cargar desde dispositivo" (nuevo pedido) → galería/archivos
-document.getElementById('btn-subir-foto').addEventListener('click', () => {
-    const input = document.getElementById('input-foto-galeria');
-    input.removeAttribute('capture');
-    dispararSelectorArchivos(input);
-});
+// "Cargar desde dispositivo" usa <label for="input-foto-galeria"> — sin JS necesario
 
 // Eventos de cambio de inputs (nuevo pedido)
 document.getElementById('input-foto-camara').addEventListener('change', async (e) => {
@@ -2133,12 +2140,7 @@ document.getElementById('btn-foto-cierre-camara').addEventListener('click', () =
     abrirCamara('input-foto-cierre-camara');
 });
 
-// Botón "Cargar desde dispositivo" (cierre)
-document.getElementById('btn-foto-cierre-galeria').addEventListener('click', () => {
-    const input = document.getElementById('input-foto-cierre-galeria');
-    input.removeAttribute('capture');
-    dispararSelectorArchivos(input);
-});
+// "Cargar desde dispositivo" cierre usa <label for="input-foto-cierre-galeria"> — sin JS necesario
 
 // Eventos de cambio de inputs (cierre)
 document.getElementById('input-foto-cierre-camara').addEventListener('change', async (e) => {
