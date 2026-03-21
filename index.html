@@ -395,2161 +395,2582 @@ textarea{resize:vertical;min-height:80px}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-eval(atob(
-"ZXZhbChhdG9iKAoiZDJsdVpHOTNMbDl6ZFhCd2IzSjBjMDF2WkhWc1pYTWdQU0JtWVd4elpUc0tkSEo1SUhzS2FXWWdLSFI1Y0dWdlppQlFjbTl0YVhObElD"+
-"RTlQU0FuZFc1a1pXWnBibVZrSnlBbUppQjBlWEJsYjJZZ1ptVjBZMmdnIisKIklUMDlJQ2QxYm1SbFptbHVaV1FuS1NCN0NuZHBibVJ2ZHk1ZmMzVndjRzl5"+
-"ZEhOTmIyUjFiR1Z6SUQwZ2RISjFaVHNLZlFwOUlHTmhkR05vS0Y4cElIdDkiCikpOw=="
-));
+(function(){
+var _d=("CgoKd2luZG93Ll9zdXBwb3J0c01vZHVsZXMgPSBmYWxzZTsKdHJ5IHsKICAgIAogICAgaWYgKHR5" +
+"cGVvZiBQcm9taXNlICE9PSAndW5kZWZpbmVkJyAmJiB0eXBlb2YgZmV0Y2ggIT09ICd1bmRlZmlu" +
+"ZWQnKSB7CiAgICAgICAgd2luZG93Ll9zdXBwb3J0c01vZHVsZXMgPSB0cnVlOwogICAgfQp9IGNh" +
+"dGNoKF8pIHt9Cg==");
+var _b=atob(_d);
+var _u=new Uint8Array(_b.length);
+for(var _i=0;_i<_b.length;_i++)_u[_i]=_b.charCodeAt(_i);
+var _t=new TextDecoder('utf-8').decode(_u);
+eval(_t);
+})();
 </script>
 <script type="module">
-proj4.defs('\x49\x4e\x43\x48\x41\x55\x53\x50\x45', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
+
+proj4.defs('INCHAUSPE', '+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=intl +towgs84=-148,136,90,0,0,0,0 +units=m +no_defs');
+
 let NEON_OK = false;
 let _sql = null;
 let mapaInicializado = false;
 let fotosTemporales = [];
-let fotoCierreTemp = null;
+let fotoCierreTemp = null;    
 let ultimaUbicacion = null;
 let marcadorUbicacion = null;
 let pedidoActualParaAvance = null;
-let modoOffline = false;
-const OQ_KEY = '\x70\x6d\x67\x5f\x6f\x66\x66\x6c\x69\x6e\x65\x5f\x71\x75\x65\x75\x65';
-const OP_KEY = '\x70\x6d\x67\x5f\x6f\x66\x66\x6c\x69\x6e\x65\x5f\x70\x65\x64\x69\x64\x6f\x73';
-const OU_KEY = '\x70\x6d\x67\x5f\x6f\x66\x66\x6c\x69\x6e\x65\x5f\x75\x73\x65\x72';
+let modoOffline = false;      
+
+const OQ_KEY = 'pmg_offline_queue';    
+const OP_KEY = 'pmg_offline_pedidos';  
+const OU_KEY = 'pmg_offline_user';     
+
 function offlineQueue() {
-try { return JSON.parse(localStorage.getItem(OQ_KEY) || '\x5b\x5d'); }
-catch(_) { return []; }
+    try { return JSON.parse(localStorage.getItem(OQ_KEY) || '[]'); }
+    catch(_) { return []; }
 }
 function offlineSave(queue) {
-try { localStorage.setItem(OQ_KEY, JSON.stringify(queue)); } catch(_) {}
+    try { localStorage.setItem(OQ_KEY, JSON.stringify(queue)); } catch(_) {}
 }
 function offlinePedidos() {
-try { return JSON.parse(localStorage.getItem(OP_KEY) || '\x5b\x5d'); }
-catch(_) { return []; }
+    try { return JSON.parse(localStorage.getItem(OP_KEY) || '[]'); }
+    catch(_) { return []; }
 }
 function offlinePedidosSave(pedidos) {
-try { localStorage.setItem(OP_KEY, JSON.stringify(pedidos)); } catch(_) {}
+    try { localStorage.setItem(OP_KEY, JSON.stringify(pedidos)); } catch(_) {}
 }
+
 function enqueueOffline(op) {
-const q = offlineQueue();
-q.push({ ...op, _offlineId: '\x6f\x66\x66\x5f' + Date.now() + '\x5f' + Math.random().toString(36).slice(2) });
-offlineSave(q);
-actualizarBadgeOffline();
+    const q = offlineQueue();
+    q.push({ ...op, _offlineId: 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2) });
+    offlineSave(q);
+    actualizarBadgeOffline();
 }
+
 function actualizarBadgeOffline() {
-const q = offlineQueue();
-const badge = document.getElementById('\x6f\x66\x66\x6c\x69\x6e\x65\x2d\x62\x61\x64\x67\x65');
-if (!badge) return;
-if (q.length > 0) {
-badge.textContent = q.length;
-badge.style.display = '\x66\x6c\x65\x78';
-} else {
-badge.style.display = '\x6e\x6f\x6e\x65';
+    const q = offlineQueue();
+    const badge = document.getElementById('offline-badge');
+    if (!badge) return;
+    if (q.length > 0) {
+        badge.textContent = q.length;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
 }
-}
+
 function setModoOffline(offline) {
-modoOffline = offline;
-const banner = document.getElementById('\x6f\x66\x66\x6c\x69\x6e\x65\x2d\x62\x61\x6e\x6e\x65\x72');
-if (banner) {
-if (offline) banner.classList.add('\x76\x69\x73\x69\x62\x6c\x65');
-else banner.classList.remove('\x76\x69\x73\x69\x62\x6c\x65');
+    modoOffline = offline;
+    const banner = document.getElementById('offline-banner');
+    if (banner) {
+        if (offline) banner.classList.add('visible');
+        else banner.classList.remove('visible');
+    }
+    const di = document.getElementById('di');
+    if (di) {
+        di.className = offline ? 'di er' : 'di ok';
+        di.title = offline ? 'Sin conexión — modo offline' : 'Conectado a Neon';
+    }
 }
-const di = document.getElementById('\x64\x69');
-if (di) {
-di.className = offline ? '\x64\x69\x20\x65\x72' : '\x64\x69\x20\x6f\x6b';
-di.title = offline ? 'Sin conexión — modo offline' : '\x43\x6f\x6e\x65\x63\x74\x61\x64\x6f\x20\x61\x20\x4e\x65\x6f\x6e';
-}
-}
+
 async function sincronizarOffline() {
-const q = offlineQueue();
-if (q.length === 0) { toast('No hay pedidos offline pendientes', '\x69\x6e\x66\x6f'); return; }
-if (!NEON_OK || !_sql) {
-toast('\x49\x6e\x74\x65\x6e\x74\x61\x6e\x64\x6f\x20\x63\x6f\x6e\x65\x63\x74\x61\x72\x2e\x2e\x2e', '\x69\x6e\x66\x6f');
-const ok = await initNeon();
-if (!ok) { toast('Sin conexión. Reintentá cuando tengas señal.', '\x65\x72\x72\x6f\x72'); return; }
-NEON_OK = true;
-setModoOffline(false);
+    const q = offlineQueue();
+    if (q.length === 0) { toast('No hay pedidos offline pendientes', 'info'); return; }
+    if (!NEON_OK || !_sql) {
+        
+        toast('Intentando conectar...', 'info');
+        const ok = await initNeon();
+        if (!ok) { toast('Sin conexión. Reintentá cuando tengas señal.', 'error'); return; }
+        NEON_OK = true;
+        setModoOffline(false);
+    }
+
+    toast('Sincronizando ' + q.length + ' pedido(s)...', 'info');
+    let ok = 0, fail = 0;
+    const remaining = [];
+
+    for (const op of q) {
+        try {
+            if (op.tipo === 'INSERT') {
+                await sqlSimple(op.query);
+            } else if (op.tipo === 'UPDATE') {
+                await sqlSimple(op.query);
+            }
+            ok++;
+        } catch(e) {
+            console.error('Sync fallo op:', op._offlineId, e.message);
+            remaining.push(op);
+            fail++;
+        }
+    }
+
+    offlineSave(remaining);
+    actualizarBadgeOffline();
+
+    if (ok > 0) {
+        toast(`✓ ${ok} pedido(s) sincronizado(s)${fail ? ' · ' + fail + ' pendientes' : ''}`, 'success');
+        await cargarPedidos(); 
+    } else {
+        toast('No se pudo sincronizar. Reintentá más tarde.', 'error');
+    }
 }
-toast('\x53\x69\x6e\x63\x72\x6f\x6e\x69\x7a\x61\x6e\x64\x6f\x20' + q.length + '\x20\x70\x65\x64\x69\x64\x6f\x28\x73\x29\x2e\x2e\x2e', '\x69\x6e\x66\x6f');
-let ok = 0, fail = 0;
-const remaining = [];
-for (const op of q) {
-try {
-if (op.tipo === 'INSERT') {
-await sqlSimple(op.query);
-} else if (op.tipo === 'UPDATE') {
-await sqlSimple(op.query);
-}
-ok++;
-} catch(e) {
-console.error('\x53\x79\x6e\x63\x20\x66\x61\x6c\x6c\x6f\x20\x6f\x70\x3a', op._offlineId, e.message);
-remaining.push(op);
-fail++;
-}
-}
-offlineSave(remaining);
-actualizarBadgeOffline();
-if (ok > 0) {
-toast(`✓ ${ok} pedido(s) sincronizado(s)${fail ? ' · ' + fail + ' pendientes' : ''}`, '\x73\x75\x63\x63\x65\x73\x73');
-await cargarPedidos();
-} else {
-toast('No se pudo sincronizar. Reintentá más tarde.', '\x65\x72\x72\x6f\x72');
-}
-}
-window.addEventListener('\x6f\x6e\x6c\x69\x6e\x65', async () => {
-console.log('Navegador: online (verificando conectividad real...)');
-const hayRed = await hayInternet();
-if (!hayRed) { console.log('Evento online ignorado — sin red real'); return; }
-try {
-const ok = await initNeon();
-if (ok) {
-NEON_OK = true;
-setModoOffline(false);
-if (app.u) {
-toast('\x43\x6f\x6e\x65\x78\x69\xf3\x6e\x20\x72\x65\x73\x74\x61\x75\x72\x61\x64\x61\x20\x2713', '\x73\x75\x63\x63\x65\x73\x73');
-const q = offlineQueue();
-if (q.length > 0) setTimeout(sincronizarOffline, 1500);
-else cargarPedidos();
-} else {
-const dbs2 = document.getElementById('\x64\x62\x73');
-if (dbs2) {
-dbs2.className = '\x64\x62\x73\x20\x6f\x6b';
-dbs2.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
-}
-}
-}
-} catch(_) {}
+
+window.addEventListener('online', async () => {
+    console.log('Navegador: online (verificando conectividad real...)');
+    
+    const hayRed = await hayInternet();
+    if (!hayRed) { console.log('Evento online ignorado — sin red real'); return; }
+    
+    try {
+        const ok = await initNeon();
+        if (ok) {
+            NEON_OK = true;
+            setModoOffline(false);
+            if (app.u) {
+                toast('Conexión restaurada ✓', 'success');
+                const q = offlineQueue();
+                if (q.length > 0) setTimeout(sincronizarOffline, 1500);
+                else cargarPedidos();
+            } else {
+                
+                const dbs2 = document.getElementById('dbs');
+                if (dbs2) {
+                    dbs2.className = 'dbs ok';
+                    dbs2.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
+                }
+            }
+        }
+    } catch(_) {}
 });
-window.addEventListener('\x6f\x66\x66\x6c\x69\x6e\x65', () => {
-console.log('\x4e\x61\x76\x65\x67\x61\x64\x6f\x72\x3a\x20\x6f\x66\x66\x6c\x69\x6e\x65');
-_netCache = { ok: false, ts: Date.now() };
-NEON_OK = false;
-_sql = null;
-setModoOffline(true);
+window.addEventListener('offline', () => {
+    console.log('Navegador: offline');
+    _netCache = { ok: false, ts: Date.now() }; 
+    NEON_OK = false;
+    _sql = null;
+    setModoOffline(true);
 });
+
 function guardarUsuarioOffline(u, pw) {
-try {
-const lista = JSON.parse(localStorage.getItem(OU_KEY) || '\x5b\x5d');
-const idx = lista.findIndex(x => x.email === u.email);
-const entry = { ...u, _pw: pw, _ts: Date.now() };
-if (idx >= 0) lista[idx] = entry; else lista.push(entry);
-localStorage.setItem(OU_KEY, JSON.stringify(lista));
-} catch(_) {}
+    try {
+        const lista = JSON.parse(localStorage.getItem(OU_KEY) || '[]');
+        const idx = lista.findIndex(x => x.email === u.email);
+        const entry = { ...u, _pw: pw, _ts: Date.now() };
+        if (idx >= 0) lista[idx] = entry; else lista.push(entry);
+        localStorage.setItem(OU_KEY, JSON.stringify(lista));
+    } catch(_) {}
 }
 function verificarUsuarioOffline(em, pw) {
-try {
-const lista = JSON.parse(localStorage.getItem(OU_KEY) || '\x5b\x5d');
-return lista.find(u => u.email === em && u._pw === pw) || null;
-} catch(_) { return null; }
+    try {
+        const lista = JSON.parse(localStorage.getItem(OU_KEY) || '[]');
+        return lista.find(u => u.email === em && u._pw === pw) || null;
+    } catch(_) { return null; }
 }
+
 async function solicitarPermisos() {
-const resultados = {};
-try {
-await new Promise((res, rej) =>
-navigator.geolocation.getCurrentPosition(
-p => { ultimaUbicacion = { lat: p.coords.latitude, lon: p.coords.longitude };
-try { localStorage.setItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-res(); },
-e => rej(e),
-{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-)
-);
-resultados.gps = true;
-} catch(_) { resultados.gps = false; }
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-try {
-const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: '\x65\x6e\x76\x69\x72\x6f\x6e\x6d\x65\x6e\x74' } });
-stream.getTracks().forEach(t => t.stop());
-resultados.camara = true;
-} catch(_) { resultados.camara = false; }
+    const resultados = {};
+    
+    try {
+        await new Promise((res, rej) =>
+            navigator.geolocation.getCurrentPosition(
+                p => { ultimaUbicacion = { lat: p.coords.latitude, lon: p.coords.longitude };
+                       try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+                       res(); },
+                e => rej(e),
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+            )
+        );
+        resultados.gps = true;
+    } catch(_) { resultados.gps = false; }
+    
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            stream.getTracks().forEach(t => t.stop()); 
+            resultados.camara = true;
+        } catch(_) { resultados.camara = false; }
+    }
+    return resultados;
 }
-return resultados;
-}
+
 window.sincronizarOffline = sincronizarOffline;
+
 try {
-const ubicacionGuardada = localStorage.getItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e');
-if (ubicacionGuardada) {
-ultimaUbicacion = JSON.parse(ubicacionGuardada);
-}
+    const ubicacionGuardada = localStorage.getItem('ultima_ubicacion');
+    if (ubicacionGuardada) {
+        ultimaUbicacion = JSON.parse(ubicacionGuardada);
+    }
 } catch(_) {}
+
 function esc(v) {
-if (v === null || v === undefined) return '\x4e\x55\x4c\x4c';
-if (typeof v === '\x6e\x75\x6d\x62\x65\x72') return isFinite(v) ? String(v) : '\x4e\x55\x4c\x4c';
-if (typeof v === '\x62\x6f\x6f\x6c\x65\x61\x6e') return v ? '\x54\x52\x55\x45' : '\x46\x41\x4c\x53\x45';
-return "'" + String(v).replace(/'/g, "''") + "'";
-if (modoOffline || !NEON_OK) {
-throw new Error('Sin conexión — modo offline activo');
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'number') return isFinite(v) ? String(v) : 'NULL';
+    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+    return "'" + String(v).replace(/'/g, "''") + "'";
 }
-let ultimoError;
-let reintentosMostrados = false;
-for (let intento = 1; intento <= maxIntentos; intento++) {
-try {
-if (!_sql) throw new Error('\x4e\x65\x6f\x6e\x20\x6e\x6f\x20\x69\x6e\x69\x63\x69\x61\x6c\x69\x7a\x61\x64\x6f');
-if (intento === 2 && !reintentosMostrados) {
-toast('Reactivando base de datos...', '\x69\x6e\x66\x6f');
-reintentosMostrados = true;
+
+async function ejecutarSQLConReintentos(query, params = [], maxIntentos = 3) {
+    
+    if (modoOffline || !NEON_OK) {
+        throw new Error('Sin conexión — modo offline activo');
+    }
+
+    let ultimoError;
+    let reintentosMostrados = false;
+    
+    for (let intento = 1; intento <= maxIntentos; intento++) {
+        try {
+            if (!_sql) throw new Error('Neon no inicializado');
+            
+            
+            if (intento === 2 && !reintentosMostrados) {
+                toast('Reactivando base de datos...', 'info');
+                reintentosMostrados = true;
+            }
+            
+            let q = query;
+            for (let i = 0; i < params.length; i++) {
+                q = q.replace(new RegExp('\\{' + i + '\\}', 'g'), esc(params[i]));
+            }
+            
+            return await _sql(q);
+            
+        } catch (error) {
+            ultimoError = error;
+            console.warn(`Intento ${intento} de ${maxIntentos} falló:`, error.message);
+            
+            if (intento < maxIntentos) {
+                
+                const espera = Math.pow(2, intento - 1) * 1000;
+                await new Promise(resolve => setTimeout(resolve, espera));
+                
+                
+                try {
+                    if (_sql) await _sql('SELECT 1');
+                } catch (_) {}
+            }
+        }
+    }
+    
+    
+    toast('Error de conexión persistente. Intente nuevamente.', 'error');
+    throw ultimoError;
 }
-let q = query;
-for (let i = 0; i < params.length; i++) {
-q = q.replace(new RegExp('\\{' + i + '\\}', '\x67'), esc(params[i]));
-}
-return await _sql(q);
-} catch (error) {
-ultimoError = error;
-console.warn(`Intento ${intento} de ${maxIntentos} falló:`, error.message);
-if (intento < maxIntentos) {
-const espera = Math.pow(2, intento - 1) * 1000;
-await new Promise(resolve => setTimeout(resolve, espera));
-try {
-if (_sql) await _sql('SELECT 1');
-} catch (_) {}
-}
-}
-}
-toast('Error de conexión persistente. Intente nuevamente.', '\x65\x72\x72\x6f\x72');
-throw ultimoError;
-}
+
 async function sqlSimple(query, params = []) {
-if (!_sql) throw new Error('\x4e\x65\x6f\x6e\x20\x6e\x6f\x20\x69\x6e\x69\x63\x69\x61\x6c\x69\x7a\x61\x64\x6f');
-let q = query;
-for (let i = 0; i < params.length; i++)
-q = q.replace(new RegExp('\\{' + i + '\\}', '\x67'), esc(params[i]));
-return _sql(q);
+    if (!_sql) throw new Error('Neon no inicializado');
+    let q = query;
+    for (let i = 0; i < params.length; i++)
+        q = q.replace(new RegExp('\\{' + i + '\\}', 'g'), esc(params[i]));
+    return _sql(q);
 }
+
 let keepAliveInterval  = null;
 let keepAliveStartTime = null;
-const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;
-const SESSION_MAX_MS        = 60 * 60 * 1000;
+const KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;  
+const SESSION_MAX_MS        = 60 * 60 * 1000;  
+
 async function heartbeat() {
-if (!app.u) return;
-if (keepAliveStartTime && Date.now() - keepAliveStartTime >= SESSION_MAX_MS) {
-console.log('Keep-alive: sesión de 1 hora cumplida, cerrando sesión');
-detenerKeepAlive();
-toast('Sesión expirada (1 hora). Por seguridad, ingresá de nuevo.', '\x69\x6e\x66\x6f');
-setTimeout(() => {
-localStorage.removeItem('\x70\x6d\x67');
-app.u = null;
-mapaInicializado = false;
-if (app.map) { app.map.remove(); app.map = null; }
-document.getElementById('\x6c\x73').classList.add('\x61\x63\x74\x69\x76\x65');
-document.getElementById('\x6d\x73').classList.remove('\x61\x63\x74\x69\x76\x65');
-}, 3500);
-return;
+    if (!app.u) return; 
+
+    
+    if (keepAliveStartTime && Date.now() - keepAliveStartTime >= SESSION_MAX_MS) {
+        console.log('Keep-alive: sesión de 1 hora cumplida, cerrando sesión');
+        detenerKeepAlive();
+        toast('Sesión expirada (1 hora). Por seguridad, ingresá de nuevo.', 'info');
+        setTimeout(() => {
+            localStorage.removeItem('pmg');
+            app.u = null;
+            mapaInicializado = false;
+            if (app.map) { app.map.remove(); app.map = null; }
+            document.getElementById('ls').classList.add('active');
+            document.getElementById('ms').classList.remove('active');
+        }, 3500);
+        return;
+    }
+
+    try {
+        await sqlSimple('SELECT 1');
+        console.log('Keep-alive OK', new Date().toLocaleTimeString('es-AR', {hour12:false}));
+        if (modoOffline) {
+            
+            NEON_OK = true;
+            setModoOffline(false);
+            toast('Conexión restaurada ✓', 'success');
+            const q = offlineQueue();
+            if (q.length > 0) {
+                setTimeout(sincronizarOffline, 1500);
+            } else {
+                cargarPedidos();
+            }
+        }
+    } catch (err) {
+        console.warn('Keep-alive: fallo de red:', err.message);
+        
+        
+        NEON_OK = false;
+        setModoOffline(true);
+        
+        
+        if (app.u) {
+            setTimeout(async () => {
+                if (await hayInternet()) {
+                    try {
+                        _sql = null;
+                        const reconectado = await initNeon();
+                        if (reconectado) {
+                            NEON_OK = true;
+                            setModoOffline(false);
+                            toast('Conexión restaurada ✓', 'success');
+                            if (offlineQueue().length > 0) sincronizarOffline();
+                            else cargarPedidos();
+                        }
+                    } catch(_) {}
+                }
+            }, 3000);
+        }
+    }
 }
-try {
-await sqlSimple('SELECT 1');
-console.log('\x4b\x65\x65\x70\x2d\x61\x6c\x69\x76\x65\x20\x4f\x4b', new Date().toLocaleTimeString('\x65\x73\x2d\x41\x52', {hour12:false}));
-if (modoOffline) {
-NEON_OK = true;
-setModoOffline(false);
-toast('\x43\x6f\x6e\x65\x78\x69\xf3\x6e\x20\x72\x65\x73\x74\x61\x75\x72\x61\x64\x61\x20\x2713', '\x73\x75\x63\x63\x65\x73\x73');
-const q = offlineQueue();
-if (q.length > 0) {
-setTimeout(sincronizarOffline, 1500);
-} else {
-cargarPedidos();
-}
-}
-} catch (err) {
-console.warn('\x4b\x65\x65\x70\x2d\x61\x6c\x69\x76\x65\x3a\x20\x66\x61\x6c\x6c\x6f\x20\x64\x65\x20\x72\x65\x64\x3a', err.message);
-NEON_OK = false;
-setModoOffline(true);
-if (app.u) {
-setTimeout(async () => {
-if (await hayInternet()) {
-try {
-_sql = null;
-const reconectado = await initNeon();
-if (reconectado) {
-NEON_OK = true;
-setModoOffline(false);
-toast('\x43\x6f\x6e\x65\x78\x69\xf3\x6e\x20\x72\x65\x73\x74\x61\x75\x72\x61\x64\x61\x20\x2713', '\x73\x75\x63\x63\x65\x73\x73');
-if (offlineQueue().length > 0) sincronizarOffline();
-else cargarPedidos();
-}
-} catch(_) {}
-}
-}, 3000);
-}
-}
-}
+
 function iniciarKeepAlive() {
-detenerKeepAlive();
-keepAliveStartTime = Date.now();
-keepAliveInterval  = setInterval(heartbeat, KEEPALIVE_INTERVAL_MS);
-console.log('Keep-alive iniciado, sesión máxima 1h');
+    detenerKeepAlive(); 
+    keepAliveStartTime = Date.now();
+    keepAliveInterval  = setInterval(heartbeat, KEEPALIVE_INTERVAL_MS);
+    console.log('Keep-alive iniciado, sesión máxima 1h');
 }
+
 function detenerKeepAlive() {
-if (keepAliveInterval) {
-clearInterval(keepAliveInterval);
-keepAliveInterval = null;
+    if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+    }
+    keepAliveStartTime = null;
 }
-keepAliveStartTime = null;
-}
-document.addEventListener('\x76\x69\x73\x69\x62\x69\x6c\x69\x74\x79\x63\x68\x61\x6e\x67\x65', () => {
-if (!document.hidden && app.u) {
-console.log('Tab visible: heartbeat preventivo');
-heartbeat();
-}
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && app.u) {
+        console.log('Tab visible: heartbeat preventivo');
+        heartbeat();
+    }
 });
+
 function conTimeout(promesa, ms, msg) {
-return Promise.race([
-promesa,
-new Promise((_, rej) => setTimeout(() => rej(new Error(msg || '\x74\x69\x6d\x65\x6f\x75\x74')), ms))
-]);
+    return Promise.race([
+        promesa,
+        new Promise((_, rej) => setTimeout(() => rej(new Error(msg || 'timeout')), ms))
+    ]);
 }
-let _netCache = null;
-const NET_TTL  = 6000;
+
+let _netCache = null;  
+const NET_TTL  = 6000; 
+
 async function hayInternet() {
-if (_netCache && Date.now() - _netCache.ts < NET_TTL) {
-return _netCache.ok;
+    
+    if (_netCache && Date.now() - _netCache.ts < NET_TTL) {
+        return _netCache.ok;
+    }
+
+    
+    
+    
+    
+    const pruebas = [
+        
+        'https://1.1.1.1/cdn-cgi/trace',
+        
+        'https://connectivitycheck.gstatic.com/generate_204',
+        
+        'https://captive.apple.com/hotspot-detect.html',
+    ];
+
+    for (const url of pruebas) {
+        try {
+            await conTimeout(
+                fetch(url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' }),
+                3500,
+                'sin respuesta'
+            );
+            
+            _netCache = { ok: true, ts: Date.now() };
+            console.log('[red] OK via', url.split('/')[2]);
+            return true;
+        } catch(_) {
+            
+        }
+    }
+
+    _netCache = { ok: false, ts: Date.now() };
+    console.log('[red] SIN INTERNET — todos los endpoints fallaron');
+    return false;
 }
-const pruebas = [
-'https://1.1.1.1/cdn-cgi/trace',
-'https://connectivitycheck.gstatic.com/generate_204',
-'https://captive.apple.com/hotspot-detect.html',
-];
-for (const url of pruebas) {
-try {
-await conTimeout(
-fetch(url, { method: '\x48\x45\x41\x44', mode: '\x6e\x6f\x2d\x63\x6f\x72\x73', cache: '\x6e\x6f\x2d\x73\x74\x6f\x72\x65' }),
-3500,
-'\x73\x69\x6e\x20\x72\x65\x73\x70\x75\x65\x73\x74\x61'
-);
-_netCache = { ok: true, ts: Date.now() };
-console.log('\x5b\x72\x65\x64\x5d\x20\x4f\x4b\x20\x76\x69\x61', url.split('\x2f')[2]);
-return true;
-} catch(_) {
-}
-}
-_netCache = { ok: false, ts: Date.now() };
-console.log('[red] SIN INTERNET — todos los endpoints fallaron');
-return false;
-}
-window.addEventListener('\x6f\x6e\x6c\x69\x6e\x65',  () => { _netCache = null; });
-window.addEventListener('\x6f\x66\x66\x6c\x69\x6e\x65', () => { _netCache = { ok: false, ts: Date.now() }; });
+
+window.addEventListener('online',  () => { _netCache = null; });
+window.addEventListener('offline', () => { _netCache = { ok: false, ts: Date.now() }; });
+
 async function initNeon() {
-const tieneRed = await hayInternet();
-if (!tieneRed) {
-console.log('[neon] sin red real — modo offline');
-NEON_OK = false;
-return false;
+    
+    
+    const tieneRed = await hayInternet();
+    if (!tieneRed) {
+        console.log('[neon] sin red real — modo offline');
+        NEON_OK = false;
+        return false;
+    }
+
+    const versions = ['0.10.4', '0.9.5', '0.8.0'];
+    for (const ver of versions) {
+        try {
+            const mod = await conTimeout(
+                import(`https://esm.sh/@neondatabase/serverless@${ver}`),
+                6000,
+                `timeout SDK ${ver}`
+            );
+            const { neon, neonConfig } = mod;
+            if (neonConfig) {
+                try { neonConfig.fetchEndpoint = host => `https://${host}/sql`; } catch(_){}
+                try { delete neonConfig.fetchConnectionCache; } catch(_){}
+            }
+            const fn = neon('postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require');
+            _sql = async (q) => {
+                const rows = await fn([q]);
+                if (Array.isArray(rows)) return { rows };
+                if (rows && rows.rows) return rows;
+                return { rows: [] };
+            };
+            const test = await conTimeout(_sql('SELECT 1 AS ok'), 5000, 'timeout SELECT 1');
+            if (!test || !Array.isArray(test.rows)) throw new Error('respuesta invalida');
+            NEON_OK = true;
+            console.log(`[neon] SDK ${ver} OK`);
+            return true;
+        } catch(e) {
+            console.warn(`[neon] SDK ${ver} fallo:`, e.message);
+            _sql = null;
+            
+            if (e.message.includes('timeout') || e.message.includes('fetch') || e.message.includes('network')) {
+                console.log('[neon] error de red — abortando intentos restantes');
+                break;
+            }
+        }
+    }
+    NEON_OK = false;
+    return false;
 }
-const versions = ['\x30\x2e\x31\x30\x2e\x34', '\x30\x2e\x39\x2e\x35', '\x30\x2e\x38\x2e\x30'];
-for (const ver of versions) {
-try {
-const mod = await conTimeout(
-import(`https://esm.sh/@neondatabase/serverless@${ver}`),
-6000,
-`timeout SDK ${ver}`
-);
-const { neon, neonConfig } = mod;
-if (neonConfig) {
-try { neonConfig.fetchEndpoint = host => `https://${host}/sql`; } catch(_){}
-try { delete neonConfig.fetchConnectionCache; } catch(_){}
-}
-const fn = neon('postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require');
-_sql = async (q) => {
-const rows = await fn([q]);
-if (Array.isArray(rows)) return { rows };
-if (rows && rows.rows) return rows;
-return { rows: [] };
-};
-const test = await conTimeout(_sql('SELECT 1 AS ok'), 5000, '\x74\x69\x6d\x65\x6f\x75\x74\x20\x53\x45\x4c\x45\x43\x54\x20\x31');
-if (!test || !Array.isArray(test.rows)) throw new Error('\x72\x65\x73\x70\x75\x65\x73\x74\x61\x20\x69\x6e\x76\x61\x6c\x69\x64\x61');
-NEON_OK = true;
-console.log(`[neon] SDK ${ver} OK`);
-return true;
-} catch(e) {
-console.warn(`[neon] SDK ${ver} fallo:`, e.message);
-_sql = null;
-if (e.message.includes('\x74\x69\x6d\x65\x6f\x75\x74') || e.message.includes('\x66\x65\x74\x63\x68') || e.message.includes('\x6e\x65\x74\x77\x6f\x72\x6b')) {
-console.log('[neon] error de red — abortando intentos restantes');
-break;
-}
-}
-}
-NEON_OK = false;
-return false;
-}
+
 const DIST = [
-{v:'\x35\x44\x30\x32',l:'5D02 - AVENIDA (SET M. GRANDE)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x33',l:'\x35\x44\x30\x33\x20\x2d\x20\x41\x56\x45\x4e\x49\x44\x41',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x34',l:'\x35\x44\x30\x34\x20\x2d\x20\x49\x4e\x54\x45\x52\x4c\x41\x47\x4f\x53',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x35',l:'5D05 - IRIGOYEN (MARIA GRANDE)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x36',l:'\x35\x44\x30\x36\x20\x2d\x20\x52\x55\x54\x41\x20\x33\x32',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x37',l:'5D07 - PARQUE INDUSTRIAL (SET M. GRANDE)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x38',l:'\x35\x44\x30\x38\x20\x2d\x20\x41\x4c\x43\x41\x52\x41\x5a\x20\x52\x55\x52\x41\x4c',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x30\x39',l:'\x35\x44\x30\x39\x20\x2d\x20\x41\x4c\x43\x41\x52\x41\x5a\x20\x55\x52\x42\x41\x4e\x4f',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x31\x31',l:'\x35\x44\x31\x31\x20\x2d\x20\x53\x49\x52\x20\x4c\x45\x4f\x4e\x41\x52\x44',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x31\x36',l:'\x35\x44\x31\x36\x20\x2d\x20\x44\x55\x52\x41\x5a\x4e\x4f\x20\x28\x42\x4f\x56\x52\x49\x4c\x29',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x32\x33',l:'\x35\x44\x32\x33\x20\x2d\x20\x4c\x4f\x53\x20\x47\x52\x49\x4e\x47\x4f\x53',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x32\x37',l:'\x35\x44\x32\x37\x20\x2d\x20\x45\x4c\x20\x43\x52\x55\x43\x45\x20\x28\x53\x4c\x55\x4e\x41\x29',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x32\x38',l:'\x35\x44\x32\x38\x20\x2d\x20\x55\x52\x42\x41\x4e\x4f\x20\x42\x4f\x56\x52\x49\x4c',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x33\x31',l:'5D31 - SAUCE DE LUNA URBANO',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x33\x32',l:'\x35\x44\x33\x32\x20\x2d\x20\x41\x43\x48\x49\x52\x41\x53',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x33\x36',l:'\x35\x44\x33\x36\x20\x2d\x20\x53\x41\x4e\x20\x52\x4f\x51\x55\x45\x20\x28\x42\x4f\x56\x52\x49\x4c\x29',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x34\x30',l:'\x35\x44\x34\x30\x20\x2d\x20\x52\x55\x54\x41\x20\x37',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x34\x31',l:'\x35\x44\x34\x31\x20\x2d\x20\x50\x55\x45\x52\x54\x4f\x20\x41\x4c\x47\x41\x52\x52\x4f\x42\x4f',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x34\x33',l:'5D43 - INDAVISA (PIEDRAS BLANCAS)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x34\x34',l:'5D44 - URBANO PIEDRAS BLANCAS',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x35\x33',l:'\x35\x44\x35\x33\x20\x2d\x20\x43\x4f\x4f\x42',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x35\x36',l:'5D56 - CENTRO (SANTA ELENA)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x35\x37',l:'\x35\x44\x35\x37\x20\x2d\x20\x53\x55\x52\x20\x28\x53\x41\x4e\x54\x41\x20\x45\x4c\x45\x4e\x41\x29',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x35\x38',l:'5D58 - NORTE (SANTA ELENA)',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x36\x30',l:'\x35\x44\x36\x30\x20\x2d\x20\x52\x55\x52\x41\x4c\x20\x53\x41\x4e\x54\x41\x20\x45\x4c\x45\x4e\x41',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x44\x37\x38',l:'\x35\x44\x37\x38\x20\x2d\x20\x52\x55\x52\x41\x4c\x20\x28\x53\x4f\x53\x41\x29',g:'\x31\x33\x32\x30\x30\x20\x56'},
-{v:'\x35\x4c\x30\x33',l:'\x35\x4c\x30\x33\x20\x2d\x20\x43\x45\x52\x52\x49\x54\x4f',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x30\x39',l:'5L09 - FRIGORIFICO SANTA ELENA',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x30',l:'\x35\x4c\x31\x30\x20\x2d\x20\x42\x4f\x56\x52\x49\x4c',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x32',l:'\x35\x4c\x31\x32\x20\x2d\x20\x48\x41\x53\x45\x4e\x4b\x41\x4d\x50',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x35',l:'\x35\x4c\x31\x35\x20\x2d\x20\x4c\x49\x4e\x45\x41\x20\x4d\x41\x52\x49\x41\x20\x47\x52\x41\x4e\x44\x45',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x37',l:'\x35\x4c\x31\x37\x20\x2d\x20\x53\x41\x4e\x54\x41\x20\x45\x4c\x45\x4e\x41\x20\x33\x33',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x38',l:'\x35\x4c\x31\x38\x20\x2d\x20\x51\x55\x45\x42\x52\x41\x43\x48\x4f',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x31\x39',l:'5L19 - LA PAZ RURAL (COOP)',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x39\x37',l:'\x35\x4c\x39\x37\x20\x2d\x20\x50\x49\x4c\x4f\x54\x4f\x20\x41\x56\x49\x4c\x41',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x39\x38',l:'\x35\x4c\x39\x38\x20\x2d\x20\x4c\x41\x20\x50\x41\x5a\x20\x55\x52\x42\x41\x4e\x4f',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x35\x4c\x39\x39',l:'5L99 - LA PAZ CIUDAD (COOP)',g:'\x33\x33\x30\x30\x30\x20\x56'},
-{v:'\x42\x54\x30\x31',l:'BT01 - RED DE BAJA TENSIÓN',g:'\x32\x32\x30\x2f\x33\x38\x30\x20\x56'}
+    {v:'5D02',l:'5D02 - AVENIDA (SET M. GRANDE)',g:'13200 V'},
+    {v:'5D03',l:'5D03 - AVENIDA',g:'13200 V'},
+    {v:'5D04',l:'5D04 - INTERLAGOS',g:'13200 V'},
+    {v:'5D05',l:'5D05 - IRIGOYEN (MARIA GRANDE)',g:'13200 V'},
+    {v:'5D06',l:'5D06 - RUTA 32',g:'13200 V'},
+    {v:'5D07',l:'5D07 - PARQUE INDUSTRIAL (SET M. GRANDE)',g:'13200 V'},
+    {v:'5D08',l:'5D08 - ALCARAZ RURAL',g:'13200 V'},
+    {v:'5D09',l:'5D09 - ALCARAZ URBANO',g:'13200 V'},
+    {v:'5D11',l:'5D11 - SIR LEONARD',g:'13200 V'},
+    {v:'5D16',l:'5D16 - DURAZNO (BOVRIL)',g:'13200 V'},
+    {v:'5D23',l:'5D23 - LOS GRINGOS',g:'13200 V'},
+    {v:'5D27',l:'5D27 - EL CRUCE (SLUNA)',g:'13200 V'},
+    {v:'5D28',l:'5D28 - URBANO BOVRIL',g:'13200 V'},
+    {v:'5D31',l:'5D31 - SAUCE DE LUNA URBANO',g:'13200 V'},
+    {v:'5D32',l:'5D32 - ACHIRAS',g:'13200 V'},
+    {v:'5D36',l:'5D36 - SAN ROQUE (BOVRIL)',g:'13200 V'},
+    {v:'5D40',l:'5D40 - RUTA 7',g:'13200 V'},
+    {v:'5D41',l:'5D41 - PUERTO ALGARROBO',g:'13200 V'},
+    {v:'5D43',l:'5D43 - INDAVISA (PIEDRAS BLANCAS)',g:'13200 V'},
+    {v:'5D44',l:'5D44 - URBANO PIEDRAS BLANCAS',g:'13200 V'},
+    {v:'5D53',l:'5D53 - COOB',g:'13200 V'},
+    {v:'5D56',l:'5D56 - CENTRO (SANTA ELENA)',g:'13200 V'},
+    {v:'5D57',l:'5D57 - SUR (SANTA ELENA)',g:'13200 V'},
+    {v:'5D58',l:'5D58 - NORTE (SANTA ELENA)',g:'13200 V'},
+    {v:'5D60',l:'5D60 - RURAL SANTA ELENA',g:'13200 V'},
+    {v:'5D78',l:'5D78 - RURAL (SOSA)',g:'13200 V'},
+    {v:'5L03',l:'5L03 - CERRITO',g:'33000 V'},
+    {v:'5L09',l:'5L09 - FRIGORIFICO SANTA ELENA',g:'33000 V'},
+    {v:'5L10',l:'5L10 - BOVRIL',g:'33000 V'},
+    {v:'5L12',l:'5L12 - HASENKAMP',g:'33000 V'},
+    {v:'5L15',l:'5L15 - LINEA MARIA GRANDE',g:'33000 V'},
+    {v:'5L17',l:'5L17 - SANTA ELENA 33',g:'33000 V'},
+    {v:'5L18',l:'5L18 - QUEBRACHO',g:'33000 V'},
+    {v:'5L19',l:'5L19 - LA PAZ RURAL (COOP)',g:'33000 V'},
+    {v:'5L97',l:'5L97 - PILOTO AVILA',g:'33000 V'},
+    {v:'5L98',l:'5L98 - LA PAZ URBANO',g:'33000 V'},
+    {v:'5L99',l:'5L99 - LA PAZ CIUDAD (COOP)',g:'33000 V'},
+    {v:'BT01',l:'BT01 - RED DE BAJA TENSIÓN',g:'220/380 V'}
 ];
+
 const TIPOS = [
-'\x52\x69\x65\x73\x67\x6f\x20\x76\xed\x61\x20\x70\xfa\x62\x6c\x69\x63\x61',
-'\x4d\x61\x6e\x74\x65\x6e\x69\x6d\x69\x65\x6e\x74\x6f\x20\x70\x72\x65\x76\x65\x6e\x74\x69\x76\x6f',
-'\x4d\x61\x74\x65\x72\x69\x61\x6c\x20\x61\x76\x65\x72\x69\x61\x64\x6f',
-'\x50\x6f\x64\x61\x20\x64\x65\x20\xe1\x72\x62\x6f\x6c\x65\x73',
-'\x4e\x69\x64\x6f\x73',
-'\x46\x61\x6c\x6c\x61\x20\x64\x65\x20\x4c\xed\x6e\x65\x61',
-'\x49\x6e\x73\x70\x65\x63\x63\x69\xf3\x6e\x20\x54\x65\x72\x6d\x6f\x67\x72\xe1\x66\x69\x63\x61',
-'\x41\x76\x65\x72\xed\x61\x20\x65\x6e\x20\x54\x72\x61\x6e\x73\x66\x6f\x72\x6d\x61\x64\x6f\x72',
-'\x52\x65\x63\x6c\x61\x6d\x6f\x20\x64\x65\x20\x43\x6c\x69\x65\x6e\x74\x65',
-'\x43\x6f\x6e\x65\x78\x69\xf3\x6e\x20\x4e\x75\x65\x76\x61',
-'\x43\x6f\x72\x74\x65\x20\x50\x72\x6f\x67\x72\x61\x6d\x61\x64\x6f',
-'\x45\x6d\x65\x72\x67\x65\x6e\x63\x69\x61',
-'\x4f\x74\x72\x6f\x73'
+    'Riesgo vía pública',
+    'Mantenimiento preventivo',
+    'Material averiado',
+    'Poda de árboles',
+    'Nidos',
+    'Falla de Línea',
+    'Inspección Termográfica',
+    'Avería en Transformador',
+    'Reclamo de Cliente',
+    'Conexión Nueva',
+    'Corte Programado',
+    'Emergencia',
+    'Otros'
 ];
-const CN = new Set(['\x6e\x75\x6d\x65\x72\x6f\x5f\x70\x65\x64\x69\x64\x6f','\x66\x65\x63\x68\x61\x5f\x63\x72\x65\x61\x63\x69\x6f\x6e','\x66\x65\x63\x68\x61\x5f\x63\x69\x65\x72\x72\x65','\x64\x69\x73\x74\x72\x69\x62\x75\x69\x64\x6f\x72','\x73\x65\x74\x64',
-'\x63\x6c\x69\x65\x6e\x74\x65','\x74\x69\x70\x6f\x5f\x74\x72\x61\x62\x61\x6a\x6f','\x64\x65\x73\x63\x72\x69\x70\x63\x69\x6f\x6e','\x70\x72\x69\x6f\x72\x69\x64\x61\x64','\x65\x73\x74\x61\x64\x6f','\x61\x76\x61\x6e\x63\x65','\x6c\x61\x74','\x6c\x6e\x67',
-'\x75\x73\x75\x61\x72\x69\x6f\x5f\x69\x64','\x74\x72\x61\x62\x61\x6a\x6f\x5f\x72\x65\x61\x6c\x69\x7a\x61\x64\x6f','\x74\x65\x63\x6e\x69\x63\x6f\x5f\x63\x69\x65\x72\x72\x65','\x66\x6f\x74\x6f\x5f\x62\x61\x73\x65\x36\x34','\x78\x5f\x69\x6e\x63\x68\x61\x75\x73\x70\x65','\x79\x5f\x69\x6e\x63\x68\x61\x75\x73\x70\x65',
-'\x66\x65\x63\x68\x61\x5f\x61\x76\x61\x6e\x63\x65','\x66\x6f\x74\x6f\x5f\x63\x69\x65\x72\x72\x65']);
+
+const CN = new Set(['numero_pedido','fecha_creacion','fecha_cierre','distribuidor','setd',
+    'cliente','tipo_trabajo','descripcion','prioridad','estado','avance','lat','lng',
+    'usuario_id','trabajo_realizado','tecnico_cierre','foto_base64','x_inchauspe','y_inchauspe',
+    'fecha_avance','foto_cierre']);
+
 const app = {
-u: null,
-p: [],
-map: null,
-mk: [],
-sel: null,
-tab: '\x70',
-cid: null,
-ok: false
+    u: null,
+    p: [],
+    map: null,
+    mk: [],
+    sel: null,
+    tab: 'p',
+    cid: null,
+    ok: false
 };
-const dbs = document.getElementById('\x64\x62\x73');
-const lb  = document.getElementById('\x6c\x62');
+
+const dbs = document.getElementById('dbs');
+const lb  = document.getElementById('lb');
+
 lb.disabled = false;
 actualizarBadgeOffline();
-dbs.className = '\x64\x62\x73\x20\x63';
+dbs.className = 'dbs c';
 dbs.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando red...';
+
 (async function conectarNeon() {
-try {
-const ok = await initNeon();
-if (ok) {
-try {
-await sqlSimple(`CREATE TABLE IF NOT EXISTS pedidos(
-id SERIAL PRIMARY KEY,
-numero_pedido TEXT NOT NULL,
-fecha_creacion TIMESTAMPTZ DEFAULT NOW(),
-fecha_cierre TIMESTAMPTZ,
-distribuidor TEXT NOT NULL,
-setd TEXT, cliente TEXT, tipo_trabajo TEXT,
-descripcion TEXT NOT NULL,
-prioridad TEXT NOT NULL DEFAULT 'Media',
-estado TEXT NOT NULL DEFAULT 'Pendiente',
-avance INT DEFAULT 0,
-lat DOUBLE PRECISION, lng DOUBLE PRECISION,
-usuario_id INT, trabajo_realizado TEXT,
-tecnico_cierre TEXT, foto_base64 TEXT,
-x_inchauspe NUMERIC, y_inchauspe NUMERIC,
-fecha_avance TIMESTAMPTZ, foto_cierre TEXT
-)`);
-await sqlSimple(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS foto_cierre TEXT`);
-await sqlSimple(`CREATE TABLE IF NOT EXISTS pedido_contador(
-anio INT PRIMARY KEY,
-ultimo_numero INT NOT NULL DEFAULT 0
-)`);
-} catch(_) {}
-app.ok = true;
-NEON_OK = true;
-dbs.className = '\x64\x62\x73\x20\x6f\x6b';
-dbs.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
-setModoOffline(false);
-if (app.u && offlineQueue().length > 0) setTimeout(sincronizarOffline, 1500);
-else if (app.u) cargarPedidos();
-} else {
-throw new Error('\x53\x69\x6e\x20\x72\x65\x64');
-}
-} catch(e) {
-console.warn('\x5b\x4e\x65\x6f\x6e\x5d', e.message);
-app.ok = false;
-NEON_OK = false;
-const tieneCache = (() => {
-try { return JSON.parse(localStorage.getItem('\x70\x6d\x67\x5f\x6f\x66\x66\x6c\x69\x6e\x65\x5f\x75\x73\x65\x72') || '\x5b\x5d').length > 0; } catch(_) { return false; }
+    try {
+        const ok = await initNeon();
+        if (ok) {
+            try {
+                await sqlSimple(`CREATE TABLE IF NOT EXISTS pedidos(
+                    id SERIAL PRIMARY KEY,
+                    numero_pedido TEXT NOT NULL,
+                    fecha_creacion TIMESTAMPTZ DEFAULT NOW(),
+                    fecha_cierre TIMESTAMPTZ,
+                    distribuidor TEXT NOT NULL,
+                    setd TEXT, cliente TEXT, tipo_trabajo TEXT,
+                    descripcion TEXT NOT NULL,
+                    prioridad TEXT NOT NULL DEFAULT 'Media',
+                    estado TEXT NOT NULL DEFAULT 'Pendiente',
+                    avance INT DEFAULT 0,
+                    lat DOUBLE PRECISION, lng DOUBLE PRECISION,
+                    usuario_id INT, trabajo_realizado TEXT,
+                    tecnico_cierre TEXT, foto_base64 TEXT,
+                    x_inchauspe NUMERIC, y_inchauspe NUMERIC,
+                    fecha_avance TIMESTAMPTZ, foto_cierre TEXT
+                )`);
+                await sqlSimple(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS foto_cierre TEXT`);
+                
+                await sqlSimple(`CREATE TABLE IF NOT EXISTS pedido_contador(
+                    anio INT PRIMARY KEY,
+                    ultimo_numero INT NOT NULL DEFAULT 0
+                )`);
+            } catch(_) {}
+            app.ok = true;
+            NEON_OK = true;
+            dbs.className = 'dbs ok';
+            dbs.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
+            setModoOffline(false);
+            
+            if (app.u && offlineQueue().length > 0) setTimeout(sincronizarOffline, 1500);
+            else if (app.u) cargarPedidos();
+        } else {
+            throw new Error('Sin red');
+        }
+    } catch(e) {
+        console.warn('[Neon]', e.message);
+        app.ok = false;
+        NEON_OK = false;
+        const tieneCache = (() => {
+            try { return JSON.parse(localStorage.getItem('pmg_offline_user') || '[]').length > 0; } catch(_) { return false; }
+        })();
+        dbs.className = 'dbs er';
+        dbs.innerHTML = tieneCache
+            ? '<i class="fas fa-wifi-slash"></i> Sin conexión — podés ingresar offline'
+            : '<i class="fas fa-wifi-slash"></i> Sin conexión — ingresá con internet primero';
+        setModoOffline(true);
+    }
 })();
-dbs.className = '\x64\x62\x73\x20\x65\x72';
-dbs.innerHTML = tieneCache
-? '<i class="fas fa-wifi-slash"></i> Sin conexión — podés ingresar offline'
-: '<i class="fas fa-wifi-slash"></i> Sin conexión — ingresá con internet primero';
-setModoOffline(true);
-}
-})();
-document.getElementById('\x6c\x66').addEventListener('\x73\x75\x62\x6d\x69\x74', async e => {
-e.preventDefault();
-const em = document.getElementById('\x65\x6d').value.trim();
-const pw = document.getElementById('\x70\x77').value;
-const le = document.getElementById('\x6c\x65');
-const lb = document.getElementById('\x6c\x62');
-lb.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando...';
-lb.disabled = true;
-le.textContent = '';
-function entrarConUsuario(u, offline = false) {
-app.u = u;
-localStorage.setItem('\x70\x6d\x67', JSON.stringify(app.u));
-document.getElementById('\x75\x6e').textContent = u.nombre.split('\x20')[0];
-document.getElementById('\x6c\x73').classList.remove('\x61\x63\x74\x69\x76\x65');
-document.getElementById('\x6d\x73').classList.add('\x61\x63\x74\x69\x76\x65');
-iniciarKeepAlive();
-setTimeout(async () => {
-solicitarPermisos().then(r => {
-if (!r.gps) toast('GPS no disponible — ubicación manual', '\x69\x6e\x66\x6f');
+
+document.getElementById('lf').addEventListener('submit', async e => {
+    e.preventDefault();
+    
+    const em = document.getElementById('em').value.trim();
+    const pw = document.getElementById('pw').value;
+    const le = document.getElementById('le');
+    const lb = document.getElementById('lb');
+    
+    lb.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando...';
+    lb.disabled = true;
+    le.textContent = '';
+    
+    
+    function entrarConUsuario(u, offline = false) {
+        app.u = u;
+        localStorage.setItem('pmg', JSON.stringify(app.u));
+        document.getElementById('un').textContent = u.nombre.split(' ')[0];
+        document.getElementById('ls').classList.remove('active');
+        document.getElementById('ms').classList.add('active');
+        iniciarKeepAlive();
+        setTimeout(async () => {
+            
+            solicitarPermisos().then(r => {
+                if (!r.gps) toast('GPS no disponible — ubicación manual', 'info');
+            });
+            initMap();
+            if (!offline) {
+                await cargarPedidos();
+                
+                offlinePedidosSave(app.p);
+            } else {
+                
+                app.p = offlinePedidos();
+                render();
+                toast('📴 Modo offline — mostrando pedidos en caché', 'info');
+            }
+        }, 200);
+    }
+    
+    
+    function intentarOffline() {
+        const u = verificarUsuarioOffline(em, pw);
+        if (u) {
+            entrarConUsuario({ id: u.id, email: u.email, nombre: u.nombre, rol: u.rol }, true);
+            toast('📴 Modo offline — ' + u.nombre, 'info');
+            return true;
+        }
+        return false;
+    }
+
+    try {
+        
+        if (modoOffline || !NEON_OK || !_sql) {
+            if (!intentarOffline()) {
+                le.textContent = 'Sin conexión. Ingresá con internet al menos una vez para habilitar el modo offline.';
+            }
+            return;
+        }
+
+        
+        let resultado = null;
+        try {
+            resultado = await conTimeout(
+                sqlSimple(
+                    `SELECT id, email, nombre, rol FROM usuarios WHERE email = ${esc(em)} AND password_hash = ${esc(pw)}`
+                ),
+                5000, 'timeout login'
+            );
+        } catch (netErr) {
+            
+            console.warn('Login: red caída, usando cache:', netErr.message);
+            setModoOffline(true);
+            if (!intentarOffline()) {
+                le.textContent = 'Se perdió la conexión. Si ingresaste antes, ya podés entrar sin internet.';
+            }
+            return;
+        }
+
+        const usuario = resultado.rows?.[0];
+        if (usuario) {
+            const u = { id: usuario.id, email: usuario.email, nombre: usuario.nombre || 'Administrador', rol: usuario.rol || 'admin' };
+            guardarUsuarioOffline(u, pw);
+            entrarConUsuario(u, false);
+            toast('Bienvenido ' + u.nombre, 'success');
+        } else {
+            
+            le.textContent = 'Email o contraseña incorrectos.';
+        }
+    } catch (error) {
+        console.error('Error inesperado en login:', error);
+        if (!intentarOffline()) {
+            le.textContent = 'Error inesperado. Intentá de nuevo.';
+        }
+    } finally {
+        lb.innerHTML = '<i class="fas fa-sign-in-alt"></i> Ingresar';
+        lb.disabled = false;
+    }
 });
-initMap();
-if (!offline) {
-await cargarPedidos();
-offlinePedidosSave(app.p);
-} else {
-app.p = offlinePedidos();
-render();
-toast('📴 Modo offline — mostrando pedidos en caché', '\x69\x6e\x66\x6f');
+
+function toast(msg, tipo = 'info') {
+    let el = document.getElementById('toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'toast';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.className = 'show ' + tipo;
+    clearTimeout(window.toastTimer);
+    window.toastTimer = setTimeout(() => { el.className = tipo; }, 3200);
 }
-}, 200);
-}
-function intentarOffline() {
-const u = verificarUsuarioOffline(em, pw);
-if (u) {
-entrarConUsuario({ id: u.id, email: u.email, nombre: u.nombre, rol: u.rol }, true);
-toast('\x1f4f4\x20\x4d\x6f\x64\x6f\x20\x6f\x66\x66\x6c\x69\x6e\x65\x20\x2014\x20' + u.nombre, '\x69\x6e\x66\x6f');
-return true;
-}
-return false;
-}
-try {
-if (modoOffline || !NEON_OK || !_sql) {
-if (!intentarOffline()) {
-le.textContent = 'Sin conexión. Ingresá con internet al menos una vez para habilitar el modo offline.';
-}
-return;
-}
-let resultado = null;
-try {
-resultado = await conTimeout(
-sqlSimple(
-`SELECT id, email, nombre, rol FROM usuarios WHERE email = ${esc(em)} AND password_hash = ${esc(pw)}`
-),
-5000, '\x74\x69\x6d\x65\x6f\x75\x74\x20\x6c\x6f\x67\x69\x6e'
-);
-} catch (netErr) {
-console.warn('Login: red caída, usando cache:', netErr.message);
-setModoOffline(true);
-if (!intentarOffline()) {
-le.textContent = 'Se perdió la conexión. Si ingresaste antes, ya podés entrar sin internet.';
-}
-return;
-}
-const usuario = resultado.rows?.[0];
-if (usuario) {
-const u = { id: usuario.id, email: usuario.email, nombre: usuario.nombre || '\x41\x64\x6d\x69\x6e\x69\x73\x74\x72\x61\x64\x6f\x72', rol: usuario.rol || '\x61\x64\x6d\x69\x6e' };
-guardarUsuarioOffline(u, pw);
-entrarConUsuario(u, false);
-toast('\x42\x69\x65\x6e\x76\x65\x6e\x69\x64\x6f\x20' + u.nombre, '\x73\x75\x63\x63\x65\x73\x73');
-} else {
-le.textContent = 'Email o contraseña incorrectos.';
-}
-} catch (error) {
-console.error('Error inesperado en login:', error);
-if (!intentarOffline()) {
-le.textContent = 'Error inesperado. Intentá de nuevo.';
-}
-} finally {
-lb.innerHTML = '<i class="fas fa-sign-in-alt"></i> Ingresar';
-lb.disabled = false;
-}
-});
-function toast(msg, tipo = '\x69\x6e\x66\x6f') {
-let el = document.getElementById('\x74\x6f\x61\x73\x74');
-if (!el) {
-el = document.createElement('\x64\x69\x76');
-el.id = '\x74\x6f\x61\x73\x74';
-document.body.appendChild(el);
-}
-el.textContent = msg;
-el.className = '\x73\x68\x6f\x77\x20' + tipo;
-clearTimeout(window.toastTimer);
-window.toastTimer = setTimeout(() => { el.className = tipo; }, 3200);
-}
+
 const norm = p => ({
-id: p.id,
-np: p.numero_pedido,
-f: p.fecha_creacion || p.fecha || new Date().toISOString(),
-fc: p.fecha_cierre || null,
-fa: p.fecha_avance || null,
-dis: p.distribuidor || '',
-sd: p.setd || '',
-cl: p.cliente || '',
-tt: p.tipo_trabajo || '',
-de: p.descripcion || '',
-pr: p.prioridad || '\x4d\x65\x64\x69\x61',
-es: p.estado || '\x50\x65\x6e\x64\x69\x65\x6e\x74\x65',
-av: parseInt(p.avance) || 0,
-la: parseFloat(p.lat) || -31.505,
-ln: parseFloat(p.lng) || -60.02,
-ui: p.usuario_id,
-tr: p.trabajo_realizado || null,
-tc: p.tecnico_cierre || null,
-fotos: p.foto_base64 ? p.foto_base64.split('\x7c\x7c') : [],
-foto_cierre: p.foto_cierre || null,
-x_inchauspe: p.x_inchauspe,
-y_inchauspe: p.y_inchauspe
+    id: p.id,
+    np: p.numero_pedido,
+    f: p.fecha_creacion || p.fecha || new Date().toISOString(),
+    fc: p.fecha_cierre || null,
+    fa: p.fecha_avance || null,
+    dis: p.distribuidor || '',
+    sd: p.setd || '',
+    cl: p.cliente || '',
+    tt: p.tipo_trabajo || '',
+    de: p.descripcion || '',
+    pr: p.prioridad || 'Media',
+    es: p.estado || 'Pendiente',
+    av: parseInt(p.avance) || 0,
+    la: parseFloat(p.lat) || -31.505,
+    ln: parseFloat(p.lng) || -60.02,
+    ui: p.usuario_id,
+    tr: p.trabajo_realizado || null,
+    tc: p.tecnico_cierre || null,
+    fotos: p.foto_base64 ? p.foto_base64.split('||') : [],
+    foto_cierre: p.foto_cierre || null,
+    x_inchauspe: p.x_inchauspe,
+    y_inchauspe: p.y_inchauspe
 });
+
 async function cargarPedidos() {
-document.getElementById('\x70\x6c').innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Cargando...</div>';
-if (modoOffline) {
-app.p = offlinePedidos();
-render();
-return;
+    document.getElementById('pl').innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Cargando...</div>';
+    if (modoOffline) {
+        
+        app.p = offlinePedidos();
+        render();
+        return;
+    }
+    try {
+        const r = await ejecutarSQLConReintentos('SELECT * FROM pedidos ORDER BY fecha_creacion DESC');
+        app.p = (r.rows || []).map(norm);
+        
+        offlinePedidosSave(app.p);
+    } catch(e) {
+        console.warn('cargarPedidos: error, usando cache', e.message);
+        setModoOffline(true);
+        app.p = offlinePedidos();
+        toast('Sin conexión — mostrando pedidos en caché', 'info');
+    }
+    render();
 }
-try {
-const r = await ejecutarSQLConReintentos('SELECT * FROM pedidos ORDER BY fecha_creacion DESC');
-app.p = (r.rows || []).map(norm);
-offlinePedidosSave(app.p);
-} catch(e) {
-console.warn('cargarPedidos: error, usando cache', e.message);
-setModoOffline(true);
-app.p = offlinePedidos();
-toast('Sin conexión — mostrando pedidos en caché', '\x69\x6e\x66\x6f');
-}
-render();
-}
+
 function convertirAInchauspe(lat, lng) {
-try {
-const inchauspe = proj4('\x57\x47\x53\x38\x34', '\x49\x4e\x43\x48\x41\x55\x53\x50\x45', [lng, lat]);
-return {
-x: inchauspe[0].toFixed(2).replace('\x2e', '\x2c'),
-y: inchauspe[1].toFixed(2).replace('\x2e', '\x2c')
-};
-} catch (e) {
-console.error('Error al convertir coordenadas:', e);
-return { x: '\x45\x72\x72\x6f\x72', y: '\x45\x72\x72\x6f\x72' };
+    try {
+        const inchauspe = proj4('WGS84', 'INCHAUSPE', [lng, lat]);
+        return {
+            x: inchauspe[0].toFixed(2).replace('.', ','),
+            y: inchauspe[1].toFixed(2).replace('.', ',')
+        };
+    } catch (e) {
+        console.error('Error al convertir coordenadas:', e);
+        return { x: 'Error', y: 'Error' };
+    }
 }
-}
+
 function calcularEscalaReal(zoom) {
-const lat = app.map ? app.map.getCenter().lat : -31.5;
-const latRad = lat * Math.PI / 180;
-const resolucion = (40075016.686 * Math.cos(latRad)) / (256 * Math.pow(2, zoom));
-const el = document.getElementById('\x6d\x63');
-const anchoPantalla = el ? el.clientWidth : 800;
-const metrosVisibles = resolucion * anchoPantalla;
-if (metrosVisibles < 1) return (metrosVisibles * 100).toFixed(0) + '\x20\x63\x6d';
-if (metrosVisibles < 10) return metrosVisibles.toFixed(1) + '\x20\x6d';
-if (metrosVisibles < 1000) return Math.round(metrosVisibles) + '\x20\x6d';
-if (metrosVisibles < 10000) return (metrosVisibles / 1000).toFixed(1) + '\x20\x6b\x6d';
-return Math.round(metrosVisibles / 1000) + '\x20\x6b\x6d';
+    
+    
+    const lat = app.map ? app.map.getCenter().lat : -31.5;
+    const latRad = lat * Math.PI / 180;
+    
+    const resolucion = (40075016.686 * Math.cos(latRad)) / (256 * Math.pow(2, zoom));
+    
+    const el = document.getElementById('mc');
+    const anchoPantalla = el ? el.clientWidth : 800;
+    const metrosVisibles = resolucion * anchoPantalla;
+    
+    if (metrosVisibles < 1) return (metrosVisibles * 100).toFixed(0) + ' cm';
+    if (metrosVisibles < 10) return metrosVisibles.toFixed(1) + ' m';
+    if (metrosVisibles < 1000) return Math.round(metrosVisibles) + ' m';
+    if (metrosVisibles < 10000) return (metrosVisibles / 1000).toFixed(1) + ' km';
+    return Math.round(metrosVisibles / 1000) + ' km';
 }
+
 function initMap() {
-if (mapaInicializado && app.map) {
-app.map.invalidateSize();
-return;
+    if (mapaInicializado && app.map) {
+        app.map.invalidateSize();
+        return;
+    }
+    
+    const el = document.getElementById('mc');
+    if (!el || el.clientWidth === 0) {
+        setTimeout(initMap, 250);
+        return;
+    }
+    
+    if (app.map) {
+        app.map.remove();
+        app.map = null;
+    }
+    
+    app.map = L.map('mc', {
+        zoomControl: true,
+        attributionControl: true,
+        maxZoom: 19,
+        zoom: 13 
+    }).setView([-31.505, -60.02], 13);
+    
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        subdomains: ['a','b','c'],
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        tileSize: 256,
+        detectRetina: false,
+    }).addTo(app.map);
+    
+    
+    const actualizarEscala = () => {
+        if (app.map) document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
+    };
+    app.map.on('zoomend', actualizarEscala);
+    app.map.on('moveend', actualizarEscala);
+    
+    setTimeout(actualizarEscala, 200);
+    
+    app.map.on('click', e => {
+        
+        
+        if (app.map._popup && app.map._popup.isOpen && app.map._popup.isOpen()) return;
+
+        
+        const dmModal = document.getElementById('dm');
+        if (dmModal && dmModal.classList.contains('active')) return;
+
+        
+        const hayModalAbierto = document.querySelector('.mo.active');
+        if (hayModalAbierto) return;
+
+        app.sel = e.latlng;
+        document.getElementById('li').value = e.latlng.lat;
+        document.getElementById('gi').value = e.latlng.lng;
+        const ui = document.getElementById('ui');
+        ui.innerHTML = `<i class="fas fa-check-circle" style="color:#059669"></i> ${e.latlng.lat.toFixed(5).replace('.', ',')}, ${e.latlng.lng.toFixed(5).replace('.', ',')}`;
+        ui.className = 'ud sel';
+        document.getElementById('pm').classList.add('active');
+    });
+    
+    mapaInicializado = true;
+    renderMk();
+    
+    
+    if (ultimaUbicacion && app.map) {
+        const zInit = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
+        app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], zInit || 15);
+        setTimeout(() => {
+            document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
+        }, 100);
+        
+        setTimeout(() => solicitarUbicacion(false, true), 500);
+    } else {
+        
+        solicitarUbicacion(true, false);
+    }
 }
-const el = document.getElementById('\x6d\x63');
-if (!el || el.clientWidth === 0) {
-setTimeout(initMap, 250);
-return;
-}
-if (app.map) {
-app.map.remove();
-app.map = null;
-}
-app.map = L.map('\x6d\x63', {
-zoomControl: true,
-attributionControl: true,
-maxZoom: 19,
-zoom: 13
-}).setView([-31.505, -60.02], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-subdomains: ['\x61','\x62','\x63'],
-maxZoom: 19,
-maxNativeZoom: 19,
-tileSize: 256,
-detectRetina: false,
-}).addTo(app.map);
-const actualizarEscala = () => {
-if (app.map) document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(app.map.getZoom());
-};
-app.map.on('\x7a\x6f\x6f\x6d\x65\x6e\x64', actualizarEscala);
-app.map.on('\x6d\x6f\x76\x65\x65\x6e\x64', actualizarEscala);
-setTimeout(actualizarEscala, 200);
-app.map.on('\x63\x6c\x69\x63\x6b', e => {
-if (app.map._popup && app.map._popup.isOpen && app.map._popup.isOpen()) return;
-const dmModal = document.getElementById('\x64\x6d');
-if (dmModal && dmModal.classList.contains('\x61\x63\x74\x69\x76\x65')) return;
-const hayModalAbierto = document.querySelector('\x2e\x6d\x6f\x2e\x61\x63\x74\x69\x76\x65');
-if (hayModalAbierto) return;
-app.sel = e.latlng;
-document.getElementById('\x6c\x69').value = e.latlng.lat;
-document.getElementById('\x67\x69').value = e.latlng.lng;
-const ui = document.getElementById('\x75\x69');
-ui.innerHTML = `<i class="fas fa-check-circle" style="color:#059669"></i> ${e.latlng.lat.toFixed(5).replace('.', ',')}, ${e.latlng.lng.toFixed(5).replace('.', ',')}`;
-ui.className = '\x75\x64\x20\x73\x65\x6c';
-document.getElementById('\x70\x6d').classList.add('\x61\x63\x74\x69\x76\x65');
-});
-mapaInicializado = true;
-renderMk();
-if (ultimaUbicacion && app.map) {
-const zInit = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], zInit || 15);
-setTimeout(() => {
-document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(app.map.getZoom());
-}, 100);
-setTimeout(() => solicitarUbicacion(false, true), 500);
-} else {
-solicitarUbicacion(true, false);
-}
-}
-let _watchId         = null;
-let _circuloAcc      = null;
-let _mejorPrecision  = Infinity;
+
+let _watchId         = null;  
+let _circuloAcc      = null;  
+let _mejorPrecision  = Infinity; 
+
 function mostrarMarcadorUbicacion(lat, lon, acc) {
-if (!app.map) return;
-if (marcadorUbicacion) {
-try { app.map.removeLayer(marcadorUbicacion); } catch(_) {}
-marcadorUbicacion = null;
+    if (!app.map) return;
+
+    
+    if (marcadorUbicacion) {
+        try { app.map.removeLayer(marcadorUbicacion); } catch(_) {}
+        marcadorUbicacion = null;
+    }
+    
+    if (_circuloAcc) {
+        try { app.map.removeLayer(_circuloAcc); } catch(_) {}
+        _circuloAcc = null;
+    }
+
+    
+    
+    
+    
+    
+    const precisionZoom = !acc ? 15
+        : acc < 50   ? 17
+        : acc < 500  ? 15
+        : acc < 5000 ? 13
+        : 11;
+
+    
+    const svgIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+            width:16px;height:16px;
+            background:#10b981;
+            border:3px solid white;
+            border-radius:50%;
+            box-shadow:0 0 0 3px rgba(16,185,129,.4);
+            animation:pulse-gps 2s infinite;
+            position:relative;
+        "></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        popupAnchor: [0, -10]
+    });
+
+    const accTexto = acc
+        ? (acc < 1000 ? `±${Math.round(acc)} m` : `±${(acc/1000).toFixed(1)} km`)
+        : 'precisión desconocida';
+
+    const tipoGps = !acc ? 'GPS'
+        : acc < 100  ? '🛰️ GPS'
+        : acc < 2000 ? '📶 WiFi/Red celular'
+        : '🌐 Geolocalización por IP';
+
+    marcadorUbicacion = L.marker([lat, lon], { icon: svgIcon, zIndexOffset: 1000 })
+        .addTo(app.map)
+        .bindPopup(`
+            <div style="font-family:system-ui;min-width:160px">
+                <b style="color:#059669">📍 Tu ubicación</b><br>
+                <span style="font-size:11px;color:#475569">${tipoGps} — ${accTexto}</span><br>
+                <span style="font-size:10px;color:#94a3b8">${lat.toFixed(6)}, ${lon.toFixed(6)}</span>
+            </div>
+        `);
+
+    
+    if (acc && acc > 50) {
+        _circuloAcc = L.circle([lat, lon], {
+            radius: acc,
+            color: '#10b981',
+            fillColor: '#10b981',
+            fillOpacity: 0.08,
+            weight: 1.5,
+            dashArray: '5,5'
+        }).addTo(app.map);
+    }
+
+    return precisionZoom;
 }
-if (_circuloAcc) {
-try { app.map.removeLayer(_circuloAcc); } catch(_) {}
-_circuloAcc = null;
-}
-const precisionZoom = !acc ? 15
-: acc < 50   ? 17
-: acc < 500  ? 15
-: acc < 5000 ? 13
-: 11;
-const svgIcon = L.divIcon({
-className: '',
-html: `<div style="
-width:16px;height:16px;
-background:#10b981;
-border:3px solid white;
-border-radius:50%;
-box-shadow:0 0 0 3px rgba(16,185,129,.4);
-animation:pulse-gps 2s infinite;
-position:relative;
-"></div>`,
-iconSize: [16, 16],
-iconAnchor: [8, 8],
-popupAnchor: [0, -10]
-});
-const accTexto = acc
-? (acc < 1000 ? `±${Math.round(acc)} m` : `±${(acc/1000).toFixed(1)} km`)
-: '\x70\x72\x65\x63\x69\x73\x69\xf3\x6e\x20\x64\x65\x73\x63\x6f\x6e\x6f\x63\x69\x64\x61';
-const tipoGps = !acc ? '\x47\x50\x53'
-: acc < 100  ? '\x1f6f0\xfe0f\x20\x47\x50\x53'
-: acc < 2000 ? '\x1f4f6\x20\x57\x69\x46\x69\x2f\x52\x65\x64\x20\x63\x65\x6c\x75\x6c\x61\x72'
-: '\x1f310\x20\x47\x65\x6f\x6c\x6f\x63\x61\x6c\x69\x7a\x61\x63\x69\xf3\x6e\x20\x70\x6f\x72\x20\x49\x50';
-marcadorUbicacion = L.marker([lat, lon], { icon: svgIcon, zIndexOffset: 1000 })
-.addTo(app.map)
-.bindPopup(`
-<div style="font-family:system-ui;min-width:160px">
-<b style="color:#059669">📍 Tu ubicación</b><br>
-<span style="font-size:11px;color:#475569">${tipoGps} — ${accTexto}</span><br>
-<span style="font-size:10px;color:#94a3b8">${lat.toFixed(6)}, ${lon.toFixed(6)}</span>
-</div>
-`);
-if (acc && acc > 50) {
-_circuloAcc = L.circle([lat, lon], {
-radius: acc,
-color: '\x23\x31\x30\x62\x39\x38\x31',
-fillColor: '\x23\x31\x30\x62\x39\x38\x31',
-fillOpacity: 0.08,
-weight: 1.5,
-dashArray: '\x35\x2c\x35'
-}).addTo(app.map);
-}
-return precisionZoom;
-}
+
 function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
-if (!navigator.geolocation) {
-if (!modoSilencioso) toast('Geolocalización no disponible en este dispositivo', '\x65\x72\x72\x6f\x72');
-return;
+    if (!navigator.geolocation) {
+        if (!modoSilencioso) toast('Geolocalización no disponible en este dispositivo', 'error');
+        return;
+    }
+
+    
+    const btnVerde = document.getElementById('btn-ubicacion');
+    if (btnVerde && !modoSilencioso) {
+        btnVerde.style.opacity = '0.6';
+        btnVerde.style.animation = 'none';
+    }
+
+    let intentos = 0;
+    const MAX_INTENTOS = 3;
+
+    function procesarPosicion(position, esWatchUpdate = false) {
+        const { latitude, longitude, accuracy } = position.coords;
+        const acc = Math.round(accuracy);
+
+        
+        if (esWatchUpdate && acc >= _mejorPrecision && acc > 200) return;
+        _mejorPrecision = Math.min(_mejorPrecision, acc);
+
+        ultimaUbicacion = { lat: latitude, lon: longitude, acc };
+        try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+
+        if (app.map) {
+            const zoomSugerido = mostrarMarcadorUbicacion(latitude, longitude, acc);
+            if (centrarMapa) {
+                app.map.invalidateSize({ animate: false });
+                
+                const actualCenter = app.map.getCenter();
+                const distLat = Math.abs(actualCenter.lat - latitude);
+                const distLon = Math.abs(actualCenter.lng - longitude);
+                const estaLejos = distLat > 0.05 || distLon > 0.05;
+                if (estaLejos || !esWatchUpdate) {
+                    app.map.setView([latitude, longitude], zoomSugerido, { animate: true });
+                }
+                setTimeout(() => {
+                    document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
+                }, 300);
+            }
+        }
+
+        
+        if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
+
+        if (!modoSilencioso && !esWatchUpdate) {
+            const msg = acc < 100
+                ? `📍 GPS: ±${acc}m`
+                : acc < 2000
+                ? `📶 WiFi/Red: ±${acc}m`
+                : `🌐 IP: ±${(acc/1000).toFixed(0)}km — precisión baja`;
+            toast(msg, acc < 2000 ? 'success' : 'info');
+        }
+    }
+
+    function manejarError(error) {
+        if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
+        const msgs = {
+            1: 'Permiso de ubicación denegado — activalo en Configuración',
+            2: 'GPS no disponible',
+            3: 'Tiempo de espera agotado'
+        };
+        if (!modoSilencioso) {
+            toast(msgs[error.code] || 'Error de GPS', 'error');
+        }
+        
+        if (ultimaUbicacion && app.map && centrarMapa) {
+            app.map.invalidateSize({ animate: false });
+            mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
+            app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], 14, { animate: true });
+            if (!modoSilencioso) toast('📍 Mostrando última ubicación conocida', 'info');
+        }
+    }
+
+    
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            procesarPosicion(pos, false);
+            
+            if (pos.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
+                const intentarMejorar = () => {
+                    if (intentos >= MAX_INTENTOS) return;
+                    intentos++;
+                    navigator.geolocation.getCurrentPosition(
+                        p2 => {
+                            procesarPosicion(p2, false);
+                            
+                            if (p2.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
+                                setTimeout(intentarMejorar, 2000);
+                            }
+                        },
+                        () => {}, 
+                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                    );
+                };
+                setTimeout(intentarMejorar, 1500);
+            }
+        },
+        manejarError,
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+
+    
+    
+    
+    
+    if (!_watchId) {
+        _watchId = navigator.geolocation.watchPosition(
+            pos => {
+                
+                const { latitude, longitude, accuracy } = pos.coords;
+                const acc = Math.round(accuracy);
+                ultimaUbicacion = { lat: latitude, lon: longitude, acc };
+                try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+                
+                if (app.map) mostrarMarcadorUbicacion(latitude, longitude, acc);
+            },
+            err => console.warn('[GPS watch]', err.message),
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+    }
 }
-const btnVerde = document.getElementById('\x62\x74\x6e\x2d\x75\x62\x69\x63\x61\x63\x69\x6f\x6e');
-if (btnVerde && !modoSilencioso) {
-btnVerde.style.opacity = '\x30\x2e\x36';
-btnVerde.style.animation = '\x6e\x6f\x6e\x65';
-}
-let intentos = 0;
-const MAX_INTENTOS = 3;
-function procesarPosicion(position, esWatchUpdate = false) {
-const { latitude, longitude, accuracy } = position.coords;
-const acc = Math.round(accuracy);
-if (esWatchUpdate && acc >= _mejorPrecision && acc > 200) return;
-_mejorPrecision = Math.min(_mejorPrecision, acc);
-ultimaUbicacion = { lat: latitude, lon: longitude, acc };
-try { localStorage.setItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-if (app.map) {
-const zoomSugerido = mostrarMarcadorUbicacion(latitude, longitude, acc);
-if (centrarMapa) {
-app.map.invalidateSize({ animate: false });
-const actualCenter = app.map.getCenter();
-const distLat = Math.abs(actualCenter.lat - latitude);
-const distLon = Math.abs(actualCenter.lng - longitude);
-const estaLejos = distLat > 0.05 || distLon > 0.05;
-if (estaLejos || !esWatchUpdate) {
-app.map.setView([latitude, longitude], zoomSugerido, { animate: true });
-}
-setTimeout(() => {
-document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(app.map.getZoom());
-}, 300);
-}
-}
-if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
-if (!modoSilencioso && !esWatchUpdate) {
-const msg = acc < 100
-? `📍 GPS: ±${acc}m`
-: acc < 2000
-? `📶 WiFi/Red: ±${acc}m`
-: `🌐 IP: ±${(acc/1000).toFixed(0)}km — precisión baja`;
-toast(msg, acc < 2000 ? '\x73\x75\x63\x63\x65\x73\x73' : '\x69\x6e\x66\x6f');
-}
-}
-function manejarError(error) {
-if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
-const msgs = {
-1: 'Permiso de ubicación denegado — activalo en Configuración',
-2: '\x47\x50\x53\x20\x6e\x6f\x20\x64\x69\x73\x70\x6f\x6e\x69\x62\x6c\x65',
-3: '\x54\x69\x65\x6d\x70\x6f\x20\x64\x65\x20\x65\x73\x70\x65\x72\x61\x20\x61\x67\x6f\x74\x61\x64\x6f'
-};
-if (!modoSilencioso) {
-toast(msgs[error.code] || '\x45\x72\x72\x6f\x72\x20\x64\x65\x20\x47\x50\x53', '\x65\x72\x72\x6f\x72');
-}
-if (ultimaUbicacion && app.map && centrarMapa) {
-app.map.invalidateSize({ animate: false });
-mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], 14, { animate: true });
-if (!modoSilencioso) toast('📍 Mostrando última ubicación conocida', '\x69\x6e\x66\x6f');
-}
-}
-navigator.geolocation.getCurrentPosition(
-pos => {
-procesarPosicion(pos, false);
-if (pos.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
-const intentarMejorar = () => {
-if (intentos >= MAX_INTENTOS) return;
-intentos++;
-navigator.geolocation.getCurrentPosition(
-p2 => {
-procesarPosicion(p2, false);
-if (p2.coords.accuracy > 100 && intentos < MAX_INTENTOS) {
-setTimeout(intentarMejorar, 2000);
-}
-},
-() => {},
-{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-);
-};
-setTimeout(intentarMejorar, 1500);
-}
-},
-manejarError,
-{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-);
-if (!_watchId) {
-_watchId = navigator.geolocation.watchPosition(
-pos => {
-const { latitude, longitude, accuracy } = pos.coords;
-const acc = Math.round(accuracy);
-ultimaUbicacion = { lat: latitude, lon: longitude, acc };
-try { localStorage.setItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-if (app.map) mostrarMarcadorUbicacion(latitude, longitude, acc);
-},
-err => console.warn('\x5b\x47\x50\x53\x20\x77\x61\x74\x63\x68\x5d', err.message),
-{ enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-);
-}
-}
-document.getElementById('\x62\x74\x6e\x2d\x75\x62\x69\x63\x61\x63\x69\x6f\x6e').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-if (!app.map) return;
-if (ultimaUbicacion) {
-app.map.invalidateSize({ animate: false });
-const z = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], z || 15, { animate: true });
-setTimeout(() => {
-document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(app.map.getZoom());
-}, 300);
-solicitarUbicacion(true, true);
-} else {
-solicitarUbicacion(true, false);
-}
+
+document.getElementById('btn-ubicacion').addEventListener('click', () => {
+    if (!app.map) return;
+    if (ultimaUbicacion) {
+        
+        app.map.invalidateSize({ animate: false });
+        const z = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
+        app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], z || 15, { animate: true });
+        setTimeout(() => {
+            document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
+        }, 300);
+        
+        solicitarUbicacion(true, true);
+    } else {
+        
+        solicitarUbicacion(true, false);
+    }
 });
-document.getElementById('\x62\x74\x6e\x2d\x70\x65\x64\x69\x64\x6f\x2d\x75\x62\x69\x63\x61\x63\x69\x6f\x6e').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-fotosTemporales = [];
-actualizarVistaPreviaFotos();
-closeAll();
-function aplicarUbicacionAlFormulario(lat, lon, acc) {
-app.sel = { lat, lng: lon };
-document.getElementById('\x6c\x69').value = lat;
-document.getElementById('\x67\x69').value = lon;
-const accStr = acc ? ` (±${acc < 1000 ? acc + 'm' : (acc/1000).toFixed(1) + 'km'})` : '';
-const ui = document.getElementById('\x75\x69');
-if (ui) {
-ui.innerHTML = `<i class="fas fa-check-circle" style="color:#059669"></i> ${lat.toFixed(5).replace('.', ',')}, ${lon.toFixed(5).replace('.', ',')}${accStr}`;
-ui.className = '\x75\x64\x20\x73\x65\x6c';
-}
-if (app.map) mostrarMarcadorUbicacion(lat, lon, acc);
-}
-if (ultimaUbicacion) {
-aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-document.getElementById('\x70\x6d').classList.add('\x61\x63\x74\x69\x76\x65');
-if (navigator.geolocation) {
-navigator.geolocation.getCurrentPosition(
-pos => {
-const acc = Math.round(pos.coords.accuracy);
-ultimaUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc };
-try { localStorage.setItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, acc);
-},
-() => {},
-{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-);
-}
-} else {
-document.getElementById('\x70\x6d').classList.add('\x61\x63\x74\x69\x76\x65');
-toast('Obteniendo ubicación GPS...', '\x69\x6e\x66\x6f');
-if (navigator.geolocation) {
-navigator.geolocation.getCurrentPosition(
-pos => {
-const acc = Math.round(pos.coords.accuracy);
-ultimaUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc };
-try { localStorage.setItem('\x75\x6c\x74\x69\x6d\x61\x5f\x75\x62\x69\x63\x61\x63\x69\x6f\x6e', JSON.stringify(ultimaUbicacion)); } catch(_) {}
-aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, acc);
-const msg = acc < 2000 ? `📍 ±${acc}m` : `🌐 ±${(acc/1000).toFixed(0)}km (baja precisión)`;
-toast(msg, acc < 2000 ? '\x73\x75\x63\x63\x65\x73\x73' : '\x69\x6e\x66\x6f');
-},
-() => toast('No se pudo obtener GPS — tocá el mapa para ubicarte', '\x65\x72\x72\x6f\x72'),
-{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-);
-} else {
-toast('GPS no disponible — tocá el mapa para seleccionar la ubicación', '\x65\x72\x72\x6f\x72');
-}
-}
+
+document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => {
+    fotosTemporales = [];
+    actualizarVistaPreviaFotos();
+    closeAll();
+
+    function aplicarUbicacionAlFormulario(lat, lon, acc) {
+        app.sel = { lat, lng: lon };
+        document.getElementById('li').value = lat;
+        document.getElementById('gi').value = lon;
+        const accStr = acc ? ` (±${acc < 1000 ? acc + 'm' : (acc/1000).toFixed(1) + 'km'})` : '';
+        const ui = document.getElementById('ui');
+        if (ui) {
+            ui.innerHTML = `<i class="fas fa-check-circle" style="color:#059669"></i> ${lat.toFixed(5).replace('.', ',')}, ${lon.toFixed(5).replace('.', ',')}${accStr}`;
+            ui.className = 'ud sel';
+        }
+        if (app.map) mostrarMarcadorUbicacion(lat, lon, acc);
+    }
+
+    if (ultimaUbicacion) {
+        aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
+        document.getElementById('pm').classList.add('active');
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const acc = Math.round(pos.coords.accuracy);
+                    ultimaUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc };
+                    try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+                    aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, acc);
+                },
+                () => {},
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+        }
+    } else {
+        document.getElementById('pm').classList.add('active');
+        toast('Obteniendo ubicación GPS...', 'info');
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const acc = Math.round(pos.coords.accuracy);
+                    ultimaUbicacion = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc };
+                    try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
+                    aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, acc);
+                    const msg = acc < 2000 ? `📍 ±${acc}m` : `🌐 ±${(acc/1000).toFixed(0)}km (baja precisión)`;
+                    toast(msg, acc < 2000 ? 'success' : 'info');
+                },
+                () => toast('No se pudo obtener GPS — tocá el mapa para ubicarte', 'error'),
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+        } else {
+            toast('GPS no disponible — tocá el mapa para seleccionar la ubicación', 'error');
+        }
+    }
 });
+
 function renderMk() {
-if (!app.map) return;
-app.mk.forEach(m => m.remove());
-app.mk = [];
-const fill = {
-'\x43\x72\xed\x74\x69\x63\x61': '\x23\x65\x66\x34\x34\x34\x34',
-'\x41\x6c\x74\x61': '\x23\x66\x39\x37\x33\x31\x36',
-'\x4d\x65\x64\x69\x61': '\x23\x65\x61\x62\x33\x30\x38',
-'\x42\x61\x6a\x61': '\x23\x33\x62\x38\x32\x66\x36'
-};
-app.p.filter(p => p.la && p.ln).forEach(p => {
-const cer = p.es === '\x43\x65\x72\x72\x61\x64\x6f';
-const m = L.circleMarker([p.la, p.ln], {
-radius: cer ? 6 : 9,
-fillColor: cer ? '\x23\x39\x34\x61\x33\x62\x38' : (fill[p.pr] || '\x23\x33\x62\x38\x32\x66\x36'),
-color: '\x23\x66\x66\x66',
-weight: 2,
-fillOpacity: cer ? 0.5 : 0.9
-}).addTo(app.map);
-m.bindPopup(`
-<div style="min-width:160px;font-family:system-ui">
-<b style="color:#1e3a8a">#${p.np} - ${p.pr}</b><br>
-<span style="font-size:11px;color:#475569">${p.tt} - ${p.es} (${p.av}%)</span><br>
-<div style="font-size:12px;margin-top:4px">${p.de.substring(0,70)}...</div>
-<div style="display:flex;gap:4px;margin-top:6px">
-<button style="flex:1;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
-<button style="flex:1;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
-</div>
-</div>`, { maxWidth: 240 });
-app.mk.push(m);
-});
+    if (!app.map) return;
+    app.mk.forEach(m => m.remove());
+    app.mk = [];
+    
+    const fill = {
+        'Crítica': '#ef4444',
+        'Alta': '#f97316',
+        'Media': '#eab308',
+        'Baja': '#3b82f6'
+    };
+    
+    app.p.filter(p => p.la && p.ln).forEach(p => {
+        const cer = p.es === 'Cerrado';
+        const m = L.circleMarker([p.la, p.ln], {
+            radius: cer ? 6 : 9,
+            fillColor: cer ? '#94a3b8' : (fill[p.pr] || '#3b82f6'),
+            color: '#fff',
+            weight: 2,
+            fillOpacity: cer ? 0.5 : 0.9
+        }).addTo(app.map);
+        
+        m.bindPopup(`
+            <div style="min-width:160px;font-family:system-ui">
+                <b style="color:#1e3a8a">#${p.np} - ${p.pr}</b><br>
+                <span style="font-size:11px;color:#475569">${p.tt} - ${p.es} (${p.av}%)</span><br>
+                <div style="font-size:12px;margin-top:4px">${p.de.substring(0,70)}...</div>
+                <div style="display:flex;gap:4px;margin-top:6px">
+                    <button style="flex:1;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
+                    <button style="flex:1;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
+                </div>
+            </div>`, { maxWidth: 240 });
+        
+        app.mk.push(m);
+    });
 }
+
 window._d = id => {
-app.map?.closePopup();
-const p = app.p.find(x => String(x.id) === String(id));
-if (p) detalle(p);
+    app.map?.closePopup();
+    const p = app.p.find(x => String(x.id) === String(id));
+    if (p) detalle(p);
 };
+
 window._z = id => {
-const p = app.p.find(x => String(x.id) === String(id));
-if (p && app.map) {
-app.map.closePopup();
-app.map.setView([p.la, p.ln], 17, { animate: true });
-setTimeout(() => {
-document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(app.map.getZoom());
-}, 300);
-}
+    const p = app.p.find(x => String(x.id) === String(id));
+    if (p && app.map) {
+        app.map.closePopup();
+        app.map.setView([p.la, p.ln], 17, { animate: true });
+        setTimeout(() => {
+            document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
+        }, 300);
+    }
 };
+
 window._a = (a, id) => {
-closeAll();
-if (a === '\x69') iniciar(id);
-else if (a === '\x61\x76') abrirAvance(id);
-else abrirCierre(id);
+    closeAll();
+    if (a === 'i') iniciar(id);
+    else if (a === 'av') abrirAvance(id);
+    else abrirCierre(id);
 };
+
 window._zm = id => {
-const p = app.p.find(x => String(x.id) === String(id));
-if (p && app.map) {
-closeAll();
-setTimeout(() => {
-if (!app.map) return;
-app.map.invalidateSize({ animate: false });
-app.map.setView([p.la, p.ln], 17, { animate: true });
-setTimeout(() => {
-document.getElementById('\x7a\x6f\x6f\x6d\x2d\x61\x6c\x74\x75\x72\x61').textContent = calcularEscalaReal(17);
-}, 300);
-}, 100);
-}
+    const p = app.p.find(x => String(x.id) === String(id));
+    if (p && app.map) {
+        
+        
+        closeAll();
+        setTimeout(() => {
+            if (!app.map) return;
+            app.map.invalidateSize({ animate: false });
+            
+            
+            app.map.setView([p.la, p.ln], 17, { animate: true });
+            setTimeout(() => {
+                document.getElementById('zoom-altura').textContent = calcularEscalaReal(17);
+            }, 300);
+        }, 100);
+    }
 };
+
 window.imprimirPedido = function(p) {
-const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
-const f = p.f ? new Date(p.f).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '\x2d\x2d';
-const fc = p.fc ? new Date(p.fc).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '\x2d\x2d';
-const fa = p.fa ? new Date(p.fa).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '\x2d\x2d';
-const contenido = `
-<div class="print-content">
-<h1>Pedido de Mantenimiento N° ${p.np}</h1>
-<h2>📋 Información General</h2>
-<table>
-<tr><td>Fecha de Creación:</td><td>${f}</td></tr>
-<tr><td>Estado:</td><td>${p.es}</td></tr>
-<tr><td>Prioridad:</td><td>${p.pr}</td></tr>
-<tr><td>Tipo:</td><td>${p.tt || '--'}</td></tr>
-${p.es === 'Cerrado' ?
-`<tr><td>Fecha de Cierre:</td><td>${fc}</td></tr>` :
-p.es === 'En ejecución' ?
-`<tr><td>Último Avance:</td><td>${fa} (${p.av}%)</td></tr>` : ''}
-<tr><td>Avance:</td><td>${p.av}%</td></tr>
-</table>
-<h2>🏢 Datos del Trabajo</h2>
-<table>
-<tr><td>Distribuidor:</td><td>${p.dis}</td></tr>
-${p.sd ? `<tr><td>SETD:</td><td>${p.sd}</td></tr>` : ''}
-${p.cl ? `<tr><td>Cliente:</td><td>${p.cl}</td></tr>` : ''}
-<tr><td>Descripción:</td><td>${p.de}</td></tr>
-</table>
-${p.es === 'Cerrado' ? `
-<h2>✅ Cierre del Pedido</h2>
-<table>
-<tr><td>Fecha cierre:</td><td>${fc}</td></tr>
-${p.tc ? `<tr><td>Técnico:</td><td>${p.tc}</td></tr>` : ''}
-${p.tr ? `<tr><td>Trabajo realizado:</td><td>${p.tr}</td></tr>` : ''}
-</table>
-` : ''}
-<h2>📍 Ubicación</h2>
-<table>
-<tr><td>WGS84 Lat:</td><td>${p.la?.toFixed(5).replace('.', ',')}</td></tr>
-<tr><td>WGS84 Lng:</td><td>${p.ln?.toFixed(5).replace('.', ',')}</td></tr>
-${p.x_inchauspe && p.y_inchauspe ? `
-<tr><td>Inchauspe X:</td><td>${p.x_inchauspe.toString().replace('\x2e', '\x2c')}</td></tr>
-<tr><td>Inchauspe Y:</td><td>${p.y_inchauspe.toString().replace('\x2e', '\x2c')}</td></tr>
-` : ''}
-</table>
-<div style="margin-top:3rem; text-align:center; color:#94a3b8; font-size:0.8rem;">
-Documento generado el ${new Date().toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires', hour12:false})}
-</div>
-</div>
-`;
-const contenedor = document.getElementById('\x70\x72\x69\x6e\x74\x2d\x63\x6f\x6e\x74\x61\x69\x6e\x65\x72');
-contenedor.innerHTML = contenido;
-contenedor.classList.add('\x70\x72\x69\x6e\x74\x69\x6e\x67');
-window.print();
-contenedor.classList.remove('\x70\x72\x69\x6e\x74\x69\x6e\x67');
-contenedor.innerHTML = '';
+    const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+    const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
+    const fc = p.fc ? new Date(p.fc).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
+    const fa = p.fa ? new Date(p.fa).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
+    
+    const contenido = `
+        <div class="print-content">
+            <h1>Pedido de Mantenimiento N° ${p.np}</h1>
+            
+            <h2>📋 Información General</h2>
+            <table>
+                <tr><td>Fecha de Creación:</td><td>${f}</td></tr>
+                <tr><td>Estado:</td><td>${p.es}</td></tr>
+                <tr><td>Prioridad:</td><td>${p.pr}</td></tr>
+                <tr><td>Tipo:</td><td>${p.tt || '--'}</td></tr>
+                ${p.es === 'Cerrado' ? 
+                    `<tr><td>Fecha de Cierre:</td><td>${fc}</td></tr>` : 
+                    p.es === 'En ejecución' ? 
+                    `<tr><td>Último Avance:</td><td>${fa} (${p.av}%)</td></tr>` : ''}
+                <tr><td>Avance:</td><td>${p.av}%</td></tr>
+            </table>
+            
+            <h2>🏢 Datos del Trabajo</h2>
+            <table>
+                <tr><td>Distribuidor:</td><td>${p.dis}</td></tr>
+                ${p.sd ? `<tr><td>SETD:</td><td>${p.sd}</td></tr>` : ''}
+                ${p.cl ? `<tr><td>Cliente:</td><td>${p.cl}</td></tr>` : ''}
+                <tr><td>Descripción:</td><td>${p.de}</td></tr>
+            </table>
+            
+            ${p.es === 'Cerrado' ? `
+            <h2>✅ Cierre del Pedido</h2>
+            <table>
+                <tr><td>Fecha cierre:</td><td>${fc}</td></tr>
+                ${p.tc ? `<tr><td>Técnico:</td><td>${p.tc}</td></tr>` : ''}
+                ${p.tr ? `<tr><td>Trabajo realizado:</td><td>${p.tr}</td></tr>` : ''}
+            </table>
+            ` : ''}
+            
+            <h2>📍 Ubicación</h2>
+            <table>
+                <tr><td>WGS84 Lat:</td><td>${p.la?.toFixed(5).replace('.', ',')}</td></tr>
+                <tr><td>WGS84 Lng:</td><td>${p.ln?.toFixed(5).replace('.', ',')}</td></tr>
+                ${p.x_inchauspe && p.y_inchauspe ? `
+                <tr><td>Inchauspe X:</td><td>${p.x_inchauspe.toString().replace('.', ',')}</td></tr>
+                <tr><td>Inchauspe Y:</td><td>${p.y_inchauspe.toString().replace('.', ',')}</td></tr>
+                ` : ''}
+            </table>
+            
+            <div style="margin-top:3rem; text-align:center; color:#94a3b8; font-size:0.8rem;">
+                Documento generado el ${new Date().toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires', hour12:false})}
+            </div>
+        </div>
+    `;
+    
+    const contenedor = document.getElementById('print-container');
+    contenedor.innerHTML = contenido;
+    contenedor.classList.add('printing');
+    
+    window.print();
+    
+    contenedor.classList.remove('printing');
+    contenedor.innerHTML = '';
 };
+
 function leerOrientacionEXIF(arrayBuffer) {
-try {
-const view = new DataView(arrayBuffer);
-if (view.getUint16(0, false) !== 0xFFD8) return 1;
-const length = view.byteLength;
-let offset = 2;
-while (offset < length) {
-if (view.getUint16(offset, false) !== 0xFFE1) { offset += 2 + view.getUint16(offset + 2, false); continue; }
-if (view.getUint32(offset + 4, false) !== 0x45786966) return 1;
-const little = view.getUint16(offset + 10, false) === 0x4949;
-const ifdOffset = offset + 10 + view.getUint32(offset + 14, little);
-const entries = view.getUint16(ifdOffset, little);
-for (let i = 0; i < entries; i++) {
-if (view.getUint16(ifdOffset + 2 + i * 12, little) === 0x0112)
-return view.getUint16(ifdOffset + 2 + i * 12 + 8, little);
+    try {
+        const view = new DataView(arrayBuffer);
+        if (view.getUint16(0, false) !== 0xFFD8) return 1; 
+        const length = view.byteLength;
+        let offset = 2;
+        while (offset < length) {
+            if (view.getUint16(offset, false) !== 0xFFE1) { offset += 2 + view.getUint16(offset + 2, false); continue; }
+            if (view.getUint32(offset + 4, false) !== 0x45786966) return 1;
+            const little = view.getUint16(offset + 10, false) === 0x4949;
+            const ifdOffset = offset + 10 + view.getUint32(offset + 14, little);
+            const entries = view.getUint16(ifdOffset, little);
+            for (let i = 0; i < entries; i++) {
+                if (view.getUint16(ifdOffset + 2 + i * 12, little) === 0x0112)
+                    return view.getUint16(ifdOffset + 2 + i * 12 + 8, little);
+            }
+        }
+    } catch(_) {}
+    return 1;
 }
-}
-} catch(_) {}
-return 1;
-}
+
 function comprimirImagen(file, opts = {}) {
-return new Promise((resolve, reject) => {
-const reader = new FileReader();
-reader.readAsArrayBuffer(file);
-reader.onload = (evBuf) => {
-const usarExifRotacion = opts.usarExifRotacion !== false;
-const blob = new Blob([evBuf.target.result], { type: file.type });
-const urlObj = URL.createObjectURL(blob);
-const img = new Image();
-img.onload = () => {
-URL.revokeObjectURL(urlObj);
-const canvas = document.createElement('\x63\x61\x6e\x76\x61\x73');
-let w = img.width, h = img.height;
-const portrait = h > w;
-const orientacion = usarExifRotacion ? leerOrientacionEXIF(evBuf.target.result) : 1;
-const rotar = portrait && [5,6,7,8].includes(orientacion);
-const maxSize = 1600;
-const mayor = rotar ? Math.max(h, w) : Math.max(w, h);
-if (mayor > maxSize) {
-const r = maxSize / mayor;
-w = Math.round(w * r);
-h = Math.round(h * r);
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = (evBuf) => {
+            const usarExifRotacion = opts.usarExifRotacion !== false;
+            const blob = new Blob([evBuf.target.result], { type: file.type });
+            const urlObj = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(urlObj);
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+
+                
+                
+                const portrait = h > w;
+                const orientacion = usarExifRotacion ? leerOrientacionEXIF(evBuf.target.result) : 1;
+                const rotar = portrait && [5,6,7,8].includes(orientacion);
+                const maxSize = 1600; 
+                const mayor = rotar ? Math.max(h, w) : Math.max(w, h);
+                if (mayor > maxSize) {
+                    const r = maxSize / mayor;
+                    w = Math.round(w * r);
+                    h = Math.round(h * r);
+                }
+
+                if (rotar) { canvas.width = h; canvas.height = w; }
+                else       { canvas.width = w; canvas.height = h; }
+
+                const ctx = canvas.getContext('2d');
+                ctx.save();
+                
+                
+                let ang = 0;
+                let sx = 1;
+                let sy = 1;
+                if      (orientacion === 2) { sx = -1; }
+                else if (orientacion === 3) { ang = Math.PI; }
+                else if (orientacion === 4) { sy = -1; }
+                else if (orientacion === 5) { ang = Math.PI / 2; sx = -1; }
+                
+                else if (orientacion === 6) { ang = -Math.PI / 2; }
+                else if (orientacion === 7) { ang = -Math.PI / 2; sx = -1; }
+                else if (orientacion === 8) { ang = Math.PI / 2; }
+
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                if (rotar) {
+                    ctx.rotate(ang);
+                    ctx.scale(sx, sy);
+                    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                } else {
+                    
+                    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                }
+                ctx.restore();
+
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = urlObj;
+        };
+        reader.onerror = reject;
+    });
 }
-if (rotar) { canvas.width = h; canvas.height = w; }
-else       { canvas.width = w; canvas.height = h; }
-const ctx = canvas.getContext('\x32\x64');
-ctx.save();
-let ang = 0;
-let sx = 1;
-let sy = 1;
-if      (orientacion === 2) { sx = -1; }
-else if (orientacion === 3) { ang = Math.PI; }
-else if (orientacion === 4) { sy = -1; }
-else if (orientacion === 5) { ang = Math.PI / 2; sx = -1; }
-else if (orientacion === 6) { ang = -Math.PI / 2; }
-else if (orientacion === 7) { ang = -Math.PI / 2; sx = -1; }
-else if (orientacion === 8) { ang = Math.PI / 2; }
-ctx.translate(canvas.width / 2, canvas.height / 2);
-if (rotar) {
-ctx.rotate(ang);
-ctx.scale(sx, sy);
-ctx.drawImage(img, -w / 2, -h / 2, w, h);
-} else {
-ctx.drawImage(img, -w / 2, -h / 2, w, h);
-}
-ctx.restore();
-const dataUrl = canvas.toDataURL('\x69\x6d\x61\x67\x65\x2f\x6a\x70\x65\x67', 0.82);
-resolve(dataUrl);
-};
-img.onerror = reject;
-img.src = urlObj;
-};
-reader.onerror = reject;
-});
-}
+
 (function() {
-const modal = document.getElementById('\x6d\x6f\x64\x61\x6c\x2d\x66\x6f\x74\x6f\x2d\x61\x6d\x70\x6c\x69\x61\x64\x61');
-const img   = document.getElementById('\x66\x6f\x74\x6f\x2d\x61\x6d\x70\x6c\x69\x61\x64\x61');
-const cont  = document.getElementById('\x69\x6d\x67\x2d\x63\x6f\x6e\x74\x61\x69\x6e\x65\x72');
-const info  = document.getElementById('\x66\x6f\x74\x6f\x2d\x7a\x6f\x6f\x6d\x2d\x6e\x69\x76\x65\x6c');
-let scale = 1;
-let tx = 0, ty = 0;
-let rot = 0;
-let isDragging = false;
-let lastX = 0, lastY = 0;
-let lastDist = 0;
-function applyTransform(animate) {
-img.style.transition = animate ? '\x74\x72\x61\x6e\x73\x66\x6f\x72\x6d\x20\x2e\x32\x73' : '\x6e\x6f\x6e\x65';
-img.style.transform  = `translate(${tx}px, ${ty}px) scale(${scale}) rotate(${rot}deg)`;
-info.textContent = Math.round(scale * 100) + '\x25';
-cont.style.cursor = scale > 1 ? '\x67\x72\x61\x62' : '\x7a\x6f\x6f\x6d\x2d\x69\x6e';
-}
-function clampTranslation() {
-if (scale <= 1) { tx = 0; ty = 0; return; }
-let imgW = img.naturalWidth  || img.offsetWidth;
-let imgH = img.naturalHeight || img.offsetHeight;
-const rotNorm = ((rot % 360) + 360) % 360;
-if (rotNorm === 90 || rotNorm === 270) {
-const t = imgW; imgW = imgH; imgH = t;
-}
-const maxX = Math.max(0, (imgW  * scale - cont.clientWidth)  / 2);
-const maxY = Math.max(0, (imgH  * scale - cont.clientHeight) / 2);
-tx = Math.max(-maxX, Math.min(maxX, tx));
-ty = Math.max(-maxY, Math.min(maxY, ty));
-}
-function resetZoom() {
-scale = 1; tx = 0; ty = 0; rot = 0;
-applyTransform(true);
-if (btnGuardar) btnGuardar.style.display = '\x6e\x6f\x6e\x65';
-}
-function zoomBy(delta, cx, cy) {
-const prev = scale;
-scale = Math.max(1, Math.min(8, scale * delta));
-if (cx !== undefined) {
-const rect = cont.getBoundingClientRect();
-const ox = cx - rect.left - cont.clientWidth  / 2;
-const oy = cy - rect.top  - cont.clientHeight / 2;
-tx -= ox * (scale / prev - 1);
-ty -= oy * (scale / prev - 1);
-}
-clampTranslation();
-applyTransform(false);
-}
-window._fotoCtx = null;
-window.verFotoAmpliada = function(src, ctx) {
-img.src = src;
-window._fotoCtx = ctx || null;
-resetZoom();
-modal.classList.add('\x61\x63\x74\x69\x76\x65');
-img.style.transition = '\x6e\x6f\x6e\x65';
-rot = 0; tx = 0; ty = 0; scale = 1;
-applyTransform(false);
-if (btnGuardarBD) btnGuardarBD.style.display = ctx ? '\x66\x6c\x65\x78' : '\x6e\x6f\x6e\x65';
-};
-document.getElementById('\x63\x65\x72\x72\x61\x72\x2d\x6d\x6f\x64\x61\x6c\x2d\x66\x6f\x74\x6f').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-modal.classList.remove('\x61\x63\x74\x69\x76\x65');
-resetZoom();
-});
-modal.addEventListener('\x63\x6c\x69\x63\x6b', e => {
-if (e.target === modal) { modal.classList.remove('\x61\x63\x74\x69\x76\x65'); resetZoom(); }
-});
-document.addEventListener('\x6b\x65\x79\x64\x6f\x77\x6e', e => {
-if (e.key === '\x45\x73\x63\x61\x70\x65' && modal.classList.contains('\x61\x63\x74\x69\x76\x65'))
-{ modal.classList.remove('\x61\x63\x74\x69\x76\x65'); resetZoom(); }
-});
-document.getElementById('\x66\x6f\x74\x6f\x2d\x7a\x6f\x6f\x6d\x2d\x69\x6e').addEventListener('\x63\x6c\x69\x63\x6b', e => {
-e.stopPropagation(); zoomBy(1.4);
-});
-document.getElementById('\x66\x6f\x74\x6f\x2d\x7a\x6f\x6f\x6d\x2d\x6f\x75\x74').addEventListener('\x63\x6c\x69\x63\x6b', e => {
-e.stopPropagation(); zoomBy(1/1.4);
-});
-document.getElementById('\x66\x6f\x74\x6f\x2d\x7a\x6f\x6f\x6d\x2d\x72\x65\x73\x65\x74').addEventListener('\x63\x6c\x69\x63\x6b', e => {
-e.stopPropagation(); resetZoom();
-});
-const btnGuardar   = document.getElementById('\x66\x6f\x74\x6f\x2d\x67\x75\x61\x72\x64\x61\x72');
-const btnGuardarBD = document.getElementById('\x66\x6f\x74\x6f\x2d\x67\x75\x61\x72\x64\x61\x72\x2d\x62\x64');
-function aplicarRotacionAlCanvas() {
-if (!img.src || img.src === window.location.href) return null;
-const rotNorm = ((rot % 360) + 360) % 360;
-if (rotNorm === 0) return null;
-const canvas = document.createElement('\x63\x61\x6e\x76\x61\x73');
-const swap = rotNorm === 90 || rotNorm === 270;
-canvas.width  = swap ? img.naturalHeight : img.naturalWidth;
-canvas.height = swap ? img.naturalWidth  : img.naturalHeight;
-const ctx2 = canvas.getContext('\x32\x64');
-ctx2.translate(canvas.width / 2, canvas.height / 2);
-ctx2.rotate(rotNorm * Math.PI / 180);
-ctx2.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-return canvas.toDataURL('\x69\x6d\x61\x67\x65\x2f\x6a\x70\x65\x67', 0.92);
-}
-document.getElementById('\x66\x6f\x74\x6f\x2d\x72\x6f\x74\x61\x74\x65\x2d\x39\x30').addEventListener('\x63\x6c\x69\x63\x6b', e => {
-e.stopPropagation();
-rot = ((rot + 90) % 360);
-tx = 0; ty = 0;
-clampTranslation();
-applyTransform(true);
-const hayRot = rot !== 0;
-btnGuardar.style.display   = hayRot ? '\x66\x6c\x65\x78' : '\x6e\x6f\x6e\x65';
-if (btnGuardarBD) btnGuardarBD.style.display = (hayRot && window._fotoCtx) ? '\x66\x6c\x65\x78' : '\x6e\x6f\x6e\x65';
-});
-if (btnGuardarBD) {
-btnGuardarBD.addEventListener('\x63\x6c\x69\x63\x6b', async e => {
-e.stopPropagation();
-const dataUrl = aplicarRotacionAlCanvas();
-if (!dataUrl) { toast('\x53\x69\x6e\x20\x72\x6f\x74\x61\x63\x69\xf3\x6e\x20\x70\x61\x72\x61\x20\x67\x75\x61\x72\x64\x61\x72', '\x69\x6e\x66\x6f'); return; }
-const ctx3 = window._fotoCtx;
-if (!ctx3) { toast('\x53\x69\x6e\x20\x63\x6f\x6e\x74\x65\x78\x74\x6f\x20\x64\x65\x20\x70\x65\x64\x69\x64\x6f', '\x69\x6e\x66\x6f'); return; }
-btnGuardarBD.disabled = true;
-btnGuardarBD.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
-try {
-if (ctx3.tipo === '\x74\x65\x6d\x70\x6f\x72\x61\x6c') {
-fotosTemporales[ctx3.idx] = dataUrl;
-actualizarVistaPreviaFotos();
-img.src = dataUrl;
-rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
-btnGuardar.style.display = '\x6e\x6f\x6e\x65';
-btnGuardarBD.style.display = '\x6e\x6f\x6e\x65';
-toast('✓ Rotación guardada en el pedido', '\x73\x75\x63\x63\x65\x73\x73');
-} else if (ctx3.tipo === '\x63\x69\x65\x72\x72\x65\x5f\x74\x65\x6d\x70') {
-fotoCierreTemp = dataUrl;
-actualizarVistaPreviaFotoCierre();
-img.src = dataUrl;
-rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
-btnGuardar.style.display = '\x6e\x6f\x6e\x65';
-btnGuardarBD.style.display = '\x6e\x6f\x6e\x65';
-toast('✓ Rotación guardada en la foto de cierre', '\x73\x75\x63\x63\x65\x73\x73');
-} else if (ctx3.tipo === '\x70\x65\x64\x69\x64\x6f\x5f\x66\x6f\x74\x6f\x73') {
-const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
-if (!pedido) throw new Error('\x50\x65\x64\x69\x64\x6f\x20\x6e\x6f\x20\x65\x6e\x63\x6f\x6e\x74\x72\x61\x64\x6f');
-pedido.fotos[ctx3.idx] = dataUrl;
-const nuevasCadena = pedido.fotos.join('\x7c\x7c');
-if (!modoOffline && NEON_OK) {
-await ejecutarSQLConReintentos(
-`UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}`
-);
-} else {
-enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}` });
-}
-offlinePedidosSave(app.p);
-img.src = dataUrl;
-rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
-btnGuardar.style.display = '\x6e\x6f\x6e\x65';
-btnGuardarBD.style.display = '\x6e\x6f\x6e\x65';
-const pedidoActual = app.p.find(x => String(x.id) === String(ctx3.id));
-if (pedidoActual) detalle(pedidoActual);
-toast('✓ Rotación guardada en el pedido', '\x73\x75\x63\x63\x65\x73\x73');
-} else if (ctx3.tipo === '\x70\x65\x64\x69\x64\x6f\x5f\x63\x69\x65\x72\x72\x65') {
-const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
-if (!pedido) throw new Error('\x50\x65\x64\x69\x64\x6f\x20\x6e\x6f\x20\x65\x6e\x63\x6f\x6e\x74\x72\x61\x64\x6f');
-pedido.foto_cierre = dataUrl;
-if (!modoOffline && NEON_OK) {
-await ejecutarSQLConReintentos(
-`UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}`
-);
-} else {
-enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}` });
-}
-offlinePedidosSave(app.p);
-img.src = dataUrl;
-rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
-btnGuardar.style.display = '\x6e\x6f\x6e\x65';
-btnGuardarBD.style.display = '\x6e\x6f\x6e\x65';
-const pedidoActual2 = app.p.find(x => String(x.id) === String(ctx3.id));
-if (pedidoActual2) detalle(pedidoActual2);
-toast('✓ Rotación de foto de cierre guardada', '\x73\x75\x63\x63\x65\x73\x73');
-}
-} catch(err) {
-console.error('\x45\x72\x72\x6f\x72\x20\x67\x75\x61\x72\x64\x61\x6e\x64\x6f\x20\x72\x6f\x74\x61\x63\x69\xf3\x6e\x3a', err);
-toast('\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x67\x75\x61\x72\x64\x61\x72\x3a\x20' + err.message, '\x65\x72\x72\x6f\x72');
-} finally {
-btnGuardarBD.disabled = false;
-btnGuardarBD.innerHTML = '<i class="fas fa-save"></i> Guardar';
-}
-});
-}
-btnGuardar.addEventListener('\x63\x6c\x69\x63\x6b', async e => {
-e.stopPropagation();
-if (!img.src || img.src === window.location.href) return;
-const rotNorm = ((rot % 360) + 360) % 360;
-let dataUrl;
-if (rotNorm !== 0) {
-dataUrl = aplicarRotacionAlCanvas();
-} else {
-dataUrl = img.src;
-}
-if (!dataUrl) return;
-if (navigator.share && navigator.canShare) {
-try {
-const res  = await fetch(dataUrl);
-const blob = await res.blob();
-const file = new File([blob], '\x66\x6f\x74\x6f\x5f\x70\x65\x64\x69\x64\x6f\x2e\x6a\x70\x67', { type: '\x69\x6d\x61\x67\x65\x2f\x6a\x70\x65\x67' });
-if (navigator.canShare({ files: [file] })) {
-await navigator.share({ files: [file], title: '\x46\x6f\x74\x6f\x20\x50\x65\x64\x69\x64\x6f\x20\x4d\x47' });
-toast('\x46\x6f\x74\x6f\x20\x63\x6f\x6d\x70\x61\x72\x74\x69\x64\x61\x2f\x67\x75\x61\x72\x64\x61\x64\x61', '\x73\x75\x63\x63\x65\x73\x73');
-return;
-}
-} catch(err) {
-if (err.name !== '\x41\x62\x6f\x72\x74\x45\x72\x72\x6f\x72') console.warn('\x53\x68\x61\x72\x65\x20\x66\x61\x6c\x6c\xf3\x3a', err.message);
-}
-}
-const a = document.createElement('\x61');
-a.href = dataUrl;
-a.download = '\x66\x6f\x74\x6f\x5f\x70\x65\x64\x69\x64\x6f' + (rotNorm !== 0 ? '\x5f\x72\x6f\x74\x61\x64\x61' : '') + '\x2e\x6a\x70\x67';
-document.body.appendChild(a);
-a.click();
-setTimeout(() => { document.body.removeChild(a); }, 500);
-toast('\x46\x6f\x74\x6f\x20\x64\x65\x73\x63\x61\x72\x67\x61\x64\x61', '\x73\x75\x63\x63\x65\x73\x73');
-});
-cont.addEventListener('\x63\x6c\x69\x63\x6b', e => {
-if (hasMoved) { hasMoved = false; return; }
-if (scale < 1.5) zoomBy(2.5, e.clientX, e.clientY);
-else resetZoom();
-});
-cont.addEventListener('\x77\x68\x65\x65\x6c', e => {
-e.preventDefault();
-const delta = e.deltaY < 0 ? 1.2 : 1/1.2;
-zoomBy(delta, e.clientX, e.clientY);
-}, { passive: false });
-let hasMoved = false;
-cont.addEventListener('\x6d\x6f\x75\x73\x65\x64\x6f\x77\x6e', e => {
-if (scale < 1.05) return;
-isDragging = true;
-hasMoved = false;
-lastX = e.clientX; lastY = e.clientY;
-cont.style.cursor = '\x67\x72\x61\x62\x62\x69\x6e\x67';
-e.preventDefault();
-});
-document.addEventListener('\x6d\x6f\x75\x73\x65\x6d\x6f\x76\x65', e => {
-if (!isDragging) return;
-const dx = e.clientX - lastX;
-const dy = e.clientY - lastY;
-if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
-tx += dx; ty += dy;
-lastX = e.clientX; lastY = e.clientY;
-clampTranslation();
-applyTransform(false);
-});
-document.addEventListener('\x6d\x6f\x75\x73\x65\x75\x70', () => {
-if (!isDragging) return;
-isDragging = false;
-cont.style.cursor = scale > 1.05 ? '\x67\x72\x61\x62' : '\x7a\x6f\x6f\x6d\x2d\x69\x6e';
-});
-cont.addEventListener('\x74\x6f\x75\x63\x68\x73\x74\x61\x72\x74', e => {
-if (e.touches.length === 2) {
-lastDist = Math.hypot(
-e.touches[0].clientX - e.touches[1].clientX,
-e.touches[0].clientY - e.touches[1].clientY
-);
-} else if (e.touches.length === 1 && scale > 1) {
-isDragging = true;
-lastX = e.touches[0].clientX;
-lastY = e.touches[0].clientY;
-}
-e.preventDefault();
-}, { passive: false });
-cont.addEventListener('\x74\x6f\x75\x63\x68\x6d\x6f\x76\x65', e => {
-if (e.touches.length === 2) {
-const dist = Math.hypot(
-e.touches[0].clientX - e.touches[1].clientX,
-e.touches[0].clientY - e.touches[1].clientY
-);
-const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-if (lastDist > 0) zoomBy(dist / lastDist, cx, cy);
-lastDist = dist;
-} else if (e.touches.length === 1 && isDragging) {
-tx += e.touches[0].clientX - lastX;
-ty += e.touches[0].clientY - lastY;
-lastX = e.touches[0].clientX;
-lastY = e.touches[0].clientY;
-clampTranslation();
-applyTransform(false);
-}
-e.preventDefault();
-}, { passive: false });
-cont.addEventListener('\x74\x6f\x75\x63\x68\x65\x6e\x64', e => {
-if (e.touches.length < 2) lastDist = 0;
-if (e.touches.length === 0) {
-isDragging = false;
-}
-});
-})();
+    const modal = document.getElementById('modal-foto-ampliada');
+    const img   = document.getElementById('foto-ampliada');
+    const cont  = document.getElementById('img-container');
+    const info  = document.getElementById('foto-zoom-nivel');
+    
+    let scale = 1;       
+    let tx = 0, ty = 0; 
+    let rot = 0;         
+    let isDragging = false;
+    let lastX = 0, lastY = 0;
+    
+    let lastDist = 0;
+
+    function applyTransform(animate) {
+        img.style.transition = animate ? 'transform .2s' : 'none';
+        img.style.transform  = `translate(${tx}px, ${ty}px) scale(${scale}) rotate(${rot}deg)`;
+        info.textContent = Math.round(scale * 100) + '%';
+        cont.style.cursor = scale > 1 ? 'grab' : 'zoom-in';
+    }
+
+    function clampTranslation() {
+        if (scale <= 1) { tx = 0; ty = 0; return; }
+        let imgW = img.naturalWidth  || img.offsetWidth;
+        let imgH = img.naturalHeight || img.offsetHeight;
+        
+        const rotNorm = ((rot % 360) + 360) % 360;
+        if (rotNorm === 90 || rotNorm === 270) {
+            const t = imgW; imgW = imgH; imgH = t;
+        }
+        
+        const maxX = Math.max(0, (imgW  * scale - cont.clientWidth)  / 2);
+        const maxY = Math.max(0, (imgH  * scale - cont.clientHeight) / 2);
+        tx = Math.max(-maxX, Math.min(maxX, tx));
+        ty = Math.max(-maxY, Math.min(maxY, ty));
+    }
+
+    function resetZoom() {
+        scale = 1; tx = 0; ty = 0; rot = 0;
+        applyTransform(true);
+        if (btnGuardar) btnGuardar.style.display = 'none';
+    }
+    function zoomBy(delta, cx, cy) {
+        const prev = scale;
+        scale = Math.max(1, Math.min(8, scale * delta));
+        
+        if (cx !== undefined) {
+            const rect = cont.getBoundingClientRect();
+            const ox = cx - rect.left - cont.clientWidth  / 2;
+            const oy = cy - rect.top  - cont.clientHeight / 2;
+            tx -= ox * (scale / prev - 1);
+            ty -= oy * (scale / prev - 1);
+        }
+        clampTranslation();
+        applyTransform(false);
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    window._fotoCtx = null; 
+    window.verFotoAmpliada = function(src, ctx) {
+        img.src = src;
+        window._fotoCtx = ctx || null;
+        resetZoom();
+        modal.classList.add('active');
+        img.style.transition = 'none';
+        rot = 0; tx = 0; ty = 0; scale = 1;
+        applyTransform(false);
+        
+        if (btnGuardarBD) btnGuardarBD.style.display = ctx ? 'flex' : 'none';
+    };
+
+    
+    document.getElementById('cerrar-modal-foto').addEventListener('click', () => {
+        modal.classList.remove('active');
+        resetZoom();
+    });
+    
+    modal.addEventListener('click', e => {
+        if (e.target === modal) { modal.classList.remove('active'); resetZoom(); }
+    });
+    
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modal.classList.contains('active'))
+            { modal.classList.remove('active'); resetZoom(); }
+    });
+
+    
+    document.getElementById('foto-zoom-in').addEventListener('click', e => {
+        e.stopPropagation(); zoomBy(1.4);
+    });
+    document.getElementById('foto-zoom-out').addEventListener('click', e => {
+        e.stopPropagation(); zoomBy(1/1.4);
+    });
+    document.getElementById('foto-zoom-reset').addEventListener('click', e => {
+        e.stopPropagation(); resetZoom();
+    });
+
+    
+    const btnGuardar   = document.getElementById('foto-guardar');
+    const btnGuardarBD = document.getElementById('foto-guardar-bd');
+
+    
+    function aplicarRotacionAlCanvas() {
+        if (!img.src || img.src === window.location.href) return null;
+        const rotNorm = ((rot % 360) + 360) % 360;
+        if (rotNorm === 0) return null;
+        const canvas = document.createElement('canvas');
+        const swap = rotNorm === 90 || rotNorm === 270;
+        canvas.width  = swap ? img.naturalHeight : img.naturalWidth;
+        canvas.height = swap ? img.naturalWidth  : img.naturalHeight;
+        const ctx2 = canvas.getContext('2d');
+        ctx2.translate(canvas.width / 2, canvas.height / 2);
+        ctx2.rotate(rotNorm * Math.PI / 180);
+        ctx2.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        return canvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    
+    document.getElementById('foto-rotate-90').addEventListener('click', e => {
+        e.stopPropagation();
+        rot = ((rot + 90) % 360);
+        tx = 0; ty = 0;
+        clampTranslation();
+        applyTransform(true);
+        const hayRot = rot !== 0;
+        btnGuardar.style.display   = hayRot ? 'flex' : 'none';
+        
+        if (btnGuardarBD) btnGuardarBD.style.display = (hayRot && window._fotoCtx) ? 'flex' : 'none';
+    });
+
+    
+    if (btnGuardarBD) {
+        btnGuardarBD.addEventListener('click', async e => {
+            e.stopPropagation();
+            const dataUrl = aplicarRotacionAlCanvas();
+            if (!dataUrl) { toast('Sin rotación para guardar', 'info'); return; }
+            const ctx3 = window._fotoCtx;
+            if (!ctx3) { toast('Sin contexto de pedido', 'info'); return; }
+
+            btnGuardarBD.disabled = true;
+            btnGuardarBD.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+
+            try {
+                if (ctx3.tipo === 'temporal') {
+                    
+                    fotosTemporales[ctx3.idx] = dataUrl;
+                    actualizarVistaPreviaFotos();
+                    
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    toast('✓ Rotación guardada en el pedido', 'success');
+
+                } else if (ctx3.tipo === 'cierre_temp') {
+                    
+                    fotoCierreTemp = dataUrl;
+                    actualizarVistaPreviaFotoCierre();
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    toast('✓ Rotación guardada en la foto de cierre', 'success');
+
+                } else if (ctx3.tipo === 'pedido_fotos') {
+                    
+                    const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (!pedido) throw new Error('Pedido no encontrado');
+                    pedido.fotos[ctx3.idx] = dataUrl;
+                    const nuevasCadena = pedido.fotos.join('||');
+                    if (!modoOffline && NEON_OK) {
+                        await ejecutarSQLConReintentos(
+                            `UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}`
+                        );
+                    } else {
+                        enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_base64 = ${esc(nuevasCadena)} WHERE id = ${esc(parseInt(ctx3.id))}` });
+                    }
+                    offlinePedidosSave(app.p);
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    
+                    const pedidoActual = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (pedidoActual) detalle(pedidoActual);
+                    toast('✓ Rotación guardada en el pedido', 'success');
+
+                } else if (ctx3.tipo === 'pedido_cierre') {
+                    
+                    const pedido = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (!pedido) throw new Error('Pedido no encontrado');
+                    pedido.foto_cierre = dataUrl;
+                    if (!modoOffline && NEON_OK) {
+                        await ejecutarSQLConReintentos(
+                            `UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}`
+                        );
+                    } else {
+                        enqueueOffline({ tipo:'UPDATE', query:`UPDATE pedidos SET foto_cierre = ${esc(dataUrl)} WHERE id = ${esc(parseInt(ctx3.id))}` });
+                    }
+                    offlinePedidosSave(app.p);
+                    img.src = dataUrl;
+                    rot = 0; tx = 0; ty = 0; scale = 1; applyTransform(false);
+                    btnGuardar.style.display = 'none';
+                    btnGuardarBD.style.display = 'none';
+                    const pedidoActual2 = app.p.find(x => String(x.id) === String(ctx3.id));
+                    if (pedidoActual2) detalle(pedidoActual2);
+                    toast('✓ Rotación de foto de cierre guardada', 'success');
+                }
+            } catch(err) {
+                console.error('Error guardando rotación:', err);
+                toast('Error al guardar: ' + err.message, 'error');
+            } finally {
+                btnGuardarBD.disabled = false;
+                btnGuardarBD.innerHTML = '<i class="fas fa-save"></i> Guardar';
+            }
+        });
+    }
+
+    
+    btnGuardar.addEventListener('click', async e => {
+        e.stopPropagation();
+        if (!img.src || img.src === window.location.href) return;
+        const rotNorm = ((rot % 360) + 360) % 360;
+        
+        let dataUrl;
+        if (rotNorm !== 0) {
+            dataUrl = aplicarRotacionAlCanvas();
+        } else {
+            dataUrl = img.src; 
+        }
+        if (!dataUrl) return;
+        
+        if (navigator.share && navigator.canShare) {
+            try {
+                const res  = await fetch(dataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], 'foto_pedido.jpg', { type: 'image/jpeg' });
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'Foto Pedido MG' });
+                    toast('Foto compartida/guardada', 'success');
+                    return;
+                }
+            } catch(err) {
+                if (err.name !== 'AbortError') console.warn('Share falló:', err.message);
+            }
+        }
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'foto_pedido' + (rotNorm !== 0 ? '_rotada' : '') + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); }, 500);
+        toast('Foto descargada', 'success');
+    });
+
+    
+    
+    cont.addEventListener('click', e => {
+        if (hasMoved) { hasMoved = false; return; } 
+        if (scale < 1.5) zoomBy(2.5, e.clientX, e.clientY);
+        else resetZoom();
+    });
+
+    
+    cont.addEventListener('wheel', e => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1.2 : 1/1.2;
+        zoomBy(delta, e.clientX, e.clientY);
+    }, { passive: false });
+
+    
+    
+    let hasMoved = false;
+    cont.addEventListener('mousedown', e => {
+        if (scale < 1.05) return; 
+        isDragging = true;
+        hasMoved = false;
+        lastX = e.clientX; lastY = e.clientY;
+        cont.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
+        tx += dx; ty += dy;
+        lastX = e.clientX; lastY = e.clientY;
+        clampTranslation();
+        applyTransform(false);
+    });
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        cont.style.cursor = scale > 1.05 ? 'grab' : 'zoom-in';
+    });
+
+    
+    cont.addEventListener('touchstart', e => {
+        if (e.touches.length === 2) {
+            lastDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        } else if (e.touches.length === 1 && scale > 1) {
+            isDragging = true;
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    cont.addEventListener('touchmove', e => {
+        if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            if (lastDist > 0) zoomBy(dist / lastDist, cx, cy);
+            lastDist = dist;
+        } else if (e.touches.length === 1 && isDragging) {
+            tx += e.touches[0].clientX - lastX;
+            ty += e.touches[0].clientY - lastY;
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+            clampTranslation();
+            applyTransform(false);
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    cont.addEventListener('touchend', e => {
+        if (e.touches.length < 2) lastDist = 0;
+        if (e.touches.length === 0) {
+            isDragging = false;
+            
+        }
+    });
+
+})(); 
+
 async function procesarFotoSeleccionada(file, opts = {}) {
-if (!file) return;
-try {
-toast('\x50\x72\x6f\x63\x65\x73\x61\x6e\x64\x6f\x20\x69\x6d\x61\x67\x65\x6e\x2e\x2e\x2e', '\x69\x6e\x66\x6f');
-const compressedImage = await comprimirImagen(file, opts);
-fotosTemporales.push(compressedImage);
-actualizarVistaPreviaFotos();
-const kb = Math.round(compressedImage.length * 0.75 / 1024);
-toast(`✓ Foto lista (≈${kb} KB)`, '\x73\x75\x63\x63\x65\x73\x73');
-} catch (error) {
-console.error('\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x70\x72\x6f\x63\x65\x73\x61\x72\x20\x69\x6d\x61\x67\x65\x6e\x3a', error);
-toast('Error al procesar la imagen', '\x65\x72\x72\x6f\x72');
+    if (!file) return;
+    try {
+        toast('Procesando imagen...', 'info');
+        const compressedImage = await comprimirImagen(file, opts);
+        fotosTemporales.push(compressedImage);
+        actualizarVistaPreviaFotos();
+        
+        const kb = Math.round(compressedImage.length * 0.75 / 1024);
+        toast(`✓ Foto lista (≈${kb} KB)`, 'success');
+    } catch (error) {
+        console.error('Error al procesar imagen:', error);
+        toast('Error al procesar la imagen', 'error');
+    }
 }
-}
+
 const esMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
 function dispararSelectorArchivos(input) {
-if (!input) return;
-try { input.value = ''; } catch(_) {}
-input.click();
+    if (!input) return;
+    try { input.value = ''; } catch(_) {}
+    input.click();
 }
+
 function abrirCamara(inputId) {
-const input = document.getElementById(inputId);
-if (!input) return;
-if (esMobile) {
-input.setAttribute('\x63\x61\x70\x74\x75\x72\x65', '\x65\x6e\x76\x69\x72\x6f\x6e\x6d\x65\x6e\x74');
-} else {
-input.removeAttribute('\x63\x61\x70\x74\x75\x72\x65');
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    if (esMobile) {
+        
+        
+        input.setAttribute('capture', 'environment');
+    } else {
+        
+        input.removeAttribute('capture');
+    }
+    dispararSelectorArchivos(input);
 }
-dispararSelectorArchivos(input);
-}
+
 async function procesarFotoCierre(file, opts = {}) {
-if (!file) return;
-try {
-toast('Procesando foto de cierre...', '\x69\x6e\x66\x6f');
-fotoCierreTemp = await comprimirImagen(file, opts);
-actualizarVistaPreviaFotoCierre();
-const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
-toast(`✓ Foto de cierre lista (≈${kb} KB)`, '\x73\x75\x63\x63\x65\x73\x73');
-} catch (err) {
-console.error('Error procesando foto cierre:', err);
-toast('\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x70\x72\x6f\x63\x65\x73\x61\x72\x20\x6c\x61\x20\x66\x6f\x74\x6f', '\x65\x72\x72\x6f\x72');
+    if (!file) return;
+    try {
+        toast('Procesando foto de cierre...', 'info');
+        fotoCierreTemp = await comprimirImagen(file, opts);
+        actualizarVistaPreviaFotoCierre();
+        const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
+        toast(`✓ Foto de cierre lista (≈${kb} KB)`, 'success');
+    } catch (err) {
+        console.error('Error procesando foto cierre:', err);
+        toast('Error al procesar la foto', 'error');
+    }
 }
-}
-document.getElementById('\x62\x74\x6e\x2d\x74\x6f\x6d\x61\x72\x2d\x66\x6f\x74\x6f').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-abrirCamara('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x63\x61\x6d\x61\x72\x61');
+
+document.getElementById('btn-tomar-foto').addEventListener('click', () => {
+    abrirCamara('input-foto-camara');
 });
-document.getElementById('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x63\x61\x6d\x61\x72\x61').addEventListener('\x63\x68\x61\x6e\x67\x65', async (e) => {
-if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0], { usarExifRotacion: true });
-e.target.value = '';
+
+document.getElementById('input-foto-camara').addEventListener('change', async (e) => {
+    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0], { usarExifRotacion: true });
+    e.target.value = '';
 });
-document.getElementById('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x67\x61\x6c\x65\x72\x69\x61').addEventListener('\x63\x68\x61\x6e\x67\x65', async (e) => {
-if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0], { usarExifRotacion: false });
-e.target.value = '';
+document.getElementById('input-foto-galeria').addEventListener('change', async (e) => {
+    
+    if (e.target.files[0]) await procesarFotoSeleccionada(e.target.files[0], { usarExifRotacion: false });
+    e.target.value = '';
 });
-document.getElementById('\x62\x74\x6e\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65\x2d\x63\x61\x6d\x61\x72\x61').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-abrirCamara('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65\x2d\x63\x61\x6d\x61\x72\x61');
+
+document.getElementById('btn-foto-cierre-camara').addEventListener('click', () => {
+    abrirCamara('input-foto-cierre-camara');
 });
-document.getElementById('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65\x2d\x63\x61\x6d\x61\x72\x61').addEventListener('\x63\x68\x61\x6e\x67\x65', async (e) => {
-if (e.target.files[0]) await procesarFotoCierre(e.target.files[0], { usarExifRotacion: true });
-e.target.value = '';
+
+document.getElementById('input-foto-cierre-camara').addEventListener('change', async (e) => {
+    if (e.target.files[0]) await procesarFotoCierre(e.target.files[0], { usarExifRotacion: true });
+    e.target.value = '';
 });
-document.getElementById('\x69\x6e\x70\x75\x74\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65\x2d\x67\x61\x6c\x65\x72\x69\x61').addEventListener('\x63\x68\x61\x6e\x67\x65', async (e) => {
-if (e.target.files[0]) await procesarFotoCierre(e.target.files[0], { usarExifRotacion: false });
-e.target.value = '';
+document.getElementById('input-foto-cierre-galeria').addEventListener('change', async (e) => {
+    
+    if (e.target.files[0]) await procesarFotoCierre(e.target.files[0], { usarExifRotacion: false });
+    e.target.value = '';
 });
+
 function actualizarVistaPreviaFotos() {
-const container = document.getElementById('\x76\x69\x73\x74\x61\x2d\x70\x72\x65\x76\x69\x61\x2d\x66\x6f\x74\x6f\x73');
-container.innerHTML = '';
-fotosTemporales.forEach((foto, index) => {
-const wrap = document.createElement('\x64\x69\x76');
-wrap.style.cssText = 'position:relative;display:inline-block';
-const img = document.createElement('\x69\x6d\x67');
-img.src = foto;
-img.className = '\x66\x6f\x74\x6f\x2d\x6d\x69\x6e\x69\x61\x74\x75\x72\x61';
-img.onclick = () => window.verFotoAmpliada(foto, { tipo: '\x74\x65\x6d\x70\x6f\x72\x61\x6c', idx: index });
-const del = document.createElement('\x62\x75\x74\x74\x6f\x6e');
-del.type = '\x62\x75\x74\x74\x6f\x6e';
-del.innerHTML = '\x2715';
-del.title = '\x45\x6c\x69\x6d\x69\x6e\x61\x72\x20\x66\x6f\x74\x6f';
-del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
-del.onclick = (e) => {
-e.stopPropagation();
-fotosTemporales.splice(index, 1);
-actualizarVistaPreviaFotos();
-};
-wrap.appendChild(img);
-wrap.appendChild(del);
-container.appendChild(wrap);
-});
-if (fotosTemporales.length > 0) {
-const cnt = document.createElement('\x64\x69\x76');
-cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
-cnt.textContent = fotosTemporales.length + '\x20\x66\x6f\x74\x6f\x28\x73\x29\x20\x61\x64\x6a\x75\x6e\x74\x61\x28\x73\x29';
-container.appendChild(cnt);
+    const container = document.getElementById('vista-previa-fotos');
+    container.innerHTML = '';
+    fotosTemporales.forEach((foto, index) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:relative;display:inline-block';
+        const img = document.createElement('img');
+        img.src = foto;
+        img.className = 'foto-miniatura';
+        img.onclick = () => window.verFotoAmpliada(foto, { tipo: 'temporal', idx: index });
+        
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.innerHTML = '✕';
+        del.title = 'Eliminar foto';
+        del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
+        del.onclick = (e) => {
+            e.stopPropagation();
+            fotosTemporales.splice(index, 1);
+            actualizarVistaPreviaFotos();
+        };
+        wrap.appendChild(img);
+        wrap.appendChild(del);
+        container.appendChild(wrap);
+    });
+    
+    if (fotosTemporales.length > 0) {
+        const cnt = document.createElement('div');
+        cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
+        cnt.textContent = fotosTemporales.length + ' foto(s) adjunta(s)';
+        container.appendChild(cnt);
+    }
 }
-}
+
 function abrirAvance(id) {
-const pedido = app.p.find(x => String(x.id) === String(id));
-if (!pedido) return;
-pedidoActualParaAvance = id;
-const slider = document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x73\x6c\x69\x64\x65\x72');
-const input = document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x69\x6e\x70\x75\x74');
-slider.value = pedido.av;
-input.value = pedido.av;
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x6d\x6f\x64\x61\x6c').classList.add('\x61\x63\x74\x69\x76\x65');
+    const pedido = app.p.find(x => String(x.id) === String(id));
+    if (!pedido) return;
+    
+    pedidoActualParaAvance = id;
+    const slider = document.getElementById('avance-slider');
+    const input = document.getElementById('avance-input');
+    slider.value = pedido.av;
+    input.value = pedido.av;
+    
+    document.getElementById('avance-modal').classList.add('active');
 }
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x73\x6c\x69\x64\x65\x72').addEventListener('\x69\x6e\x70\x75\x74', (e) => {
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x69\x6e\x70\x75\x74').value = e.target.value;
+
+document.getElementById('avance-slider').addEventListener('input', (e) => {
+    document.getElementById('avance-input').value = e.target.value;
 });
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x69\x6e\x70\x75\x74').addEventListener('\x69\x6e\x70\x75\x74', (e) => {
-let val = parseInt(e.target.value);
-if (isNaN(val)) val = 0;
-if (val < 0) val = 0;
-if (val > 100) val = 100;
-e.target.value = val;
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x73\x6c\x69\x64\x65\x72').value = val;
+
+document.getElementById('avance-input').addEventListener('input', (e) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    if (val > 100) val = 100;
+    e.target.value = val;
+    document.getElementById('avance-slider').value = val;
 });
-document.getElementById('\x67\x75\x61\x72\x64\x61\x72\x2d\x61\x76\x61\x6e\x63\x65').addEventListener('\x63\x6c\x69\x63\x6b', async () => {
-if (!pedidoActualParaAvance) return;
-const avance = parseInt(document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x69\x6e\x70\x75\x74').value);
-await actualizarAvance(pedidoActualParaAvance, avance);
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x6d\x6f\x64\x61\x6c').classList.remove('\x61\x63\x74\x69\x76\x65');
-pedidoActualParaAvance = null;
+
+document.getElementById('guardar-avance').addEventListener('click', async () => {
+    if (!pedidoActualParaAvance) return;
+    
+    const avance = parseInt(document.getElementById('avance-input').value);
+    await actualizarAvance(pedidoActualParaAvance, avance);
+    document.getElementById('avance-modal').classList.remove('active');
+    pedidoActualParaAvance = null;
 });
-document.getElementById('\x63\x61\x6e\x63\x65\x6c\x61\x72\x2d\x61\x76\x61\x6e\x63\x65').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-document.getElementById('\x61\x76\x61\x6e\x63\x65\x2d\x6d\x6f\x64\x61\x6c').classList.remove('\x61\x63\x74\x69\x76\x65');
-pedidoActualParaAvance = null;
+
+document.getElementById('cancelar-avance').addEventListener('click', () => {
+    document.getElementById('avance-modal').classList.remove('active');
+    pedidoActualParaAvance = null;
 });
-document.getElementById('\x70\x66').addEventListener('\x73\x75\x62\x6d\x69\x74', async e => {
-e.preventDefault();
-const btn = e.target.querySelector('\x62\x75\x74\x74\x6f\x6e\x5b\x74\x79\x70\x65\x3d\x22\x73\x75\x62\x6d\x69\x74\x22\x5d');
-btn.disabled = true;
-if (!app.sel) {
-toast('Selecciona ubicación en el mapa', '\x65\x72\x72\x6f\x72');
-btn.disabled = false;
-return;
-}
-try {
-const anioActual = new Date().getFullYear();
-let numPedido;
-if (modoOffline || !NEON_OK) {
-const keyContador = '\x70\x6d\x67\x5f\x63\x6f\x6e\x74\x61\x64\x6f\x72\x5f' + anioActual;
-const contadorLocal = parseInt(localStorage.getItem(keyContador) || '\x30') + 1;
-localStorage.setItem(keyContador, String(contadorLocal));
-numPedido = '\x50\x4d\x2d' + anioActual + '\x2d' + String(contadorLocal).padStart(4, '\x30');
-} else {
-try {
-await sqlSimple(`INSERT INTO pedido_contador(anio, ultimo_numero)
-VALUES(${esc(anioActual)}, 1)
-ON CONFLICT(anio) DO UPDATE SET ultimo_numero = pedido_contador.ultimo_numero + 1`);
-const r = await sqlSimple(`SELECT ultimo_numero FROM pedido_contador WHERE anio = ${esc(anioActual)}`);
-const num = r.rows[0]?.ultimo_numero || 1;
-numPedido = '\x50\x4d\x2d' + anioActual + '\x2d' + String(num).padStart(4, '\x30');
-localStorage.setItem('\x70\x6d\x67\x5f\x63\x6f\x6e\x74\x61\x64\x6f\x72\x5f' + anioActual, String(num));
-} catch(_) {
-const fallback = Date.now().toString().slice(-5);
-numPedido = '\x50\x4d\x2d' + anioActual + '\x2d' + fallback;
-}
-}
-const fotosString = fotosTemporales.join('\x7c\x7c');
-let xInchauspe = null, yInchauspe = null;
-try {
-const inchauspe = proj4('\x57\x47\x53\x38\x34', '\x49\x4e\x43\x48\x41\x55\x53\x50\x45', [app.sel.lng, app.sel.lat]);
-xInchauspe = inchauspe[0].toFixed(2);
-yInchauspe = inchauspe[1].toFixed(2);
-} catch(_) {}
-const queryInsert = `INSERT INTO pedidos(
-numero_pedido, distribuidor, setd, cliente, tipo_trabajo,
-descripcion, prioridad, lat, lng, usuario_id, estado, avance, foto_base64,
-x_inchauspe, y_inchauspe, fecha_creacion
-) VALUES(
-${esc(numPedido)},
-${esc(document.getElementById('di2').value)},
-${esc(document.getElementById('sd').value || null)},
-${esc(document.getElementById('cl').value || null)},
-${esc(document.getElementById('tt').value || null)},
-${esc(document.getElementById('de').value)},
-${esc(document.getElementById('pr').value)},
-${esc(app.sel.lat)},
-${esc(app.sel.lng)},
-${esc(app.u?.id || 1)},
-'Pendiente', 0,
-${esc(fotosString || null)},
-${esc(xInchauspe)},
-${esc(yInchauspe)},
-${esc(new Date().toISOString())}
-)`;
-if (modoOffline || !NEON_OK) {
-enqueueOffline({ tipo: 'INSERT', query: queryInsert });
-const pedidoLocal = {
-id: '\x6f\x66\x66\x5f' + Date.now(),
-np: numPedido,
-f: new Date().toISOString(),
-fc: null, fa: null,
-dis: document.getElementById('\x64\x69\x32').value,
-sd: document.getElementById('\x73\x64').value || '',
-cl: document.getElementById('\x63\x6c').value || '',
-tt: document.getElementById('\x74\x74').value || '',
-de: document.getElementById('\x64\x65').value,
-pr: document.getElementById('\x70\x72').value,
-es: '\x50\x65\x6e\x64\x69\x65\x6e\x74\x65', av: 0,
-la: app.sel.lat, ln: app.sel.lng,
-ui: app.u?.id || 1,
-tr: null, tc: null,
-fotos: fotosString ? fotosString.split('\x7c\x7c') : [],
-foto_cierre: null,
-x_inchauspe: xInchauspe, y_inchauspe: yInchauspe,
-_offline: true
-};
-app.p.unshift(pedidoLocal);
-offlinePedidosSave(app.p);
-toast('📴 Pedido guardado localmente — se sincronizará al conectarse', '\x73\x75\x63\x63\x65\x73\x73');
-} else {
-await ejecutarSQLConReintentos(queryInsert);
-toast('\x50\x65\x64\x69\x64\x6f\x20\x67\x75\x61\x72\x64\x61\x64\x6f', '\x73\x75\x63\x63\x65\x73\x73');
-}
-fotosTemporales = [];
-actualizarVistaPreviaFotos();
-closeAll();
-app.sel = null;
-render();
-if (!modoOffline) cargarPedidos();
-} catch(e) {
-console.error(e);
-if (e.message && (e.message.includes('\x66\x65\x74\x63\x68') || e.message.includes('\x6e\x65\x74\x77\x6f\x72\x6b') || e.message.includes('\x46\x61\x69\x6c\x65\x64'))) {
-setModoOffline(true);
-toast('Sin conexión — reintentá guardar en modo offline', '\x65\x72\x72\x6f\x72');
-} else {
-toast('\x45\x72\x72\x6f\x72\x3a\x20' + (e.message || '\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x67\x75\x61\x72\x64\x61\x72'), '\x65\x72\x72\x6f\x72');
-}
-} finally {
-btn.disabled = false;
-}
+
+document.getElementById('pf').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    
+    if (!app.sel) {
+        toast('Selecciona ubicación en el mapa', 'error');
+        btn.disabled = false;
+        return;
+    }
+    
+    try {
+        
+        const anioActual = new Date().getFullYear();
+        let numPedido;
+        if (modoOffline || !NEON_OK) {
+            
+            const keyContador = 'pmg_contador_' + anioActual;
+            const contadorLocal = parseInt(localStorage.getItem(keyContador) || '0') + 1;
+            localStorage.setItem(keyContador, String(contadorLocal));
+            numPedido = 'PM-' + anioActual + '-' + String(contadorLocal).padStart(4, '0');
+        } else {
+            
+            try {
+                await sqlSimple(`INSERT INTO pedido_contador(anio, ultimo_numero)
+                    VALUES(${esc(anioActual)}, 1)
+                    ON CONFLICT(anio) DO UPDATE SET ultimo_numero = pedido_contador.ultimo_numero + 1`);
+                const r = await sqlSimple(`SELECT ultimo_numero FROM pedido_contador WHERE anio = ${esc(anioActual)}`);
+                const num = r.rows[0]?.ultimo_numero || 1;
+                numPedido = 'PM-' + anioActual + '-' + String(num).padStart(4, '0');
+                
+                localStorage.setItem('pmg_contador_' + anioActual, String(num));
+            } catch(_) {
+                
+                const fallback = Date.now().toString().slice(-5);
+                numPedido = 'PM-' + anioActual + '-' + fallback;
+            }
+        }
+        const fotosString = fotosTemporales.join('||');
+        let xInchauspe = null, yInchauspe = null;
+        try {
+            const inchauspe = proj4('WGS84', 'INCHAUSPE', [app.sel.lng, app.sel.lat]);
+            xInchauspe = inchauspe[0].toFixed(2);
+            yInchauspe = inchauspe[1].toFixed(2);
+        } catch(_) {}
+
+        const queryInsert = `INSERT INTO pedidos(
+            numero_pedido, distribuidor, setd, cliente, tipo_trabajo,
+            descripcion, prioridad, lat, lng, usuario_id, estado, avance, foto_base64,
+            x_inchauspe, y_inchauspe, fecha_creacion
+        ) VALUES(
+            ${esc(numPedido)},
+            ${esc(document.getElementById('di2').value)},
+            ${esc(document.getElementById('sd').value || null)},
+            ${esc(document.getElementById('cl').value || null)},
+            ${esc(document.getElementById('tt').value || null)},
+            ${esc(document.getElementById('de').value)},
+            ${esc(document.getElementById('pr').value)},
+            ${esc(app.sel.lat)},
+            ${esc(app.sel.lng)},
+            ${esc(app.u?.id || 1)},
+            'Pendiente', 0,
+            ${esc(fotosString || null)},
+            ${esc(xInchauspe)},
+            ${esc(yInchauspe)},
+            ${esc(new Date().toISOString())}
+        )`;
+
+        if (modoOffline || !NEON_OK) {
+            
+            enqueueOffline({ tipo: 'INSERT', query: queryInsert });
+            
+            const pedidoLocal = {
+                id: 'off_' + Date.now(),
+                np: numPedido,
+                f: new Date().toISOString(),
+                fc: null, fa: null,
+                dis: document.getElementById('di2').value,
+                sd: document.getElementById('sd').value || '',
+                cl: document.getElementById('cl').value || '',
+                tt: document.getElementById('tt').value || '',
+                de: document.getElementById('de').value,
+                pr: document.getElementById('pr').value,
+                es: 'Pendiente', av: 0,
+                la: app.sel.lat, ln: app.sel.lng,
+                ui: app.u?.id || 1,
+                tr: null, tc: null,
+                fotos: fotosString ? fotosString.split('||') : [],
+                foto_cierre: null,
+                x_inchauspe: xInchauspe, y_inchauspe: yInchauspe,
+                _offline: true
+            };
+            app.p.unshift(pedidoLocal);
+            offlinePedidosSave(app.p);
+            toast('📴 Pedido guardado localmente — se sincronizará al conectarse', 'success');
+        } else {
+            
+            await ejecutarSQLConReintentos(queryInsert);
+            toast('Pedido guardado', 'success');
+        }
+
+        fotosTemporales = [];
+        actualizarVistaPreviaFotos();
+        closeAll();
+        app.sel = null;
+        render();
+        if (!modoOffline) cargarPedidos();
+    } catch(e) {
+        console.error(e);
+        
+        if (e.message && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
+            setModoOffline(true);
+            toast('Sin conexión — reintentá guardar en modo offline', 'error');
+        } else {
+            toast('Error: ' + (e.message || 'Error al guardar'), 'error');
+        }
+    } finally {
+        btn.disabled = false;
+    }
 });
+
 async function actualizarAvance(id, avance) {
-try {
-const now = new Date().toISOString();
-await ejecutarSQLConReintentos(
-`UPDATE pedidos SET avance = {0}, fecha_avance = {1} WHERE id = {2}`,
-[avance, now, parseInt(id)]
-);
-const idx = app.p.findIndex(p => String(p.id) === String(id));
-if (idx !== -1) {
-app.p[idx].av = avance;
-app.p[idx].fa = now;
+    try {
+        const now = new Date().toISOString();
+        await ejecutarSQLConReintentos(
+            `UPDATE pedidos SET avance = {0}, fecha_avance = {1} WHERE id = {2}`,
+            [avance, now, parseInt(id)]
+        );
+        
+        const idx = app.p.findIndex(p => String(p.id) === String(id));
+        if (idx !== -1) {
+            app.p[idx].av = avance;
+            app.p[idx].fa = now;
+        }
+        
+        render();
+        toast('Avance actualizado', 'success');
+    } catch(e) {
+        console.error('Error actualizando avance:', e);
+        toast('Error al actualizar avance', 'error');
+    }
 }
-render();
-toast('\x41\x76\x61\x6e\x63\x65\x20\x61\x63\x74\x75\x61\x6c\x69\x7a\x61\x64\x6f', '\x73\x75\x63\x63\x65\x73\x73');
-} catch(e) {
-console.error('Error actualizando avance:', e);
-toast('Error al actualizar avance', '\x65\x72\x72\x6f\x72');
-}
-}
+
 async function updPedido(id, campos) {
-const cv = {};
-for (const [k, v] of Object.entries(campos)) {
-if (CN.has(k)) cv[k] = v;
+    const cv = {};
+    for (const [k, v] of Object.entries(campos)) {
+        if (CN.has(k)) cv[k] = v;
+    }
+    if (!Object.keys(cv).length) return;
+    
+    const s = [];
+    for (const [k, val] of Object.entries(cv)) s.push(`${k}=${esc(val)}`);
+    const queryUpdate = `UPDATE pedidos SET ${s.join(',')} WHERE id=${esc(parseInt(id))}`;
+
+    if (modoOffline || !NEON_OK || String(id).startsWith('off_')) {
+        
+        if (!String(id).startsWith('off_')) {
+            enqueueOffline({ tipo: 'UPDATE', query: queryUpdate });
+        }
+        
+    } else {
+        await ejecutarSQLConReintentos(queryUpdate);
+    }
+    
+    const idx = app.p.findIndex(p => String(p.id) === String(id));
+    if (idx !== -1) {
+        const pm = {
+            estado: 'es',
+            avance: 'av',
+            trabajo_realizado: 'tr',
+            tecnico_cierre: 'tc',
+            fecha_cierre: 'fc',
+            fecha_avance: 'fa',
+            foto_cierre: 'foto_cierre'
+        };
+        for (const [k, v2] of Object.entries(campos)) {
+            if (pm[k]) app.p[idx][pm[k]] = v2;
+        }
+        if (campos.foto_base64) {
+            app.p[idx].fotos = campos.foto_base64.split('||');
+        }
+        if (campos.x_inchauspe) app.p[idx].x_inchauspe = campos.x_inchauspe;
+        if (campos.y_inchauspe) app.p[idx].y_inchauspe = campos.y_inchauspe;
+    }
+    
+    offlinePedidosSave(app.p);
+    render();
 }
-if (!Object.keys(cv).length) return;
-const s = [];
-for (const [k, val] of Object.entries(cv)) s.push(`${k}=${esc(val)}`);
-const queryUpdate = `UPDATE pedidos SET ${s.join(',')} WHERE id=${esc(parseInt(id))}`;
-if (modoOffline || !NEON_OK || String(id).startsWith('\x6f\x66\x66\x5f')) {
-if (!String(id).startsWith('\x6f\x66\x66\x5f')) {
-enqueueOffline({ tipo: 'UPDATE', query: queryUpdate });
-}
-} else {
-await ejecutarSQLConReintentos(queryUpdate);
-}
-const idx = app.p.findIndex(p => String(p.id) === String(id));
-if (idx !== -1) {
-const pm = {
-estado: '\x65\x73',
-avance: '\x61\x76',
-trabajo_realizado: '\x74\x72',
-tecnico_cierre: '\x74\x63',
-fecha_cierre: '\x66\x63',
-fecha_avance: '\x66\x61',
-foto_cierre: '\x66\x6f\x74\x6f\x5f\x63\x69\x65\x72\x72\x65'
-};
-for (const [k, v2] of Object.entries(campos)) {
-if (pm[k]) app.p[idx][pm[k]] = v2;
-}
-if (campos.foto_base64) {
-app.p[idx].fotos = campos.foto_base64.split('\x7c\x7c');
-}
-if (campos.x_inchauspe) app.p[idx].x_inchauspe = campos.x_inchauspe;
-if (campos.y_inchauspe) app.p[idx].y_inchauspe = campos.y_inchauspe;
-}
-offlinePedidosSave(app.p);
-render();
-}
+
 async function iniciar(id) {
-try {
-const now = new Date().toISOString();
-await updPedido(id, {
-estado: '\x45\x6e\x20\x65\x6a\x65\x63\x75\x63\x69\xf3\x6e',
-avance: 0,
-fecha_avance: now
-});
-toast('\x50\x65\x64\x69\x64\x6f\x20\x69\x6e\x69\x63\x69\x61\x64\x6f', '\x69\x6e\x66\x6f');
-closeAll();
-} catch(e) {
-toast('\x45\x72\x72\x6f\x72\x3a\x20' + e.message, '\x65\x72\x72\x6f\x72');
+    try {
+        const now = new Date().toISOString();
+        await updPedido(id, { 
+            estado: 'En ejecución', 
+            avance: 0,
+            fecha_avance: now 
+        });
+        toast('Pedido iniciado', 'info');
+        closeAll();
+    } catch(e) {
+        toast('Error: ' + e.message, 'error');
+    }
 }
-}
+
 function actualizarVistaPreviaFotoCierre() {
-const container = document.getElementById('\x76\x69\x73\x74\x61\x2d\x70\x72\x65\x76\x69\x61\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65');
-if (!container) return;
-container.innerHTML = '';
-if (!fotoCierreTemp) return;
-const wrap = document.createElement('\x64\x69\x76');
-wrap.style.cssText = 'position:relative;display:inline-block';
-const img = document.createElement('\x69\x6d\x67');
-img.src = fotoCierreTemp;
-img.className = '\x66\x6f\x74\x6f\x2d\x6d\x69\x6e\x69\x61\x74\x75\x72\x61';
-img.onclick = () => window.verFotoAmpliada(fotoCierreTemp, { tipo: '\x63\x69\x65\x72\x72\x65\x5f\x74\x65\x6d\x70' });
-const del = document.createElement('\x62\x75\x74\x74\x6f\x6e');
-del.type = '\x62\x75\x74\x74\x6f\x6e';
-del.innerHTML = '\x2715';
-del.title = '\x45\x6c\x69\x6d\x69\x6e\x61\x72\x20\x66\x6f\x74\x6f';
-del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
-del.onclick = (e) => { e.stopPropagation(); fotoCierreTemp = null; actualizarVistaPreviaFotoCierre(); };
-wrap.appendChild(img);
-wrap.appendChild(del);
-container.appendChild(wrap);
-const cnt = document.createElement('\x64\x69\x76');
-cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
-const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
-cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
-container.appendChild(cnt);
+    const container = document.getElementById('vista-previa-foto-cierre');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!fotoCierreTemp) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;display:inline-block';
+    const img = document.createElement('img');
+    img.src = fotoCierreTemp;
+    img.className = 'foto-miniatura';
+    img.onclick = () => window.verFotoAmpliada(fotoCierreTemp, { tipo: 'cierre_temp' });
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.innerHTML = '✕';
+    del.title = 'Eliminar foto';
+    del.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:10';
+    del.onclick = (e) => { e.stopPropagation(); fotoCierreTemp = null; actualizarVistaPreviaFotoCierre(); };
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    container.appendChild(wrap);
+    const cnt = document.createElement('div');
+    cnt.style.cssText = 'width:100%;font-size:.75rem;color:#475569;margin-top:.25rem';
+    const kb = Math.round(fotoCierreTemp.length * 0.75 / 1024);
+    cnt.textContent = `1 foto de cierre (≈${kb} KB)`;
+    container.appendChild(cnt);
 }
+
 function abrirCierre(id) {
-const p = app.p.find(x => String(x.id) === String(id));
-if (!p) return;
-app.cid = id;
-document.getElementById('\x63\x69').innerHTML = `
-<strong>#${p.np}</strong> - ${p.tt}<br>
-<span style="font-size:.85em">${p.de.substring(0,100)}${p.de.length > 100 ? '…' : ''}</span>
-`;
-document.getElementById('\x74\x72').value = '';
-document.getElementById('\x74\x63\x32').value = app.u?.nombre || '';
-document.getElementById('\x74\x63').textContent = '\x30';
-fotoCierreTemp = null;
-actualizarVistaPreviaFotoCierre();
-document.getElementById('\x63\x6d\x32').classList.add('\x61\x63\x74\x69\x76\x65');
+    const p = app.p.find(x => String(x.id) === String(id));
+    if (!p) return;
+    
+    app.cid = id;
+    document.getElementById('ci').innerHTML = `
+        <strong>#${p.np}</strong> - ${p.tt}<br>
+        <span style="font-size:.85em">${p.de.substring(0,100)}${p.de.length > 100 ? '…' : ''}</span>
+    `;
+    document.getElementById('tr').value = '';
+    document.getElementById('tc2').value = app.u?.nombre || '';
+    document.getElementById('tc').textContent = '0';
+    
+    fotoCierreTemp = null;
+    actualizarVistaPreviaFotoCierre();
+    document.getElementById('cm2').classList.add('active');
 }
-document.getElementById('\x63\x63\x32').addEventListener('\x63\x6c\x69\x63\x6b', async () => {
-const tr = document.getElementById('\x74\x72').value.trim();
-if (!tr) {
-toast('Describí el trabajo realizado', '\x65\x72\x72\x6f\x72');
-return;
-}
-const btn = document.getElementById('\x63\x63\x32');
-btn.disabled = true;
-btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Guardando...';
-try {
-await updPedido(app.cid, {
-estado: '\x43\x65\x72\x72\x61\x64\x6f',
-avance: 100,
-trabajo_realizado: tr,
-tecnico_cierre: document.getElementById('\x74\x63\x32').value.trim() || app.u?.nombre || '',
-fecha_cierre: new Date().toISOString(),
-foto_cierre: fotoCierreTemp || null
+
+document.getElementById('cc2').addEventListener('click', async () => {
+    const tr = document.getElementById('tr').value.trim();
+    if (!tr) {
+        toast('Describí el trabajo realizado', 'error');
+        return;
+    }
+    const btn = document.getElementById('cc2');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Guardando...';
+    try {
+        await updPedido(app.cid, {
+            estado: 'Cerrado',
+            avance: 100,
+            trabajo_realizado: tr,
+            tecnico_cierre: document.getElementById('tc2').value.trim() || app.u?.nombre || '',
+            fecha_cierre: new Date().toISOString(),
+            foto_cierre: fotoCierreTemp || null
+        });
+        fotoCierreTemp = null;
+        closeAll();
+        toast('Pedido cerrado', 'success');
+    } catch(e) {
+        toast('Error: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Confirmar cierre';
+    }
 });
-fotoCierreTemp = null;
-closeAll();
-toast('\x50\x65\x64\x69\x64\x6f\x20\x63\x65\x72\x72\x61\x64\x6f', '\x73\x75\x63\x63\x65\x73\x73');
-} catch(e) {
-toast('\x45\x72\x72\x6f\x72\x3a\x20' + e.message, '\x65\x72\x72\x6f\x72');
-} finally {
-btn.disabled = false;
-btn.innerHTML = '<i class="fas fa-check"></i> Confirmar cierre';
-}
-});
+
 function detalle(p) {
-const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
-const f = p.f ? new Date(p.f).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '\x2d\x2d';
-const fc = p.fc ? new Date(p.fc).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : null;
-const fa = p.fa ? new Date(p.fa).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : null;
-const bg = {
-'\x50\x65\x6e\x64\x69\x65\x6e\x74\x65': '\x23\x66\x65\x66\x39\x63\x33',
-'\x45\x6e\x20\x65\x6a\x65\x63\x75\x63\x69\xf3\x6e': '\x23\x64\x62\x65\x61\x66\x65',
-'\x43\x65\x72\x72\x61\x64\x6f': '\x23\x64\x63\x66\x63\x65\x37'
-};
-const co = {
-'\x50\x65\x6e\x64\x69\x65\x6e\x74\x65': '\x23\x38\x35\x34\x64\x30\x65',
-'\x45\x6e\x20\x65\x6a\x65\x63\x75\x63\x69\xf3\x6e': '\x23\x31\x64\x34\x65\x64\x38',
-'\x43\x65\x72\x72\x61\x64\x6f': '\x23\x31\x36\x36\x35\x33\x34'
-};
-const ed = app.u?.rol === '\x61\x64\x6d\x69\x6e' || String(p.ui) === String(app.u?.id);
-let fotosHtml = '';
-if (p.fotos && p.fotos.length > 0) {
-fotosHtml = '<div class="fotos-container">';
-p.fotos.forEach((foto, idx) => {
-if (foto) {
-const ctxStr = JSON.stringify({ tipo: '\x70\x65\x64\x69\x64\x6f\x5f\x66\x6f\x74\x6f\x73', id: p.id, idx }).replace(/"\x2f\x67\x2c\x20\x27\x26\x71\x75\x6f\x74\x3b\x27\x29"
-fotosHtml += `<img src="${foto}" class="foto-miniatura" onclick="verFotoAmpliada(this.src, JSON.parse(this.dataset.ctx))" data-ctx="${ctxStr}">`;
+    const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+    const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
+    const fc = p.fc ? new Date(p.fc).toLocaleString('es-AR', {...tz, hour12:false}) : null;
+    const fa = p.fa ? new Date(p.fa).toLocaleString('es-AR', {...tz, hour12:false}) : null;
+    
+    const bg = {
+        'Pendiente': '#fef9c3',
+        'En ejecución': '#dbeafe',
+        'Cerrado': '#dcfce7'
+    };
+    
+    const co = {
+        'Pendiente': '#854d0e',
+        'En ejecución': '#1d4ed8',
+        'Cerrado': '#166534'
+    };
+    
+    const ed = app.u?.rol === 'admin' || String(p.ui) === String(app.u?.id);
+    
+    
+    let fotosHtml = '';
+    if (p.fotos && p.fotos.length > 0) {
+        fotosHtml = '<div class="fotos-container">';
+        p.fotos.forEach((foto, idx) => {
+            if (foto) {
+                const ctxStr = JSON.stringify({ tipo: 'pedido_fotos', id: p.id, idx }).replace(/"/g, '&quot;');
+                fotosHtml += `<img src="${foto}" class="foto-miniatura" onclick="verFotoAmpliada(this.src, JSON.parse(this.dataset.ctx))" data-ctx="${ctxStr}">`;
+            }
+        });
+        fotosHtml += '</div>';
+    }
+    
+    
+    const latFormateada = p.la ? p.la.toFixed(5).replace('.', ',') : '';
+    const lngFormateada = p.ln ? p.ln.toFixed(5).replace('.', ',') : '';
+    
+    document.getElementById('dmc').innerHTML = `
+        <div class="ds">
+            <h4>📋 Información General</h4>
+            <div class="dr"><span class="dl">N° Pedido</span><span class="dv" style="font-weight:700;color:#1e3a8a">#${p.np}</span></div>
+            <div class="dr"><span class="dl">Fecha Creación</span><span class="dv">${f}</span></div>
+            ${p.es === 'Cerrado' ? 
+                `<div class="dr"><span class="dl">Fecha Cierre</span><span class="dv">${fc}</span></div>` : 
+                p.es === 'En ejecución' && fa ? 
+                `<div class="dr"><span class="dl">Último Avance</span><span class="dv">${fa}</span></div>` : ''}
+            <div class="dr"><span class="dl">Estado</span><span class="dv"><span style="background:${bg[p.es]||'#e5e7eb'};color:${co[p.es]||'#374151'};padding:2px 10px;border-radius:12px;font-size:.82rem;font-weight:600">${p.es}</span></span></div>
+            <div class="dr"><span class="dl">Prioridad</span><span class="dv">${p.pr}</span></div>
+            <div class="dr"><span class="dl">Tipo</span><span class="dv">${p.tt||'--'}</span></div>
+            <div class="dr"><span class="dl">Avance</span><span class="dv">${p.av}% <div style="height:4px;background:#e2e8f0;border-radius:2px;width:100px;display:inline-block;vertical-align:middle;margin-left:6px;overflow:hidden"><div style="height:100%;width:${p.av}%;background:linear-gradient(90deg,#1e3a8a,#3b82f6)"></div></div></span></div>
+        </div>
+        
+        <div class="ds">
+            <h4>🏢 Datos del Trabajo</h4>
+            <div class="dr"><span class="dl">Distribuidor</span><span class="dv">${p.dis}</span></div>
+            ${p.sd ? `<div class="dr"><span class="dl">SETD</span><span class="dv">${p.sd}</span></div>` : ''}
+            ${p.cl ? `<div class="dr"><span class="dl">Cliente</span><span class="dv">${p.cl}</span></div>` : ''}
+            <div class="dr"><span class="dl">Descripción</span><span class="dv">${p.de}</span></div>
+        </div>
+        
+        ${p.es === 'Cerrado' ? `
+        <div class="ds">
+            <h4>✅ Cierre del Pedido</h4>
+            ${fc ? `<div class="dr"><span class="dl">Fecha cierre</span><span class="dv">${fc}</span></div>` : ''}
+            ${p.tc ? `<div class="dr"><span class="dl">Técnico</span><span class="dv">${p.tc}</span></div>` : ''}
+            ${p.tr ? `<div class="dr" style="flex-direction:column;gap:.3rem"><span class="dl">Trabajo</span><div class="trb">${p.tr}</div></div>` : ''}
+            ${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura" style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada(this.src, {tipo:'pedido_cierre',id:'${p.id}'})"></div>` : ''}
+        </div>` : ''}
+        
+        <div class="ds">
+            <h4>📍 Ubicación</h4>
+            <div class="dr"><span class="dl">WGS84 Lat:</span><span class="dv">${latFormateada} <span class="dv-copy" onclick="copiarTexto('${latFormateada}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
+            <div class="dr"><span class="dl">WGS84 Lng:</span><span class="dv">${lngFormateada} <span class="dv-copy" onclick="copiarTexto('${lngFormateada}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
+            ${p.x_inchauspe && p.y_inchauspe ? `
+            <div class="dr"><span class="dl">Inchauspe X:</span><span class="dv">${p.x_inchauspe.toString().replace('.', ',')} <span class="dv-copy" onclick="copiarTexto('${p.x_inchauspe.toString().replace('.', ',')}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
+            <div class="dr"><span class="dl">Inchauspe Y:</span><span class="dv">${p.y_inchauspe.toString().replace('.', ',')} <span class="dv-copy" onclick="copiarTexto('${p.y_inchauspe.toString().replace('.', ',')}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
+            ` : ''}
+            <button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa (zoom máximo)</button>
+        </div>
+        
+        ${fotosHtml ? `
+        <div class="ds">
+            <h4>📸 Fotos del trabajo</h4>
+            ${fotosHtml}
+        </div>` : ''}
+        
+        <div class="da">
+            ${ed && p.es === 'Pendiente' ? `<button class="ba2 p2" onclick="_a('i','${p.id}')"><i class="fas fa-play"></i> Iniciar</button><button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button>` : ''}
+            ${ed && p.es === 'En ejecución' ? `<button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button><button class="ba2 p2" onclick="_a('av','${p.id}')"><i class="fas fa-percent"></i> Cargar Avance (${p.av}%)</button>` : ''}
+            <button class="ba2 imprimir" onclick="imprimirPedido(${JSON.stringify(p).replace(/"/g, '&quot;')})"><i class="fas fa-print"></i> Imprimir</button>
+            <button class="ba2" onclick="_xl('${p.id}')"><i class="fas fa-file-excel"></i> Exportar</button>
+        </div>
+    `;
+    
+    document.getElementById('dm').classList.add('active');
 }
-});
-fotosHtml += '\x3c\x2f\x64\x69\x76\x3e';
-}
-const latFormateada = p.la ? p.la.toFixed(5).replace('\x2e', '\x2c') : '';
-const lngFormateada = p.ln ? p.ln.toFixed(5).replace('\x2e', '\x2c') : '';
-document.getElementById('\x64\x6d\x63').innerHTML = `
-<div class="ds">
-<h4>📋 Información General</h4>
-<div class="dr"><span class="dl">N° Pedido</span><span class="dv" style="font-weight:700;color:#1e3a8a">#${p.np}</span></div>
-<div class="dr"><span class="dl">Fecha Creación</span><span class="dv">${f}</span></div>
-${p.es === 'Cerrado' ?
-`<div class="\x64\x72"><span class="\x64\x6c">Fecha Cierre</span><span class="\x64\x76">${fc}</span></div>` :
-p.es === 'En ejecución' && fa ?
-`<div class="\x64\x72"><span class="\x64\x6c">Último Avance</span><span class="\x64\x76">${fa}</span></div>` : ''}
-<div class="dr"><span class="dl">Estado</span><span class="dv"><span style="background:${bg[p.es]||'#e5e7eb'};color:${co[p.es]||'#374151'};padding:2px 10px;border-radius:12px;font-size:.82rem;font-weight:600">${p.es}</span></span></div>
-<div class="dr"><span class="dl">Prioridad</span><span class="dv">${p.pr}</span></div>
-<div class="dr"><span class="dl">Tipo</span><span class="dv">${p.tt||'--'}</span></div>
-<div class="dr"><span class="dl">Avance</span><span class="dv">${p.av}% <div style="height:4px;background:#e2e8f0;border-radius:2px;width:100px;display:inline-block;vertical-align:middle;margin-left:6px;overflow:hidden"><div style="height:100%;width:${p.av}%;background:linear-gradient(90deg,#1e3a8a,#3b82f6)"></div></div></span></div>
-</div>
-<div class="ds">
-<h4>🏢 Datos del Trabajo</h4>
-<div class="dr"><span class="dl">Distribuidor</span><span class="dv">${p.dis}</span></div>
-${p.sd ? `<div class="\x64\x72"><span class="\x64\x6c">SETD</span><span class="\x64\x76">${p.sd}</span></div>` : ''}
-${p.cl ? `<div class="\x64\x72"><span class="\x64\x6c">Cliente</span><span class="\x64\x76">${p.cl}</span></div>` : ''}
-<div class="dr"><span class="dl">Descripción</span><span class="dv">${p.de}</span></div>
-</div>
-${p.es === 'Cerrado' ? `
-<div class="\x64\x73">
-<h4>✅ Cierre del Pedido</h4>
-${fc ? `<div class="dr"><span class="dl">Fecha cierre</span><span class="dv">${fc}</span></div>` : ''}
-${p.tc ? `<div class="dr"><span class="dl">Técnico</span><span class="dv">${p.tc}</span></div>` : ''}
-${p.tr ? `<div class="dr" style="flex-direction:column;gap:.3rem"><span class="dl">Trabajo</span><div class="trb">${p.tr}</div></div>` : ''}
-${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura" style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada(this.src, {tipo:'pedido_cierre',id:'${p.id}'})"></div>` : ''}
-</div>` : ''}
-<div class="ds">
-<h4>📍 Ubicación</h4>
-<div class="dr"><span class="dl">WGS84 Lat:</span><span class="dv">${latFormateada} <span class="dv-copy" onclick="copiarTexto('${latFormateada}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
-<div class="dr"><span class="dl">WGS84 Lng:</span><span class="dv">${lngFormateada} <span class="dv-copy" onclick="copiarTexto('${lngFormateada}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
-${p.x_inchauspe && p.y_inchauspe ? `
-<div class="\x64\x72"><span class="\x64\x6c">Inchauspe X:</span><span class="\x64\x76">${p.x_inchauspe.toString().replace('\x2e', '\x2c')} <span class="\x64\x76\x2d\x63\x6f\x70\x79" onclick="copiarTexto('${p.x_inchauspe.toString().replace('.', ',')}')"><i class="\x66\x61\x73\x20\x66\x61\x2d\x63\x6f\x70\x79"></i> Copiar</span></span></div>
-<div class="\x64\x72"><span class="\x64\x6c">Inchauspe Y:</span><span class="\x64\x76">${p.y_inchauspe.toString().replace('\x2e', '\x2c')} <span class="\x64\x76\x2d\x63\x6f\x70\x79" onclick="copiarTexto('${p.y_inchauspe.toString().replace('.', ',')}')"><i class="\x66\x61\x73\x20\x66\x61\x2d\x63\x6f\x70\x79"></i> Copiar</span></span></div>
-` : ''}
-<button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa (zoom máximo)</button>
-</div>
-${fotosHtml ? `
-<div class="\x64\x73">
-<h4>📸 Fotos del trabajo</h4>
-${fotosHtml}
-</div>` : ''}
-<div class="da">
-${ed && p.es === 'Pendiente' ? `<button class="\x62\x61\x32\x20\x70\x32" onclick="\x5f\x61\x28\x27\x69\x27\x2c\x27\x24\x7b\x70\x2e\x69\x64\x7d\x27\x29"><i class="\x66\x61\x73\x20\x66\x61\x2d\x70\x6c\x61\x79"></i> Iniciar</button><button class="\x62\x61\x32\x20\x73\x32" onclick="\x5f\x61\x28\x27\x63\x27\x2c\x27\x24\x7b\x70\x2e\x69\x64\x7d\x27\x29"><i class="\x66\x61\x73\x20\x66\x61\x2d\x63\x68\x65\x63\x6b"></i> Cerrar Pedido</button>` : ''}
-${ed && p.es === 'En ejecución' ? `<button class="\x62\x61\x32\x20\x73\x32" onclick="\x5f\x61\x28\x27\x63\x27\x2c\x27\x24\x7b\x70\x2e\x69\x64\x7d\x27\x29"><i class="\x66\x61\x73\x20\x66\x61\x2d\x63\x68\x65\x63\x6b"></i> Cerrar Pedido</button><button class="\x62\x61\x32\x20\x70\x32" onclick="\x5f\x61\x28\x27\x61\x76\x27\x2c\x27\x24\x7b\x70\x2e\x69\x64\x7d\x27\x29"><i class="\x66\x61\x73\x20\x66\x61\x2d\x70\x65\x72\x63\x65\x6e\x74"></i> Cargar Avance (${p.av}%)</button>` : ''}
-<button class="ba2 imprimir" onclick="imprimirPedido(${JSON.stringify(p).replace(/"/g, '&quot;')})"><i class="fas fa-print"></i> Imprimir</button>
-<button class="ba2" onclick="_xl('${p.id}')"><i class="fas fa-file-excel"></i> Exportar</button>
-</div>
-`;
-document.getElementById('\x64\x6d').classList.add('\x61\x63\x74\x69\x76\x65');
-}
+
 window.copiarTexto = function(texto) {
-navigator.clipboard.writeText(texto).then(() => {
-toast('\x43\x6f\x70\x69\x61\x64\x6f\x20\x61\x6c\x20\x70\x6f\x72\x74\x61\x70\x61\x70\x65\x6c\x65\x73', '\x73\x75\x63\x63\x65\x73\x73');
-}).catch(() => {
-toast('\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x63\x6f\x70\x69\x61\x72', '\x65\x72\x72\x6f\x72');
-});
+    navigator.clipboard.writeText(texto).then(() => {
+        toast('Copiado al portapapeles', 'success');
+    }).catch(() => {
+        toast('Error al copiar', 'error');
+    });
 };
+
 function exportPedido(pedidos, nombre) {
-if (!pedidos || pedidos.length === 0) {
-toast('No hay datos para exportar', '\x65\x72\x72\x6f\x72');
-return;
+    if (!pedidos || pedidos.length === 0) {
+        toast('No hay datos para exportar', 'error');
+        return;
+    }
+    
+    const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+    
+    const datosExport = pedidos.map(p => ({
+        'N° Pedido': p.np || '',
+        'Fecha Creación': p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '',
+        'Fecha Cierre': p.fc ? new Date(p.fc).toLocaleString('es-AR', {...tz, hour12:false}) : '',
+        'Fecha Último Avance': p.fa ? new Date(p.fa).toLocaleString('es-AR', {...tz, hour12:false}) : '',
+        'Distribuidor': p.dis || '',
+        'Cliente': p.cl || '',
+        'SETD': p.sd || '',
+        'Tipo de Trabajo': p.tt || '',
+        'Descripción': p.de || '',
+        'Prioridad': p.pr || '',
+        'Estado': p.es || '',
+        'Avance %': p.av || 0,
+        'Trabajo Realizado': p.tr || '',
+        'Técnico Cierre': p.tc || '',
+        'Latitud (WGS84)': p.la ? p.la.toString().replace('.', ',') : '',
+        'Longitud (WGS84)': p.ln ? p.ln.toString().replace('.', ',') : '',
+        'X Inchauspe': p.x_inchauspe ? p.x_inchauspe.toString().replace('.', ',') : '',
+        'Y Inchauspe': p.y_inchauspe ? p.y_inchauspe.toString().replace('.', ',') : '',
+        'Cantidad Fotos': p.fotos ? p.fotos.length : 0,
+        'Foto Cierre': p.foto_cierre ? 'Sí' : 'No'
+    }));
+    
+    if (typeof XLSX !== 'undefined') {
+        try {
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(datosExport);
+            
+            const colWidths = [
+                { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+                { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 20 },
+                { wch: 40 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
+                { wch: 30 }, { wch: 20 }, { wch: 12 }, { wch: 12 },
+                { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }
+            ];
+            ws['!cols'] = colWidths;
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+            const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            dl(buf, nombre + '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            toast('Excel descargado', 'success');
+        } catch (e) {
+            console.error('Error al generar Excel:', e);
+            toast('Error al generar Excel, usando CSV', 'error');
+            exportarCSV(datosExport, nombre);
+        }
+    } else {
+        exportarCSV(datosExport, nombre);
+    }
 }
-const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
-const datosExport = pedidos.map(p => ({
-'\x4e\xb0\x20\x50\x65\x64\x69\x64\x6f': p.np || '',
-'\x46\x65\x63\x68\x61\x20\x43\x72\x65\x61\x63\x69\xf3\x6e': p.f ? new Date(p.f).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '',
-'\x46\x65\x63\x68\x61\x20\x43\x69\x65\x72\x72\x65': p.fc ? new Date(p.fc).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '',
-'\x46\x65\x63\x68\x61\x20\xda\x6c\x74\x69\x6d\x6f\x20\x41\x76\x61\x6e\x63\x65': p.fa ? new Date(p.fa).toLocaleString('\x65\x73\x2d\x41\x52', {...tz, hour12:false}) : '',
-'\x44\x69\x73\x74\x72\x69\x62\x75\x69\x64\x6f\x72': p.dis || '',
-'\x43\x6c\x69\x65\x6e\x74\x65': p.cl || '',
-'\x53\x45\x54\x44': p.sd || '',
-'\x54\x69\x70\x6f\x20\x64\x65\x20\x54\x72\x61\x62\x61\x6a\x6f': p.tt || '',
-'\x44\x65\x73\x63\x72\x69\x70\x63\x69\xf3\x6e': p.de || '',
-'\x50\x72\x69\x6f\x72\x69\x64\x61\x64': p.pr || '',
-'\x45\x73\x74\x61\x64\x6f': p.es || '',
-'\x41\x76\x61\x6e\x63\x65\x20\x25': p.av || 0,
-'\x54\x72\x61\x62\x61\x6a\x6f\x20\x52\x65\x61\x6c\x69\x7a\x61\x64\x6f': p.tr || '',
-'\x54\xe9\x63\x6e\x69\x63\x6f\x20\x43\x69\x65\x72\x72\x65': p.tc || '',
-'\x4c\x61\x74\x69\x74\x75\x64\x20\x28\x57\x47\x53\x38\x34\x29': p.la ? p.la.toString().replace('\x2e', '\x2c') : '',
-'\x4c\x6f\x6e\x67\x69\x74\x75\x64\x20\x28\x57\x47\x53\x38\x34\x29': p.ln ? p.ln.toString().replace('\x2e', '\x2c') : '',
-'\x58\x20\x49\x6e\x63\x68\x61\x75\x73\x70\x65': p.x_inchauspe ? p.x_inchauspe.toString().replace('\x2e', '\x2c') : '',
-'\x59\x20\x49\x6e\x63\x68\x61\x75\x73\x70\x65': p.y_inchauspe ? p.y_inchauspe.toString().replace('\x2e', '\x2c') : '',
-'\x43\x61\x6e\x74\x69\x64\x61\x64\x20\x46\x6f\x74\x6f\x73': p.fotos ? p.fotos.length : 0,
-'\x46\x6f\x74\x6f\x20\x43\x69\x65\x72\x72\x65': p.foto_cierre ? '\x53\xed' : '\x4e\x6f'
-}));
-if (typeof XLSX !== '\x75\x6e\x64\x65\x66\x69\x6e\x65\x64') {
-try {
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.json_to_sheet(datosExport);
-const colWidths = [
-{ wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
-{ wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 20 },
-{ wch: 40 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
-{ wch: 30 }, { wch: 20 }, { wch: 12 }, { wch: 12 },
-{ wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }
-];
-ws['\x21\x63\x6f\x6c\x73'] = colWidths;
-XLSX.utils.book_append_sheet(wb, ws, '\x50\x65\x64\x69\x64\x6f\x73');
-const buf = XLSX.write(wb, { bookType: '\x78\x6c\x73\x78', type: '\x61\x72\x72\x61\x79' });
-dl(buf, nombre + '\x2e\x78\x6c\x73\x78', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-toast('\x45\x78\x63\x65\x6c\x20\x64\x65\x73\x63\x61\x72\x67\x61\x64\x6f', '\x73\x75\x63\x63\x65\x73\x73');
-} catch (e) {
-console.error('\x45\x72\x72\x6f\x72\x20\x61\x6c\x20\x67\x65\x6e\x65\x72\x61\x72\x20\x45\x78\x63\x65\x6c\x3a', e);
-toast('Error al generar Excel, usando CSV', '\x65\x72\x72\x6f\x72');
-exportarCSV(datosExport, nombre);
-}
-} else {
-exportarCSV(datosExport, nombre);
-}
-}
+
 function exportarCSV(datos, nombre) {
-const headers = Object.keys(datos[0]);
-const rows = datos.map(row => headers.map(h => {
-const val = row[h] || '';
-return '\x22' + String(val).replace(/"\x2f\x67\x2c\x20\x27""\x27\x29\x20\x2b\x20\x27"''
-}).join('\x2c'));
-const csv = [headers.map(h => '\x22' + h + '\x22').join('\x2c'), ...rows].join('\n');
-const blob = new Blob(['\uFEFF' + csv], { type: '\x74\x65\x78\x74\x2f\x63\x73\x76\x3b\x63\x68\x61\x72\x73\x65\x74\x3d\x75\x74\x66\x2d\x38\x3b' });
-const link = document.createElement('\x61');
-link.href = URL.createObjectURL(blob);
-link.download = nombre + '\x2e\x63\x73\x76';
-link.click();
-URL.revokeObjectURL(link.href);
-toast('\x43\x53\x56\x20\x64\x65\x73\x63\x61\x72\x67\x61\x64\x6f', '\x73\x75\x63\x63\x65\x73\x73');
+    const headers = Object.keys(datos[0]);
+    const rows = datos.map(row => headers.map(h => {
+        const val = row[h] || '';
+        return '"' + String(val).replace(/"/g, '""') + '"';
+    }).join(','));
+    
+    const csv = [headers.map(h => '"' + h + '"').join(','), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = nombre + '.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast('CSV descargado', 'success');
 }
+
 function dl(data, nombre, mime) {
-const a = document.createElement('\x61');
-a.href = URL.createObjectURL(new Blob([data], { type: mime }));
-a.download = nombre;
-document.body.appendChild(a);
-a.click();
-setTimeout(() => {
-URL.revokeObjectURL(a.href);
-a.remove();
-}, 1000);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([data], { type: mime }));
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+    }, 1000);
 }
+
 window._xl = id => {
-const p = app.p.find(x => String(x.id) === String(id));
-if (p) exportPedido([p], '\x70\x65\x64\x69\x64\x6f\x5f' + p.np);
+    const p = app.p.find(x => String(x.id) === String(id));
+    if (p) exportPedido([p], 'pedido_' + p.np);
 };
+
 function render() {
-const cer = app.p.filter(p => p.es === '\x43\x65\x72\x72\x61\x64\x6f').length;
-document.getElementById('\x70\x63').textContent = app.p.length - cer;
-document.getElementById('\x63\x63').textContent = cer;
-const fl = app.p.filter(p => app.tab === '\x70' ? p.es !== '\x43\x65\x72\x72\x61\x64\x6f' : p.es === '\x43\x65\x72\x72\x61\x64\x6f');
-const c = document.getElementById('\x70\x6c');
-c.innerHTML = '';
-if (!fl.length) {
-c.innerHTML = '<div class="ll2"><i class="fas fa-inbox"></i> Sin pedidos</div>';
-renderMk();
-return;
+    const cer = app.p.filter(p => p.es === 'Cerrado').length;
+    document.getElementById('pc').textContent = app.p.length - cer;
+    document.getElementById('cc').textContent = cer;
+    
+    const fl = app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado');
+    const c = document.getElementById('pl');
+    c.innerHTML = '';
+    
+    if (!fl.length) {
+        c.innerHTML = '<div class="ll2"><i class="fas fa-inbox"></i> Sin pedidos</div>';
+        renderMk();
+        return;
+    }
+    
+    const bC = {
+        'Crítica': '#ef4444',
+        'Alta': '#f97316',
+        'Media': '#eab308',
+        'Baja': '#3b82f6'
+    };
+    
+    const eC = {
+        'Pendiente': 'ep',
+        'En ejecución': 'ee',
+        'Cerrado': 'ec'
+    };
+    
+    const pC = {
+        'Crítica': 'pc2',
+        'Alta': 'pa',
+        'Media': 'pm',
+        'Baja': 'pb'
+    };
+    
+    const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+    
+    fl.forEach(p => {
+        const d = document.createElement('div');
+        d.className = 'pi';
+        d.style.borderLeftColor = bC[p.pr] || '#3b82f6';
+        d.addEventListener('click', () => detalle(p));
+        
+        const f = p.f ? new Date(p.f).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, ...tz }) : '';
+        
+        d.innerHTML = `
+            <div class="ph2">
+                <span class="pn">#${p.np}${p._offline ? '<span class="offline-tag">LOCAL</span>' : ''}</span>
+                <span class="pe ${eC[p.es] || ''}">${p.es}</span>
+            </div>
+            <div class="pi2">
+                ${p.dis}${p.cl ? ' - ' + p.cl : ''}
+                <span style="float:right;color:#94a3b8">${f}</span>
+            </div>
+            <div class="pd">${p.de.substring(0,70)}${p.de.length > 70 ? '…' : ''}</div>
+            <span class="pt2 ${pC[p.pr] || ''}">${p.pr}</span>
+            <div class="pav">
+                <div class="ab" style="width:${p.av}%"></div>
+            </div>
+        `;
+        c.appendChild(d);
+    });
+    
+    renderMk();
 }
-const bC = {
-'\x43\x72\xed\x74\x69\x63\x61': '\x23\x65\x66\x34\x34\x34\x34',
-'\x41\x6c\x74\x61': '\x23\x66\x39\x37\x33\x31\x36',
-'\x4d\x65\x64\x69\x61': '\x23\x65\x61\x62\x33\x30\x38',
-'\x42\x61\x6a\x61': '\x23\x33\x62\x38\x32\x66\x36'
-};
-const eC = {
-'\x50\x65\x6e\x64\x69\x65\x6e\x74\x65': '\x65\x70',
-'\x45\x6e\x20\x65\x6a\x65\x63\x75\x63\x69\xf3\x6e': '\x65\x65',
-'\x43\x65\x72\x72\x61\x64\x6f': '\x65\x63'
-};
-const pC = {
-'\x43\x72\xed\x74\x69\x63\x61': '\x70\x63\x32',
-'\x41\x6c\x74\x61': '\x70\x61',
-'\x4d\x65\x64\x69\x61': '\x70\x6d',
-'\x42\x61\x6a\x61': '\x70\x62'
-};
-const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
-fl.forEach(p => {
-const d = document.createElement('\x64\x69\x76');
-d.className = '\x70\x69';
-d.style.borderLeftColor = bC[p.pr] || '\x23\x33\x62\x38\x32\x66\x36';
-d.addEventListener('\x63\x6c\x69\x63\x6b', () => detalle(p));
-const f = p.f ? new Date(p.f).toLocaleString('\x65\x73\x2d\x41\x52', { day:'\x32\x2d\x64\x69\x67\x69\x74', month:'\x32\x2d\x64\x69\x67\x69\x74', year:'\x32\x2d\x64\x69\x67\x69\x74', hour:'\x32\x2d\x64\x69\x67\x69\x74', minute:'\x32\x2d\x64\x69\x67\x69\x74', hour12:false, ...tz }) : '';
-d.innerHTML = `
-<div class="ph2">
-<span class="pn">#${p.np}${p._offline ? '<span class="offline-tag">LOCAL</span>' : ''}</span>
-<span class="pe ${eC[p.es] || ''}">${p.es}</span>
-</div>
-<div class="pi2">
-${p.dis}${p.cl ? ' - ' + p.cl : ''}
-<span style="float:right;color:#94a3b8">${f}</span>
-</div>
-<div class="pd">${p.de.substring(0,70)}${p.de.length > 70 ? '…' : ''}</div>
-<span class="pt2 ${pC[p.pr] || ''}">${p.pr}</span>
-<div class="pav">
-<div class="ab" style="width:${p.av}%"></div>
-</div>
-`;
-c.appendChild(d);
-});
-renderMk();
-}
+
 function closeAll() {
-document.querySelectorAll('\x2e\x6d\x6f').forEach(m => m.classList.remove('\x61\x63\x74\x69\x76\x65'));
-document.getElementById('\x70\x66').reset();
-document.getElementById('\x64\x63').textContent = '\x30';
-fotoCierreTemp = null;
-const vpc = document.getElementById('\x76\x69\x73\x74\x61\x2d\x70\x72\x65\x76\x69\x61\x2d\x66\x6f\x74\x6f\x2d\x63\x69\x65\x72\x72\x65');
-if (vpc) vpc.innerHTML = '';
-const ui = document.getElementById('\x75\x69');
-if (ui) {
-ui.innerHTML = '<i class="fas fa-crosshairs"></i> Hacé clic en el mapa para seleccionar';
-ui.className = '\x75\x64';
+    document.querySelectorAll('.mo').forEach(m => m.classList.remove('active'));
+    document.getElementById('pf').reset();
+    document.getElementById('dc').textContent = '0';
+    
+    fotoCierreTemp = null;
+    const vpc = document.getElementById('vista-previa-foto-cierre');
+    if (vpc) vpc.innerHTML = '';
+    const ui = document.getElementById('ui');
+    if (ui) {
+        ui.innerHTML = '<i class="fas fa-crosshairs"></i> Hacé clic en el mapa para seleccionar';
+        ui.className = 'ud';
+    }
 }
-}
+
 function togglePanel() {
-document.getElementById('\x62\x70\x32').classList.toggle('\x63\x6f\x6c');
+    document.getElementById('bp2').classList.toggle('col');
 }
+
 function switchTab(t) {
-app.tab = t;
-document.querySelectorAll('\x2e\x74\x62').forEach(b => b.classList.toggle('\x61\x63\x74\x69\x76\x65', b.dataset.tab === t));
-render();
+    app.tab = t;
+    document.querySelectorAll('.tb').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+    render();
 }
-document.getElementById('\x6d\x74').addEventListener('\x63\x6c\x69\x63\x6b', togglePanel);
-document.getElementById('\x70\x68').addEventListener('\x63\x6c\x69\x63\x6b', togglePanel);
-document.getElementById('\x75\x62').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-if (confirm('\xbf\x43\x65\x72\x72\x61\x72\x20\x73\x65\x73\x69\xf3\x6e\x3f')) {
-detenerKeepAlive();
-localStorage.removeItem('\x70\x6d\x67');
-app.u = null;
-mapaInicializado = false;
-if (app.map) {
-app.map.remove();
-app.map = null;
-}
-document.getElementById('\x6c\x73').classList.add('\x61\x63\x74\x69\x76\x65');
-document.getElementById('\x6d\x73').classList.remove('\x61\x63\x74\x69\x76\x65');
-}
+
+document.getElementById('mt').addEventListener('click', togglePanel);
+document.getElementById('ph').addEventListener('click', togglePanel);
+
+document.getElementById('ub').addEventListener('click', () => {
+    if (confirm('¿Cerrar sesión?')) {
+        detenerKeepAlive(); 
+        localStorage.removeItem('pmg');
+        app.u = null;
+        mapaInicializado = false;
+        if (app.map) {
+            app.map.remove();
+            app.map = null;
+        }
+        document.getElementById('ls').classList.add('active');
+        document.getElementById('ms').classList.remove('active');
+    }
 });
-document.querySelectorAll('\x2e\x74\x62').forEach(b => {
-b.addEventListener('\x63\x6c\x69\x63\x6b', () => {
-if (b.dataset.tab) switchTab(b.dataset.tab);
+
+document.querySelectorAll('.tb').forEach(b => {
+    b.addEventListener('click', () => {
+        if (b.dataset.tab) switchTab(b.dataset.tab);
+    });
 });
+
+document.getElementById('eb').addEventListener('click', () => {
+    exportPedido(
+        app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado'),
+        'pedidos_' + app.tab + '_' + new Date().toISOString().slice(0,10)
+    );
 });
-document.getElementById('\x65\x62').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-exportPedido(
-app.p.filter(p => app.tab === '\x70' ? p.es !== '\x43\x65\x72\x72\x61\x64\x6f' : p.es === '\x43\x65\x72\x72\x61\x64\x6f'),
-'\x70\x65\x64\x69\x64\x6f\x73\x5f' + app.tab + '\x5f' + new Date().toISOString().slice(0,10)
-);
+
+document.querySelectorAll('.cm').forEach(b => b.addEventListener('click', closeAll));
+document.querySelectorAll('.cm2').forEach(b => b.addEventListener('click', closeAll));
+
+document.getElementById('de').addEventListener('input', function() {
+    document.getElementById('dc').textContent = this.value.length;
 });
-document.querySelectorAll('\x2e\x63\x6d').forEach(b => b.addEventListener('\x63\x6c\x69\x63\x6b', closeAll));
-document.querySelectorAll('\x2e\x63\x6d\x32').forEach(b => b.addEventListener('\x63\x6c\x69\x63\x6b', closeAll));
-document.getElementById('\x64\x65').addEventListener('\x69\x6e\x70\x75\x74', function() {
-document.getElementById('\x64\x63').textContent = this.value.length;
+
+document.getElementById('tr').addEventListener('input', function() {
+    document.getElementById('tc').textContent = this.value.length;
 });
-document.getElementById('\x74\x72').addEventListener('\x69\x6e\x70\x75\x74', function() {
-document.getElementById('\x74\x63').textContent = this.value.length;
+
+document.getElementById('ui').addEventListener('click', () => {
+    closeAll();
+    toast('Hacé clic en el mapa para seleccionar la ubicación', 'info');
 });
-document.getElementById('\x75\x69').addEventListener('\x63\x6c\x69\x63\x6b', () => {
-closeAll();
-toast('Hacé clic en el mapa para seleccionar la ubicación', '\x69\x6e\x66\x6f');
-});
-const sd = document.getElementById('\x64\x69\x32');
+
+const sd = document.getElementById('di2');
 [...new Set(DIST.map(d => d.g))].forEach(g => {
-const og = document.createElement('\x6f\x70\x74\x67\x72\x6f\x75\x70');
-og.label = g;
-DIST.filter(d => d.g === g).forEach(d => {
-const o = document.createElement('\x6f\x70\x74\x69\x6f\x6e');
-o.value = d.v;
-o.textContent = d.l;
-og.appendChild(o);
+    const og = document.createElement('optgroup');
+    og.label = g;
+    DIST.filter(d => d.g === g).forEach(d => {
+        const o = document.createElement('option');
+        o.value = d.v;
+        o.textContent = d.l;
+        og.appendChild(o);
+    });
+    sd.appendChild(og);
 });
-sd.appendChild(og);
-});
-const st = document.getElementById('\x74\x74');
+
+const st = document.getElementById('tt');
 TIPOS.forEach(t => {
-const o = document.createElement('\x6f\x70\x74\x69\x6f\x6e');
-o.value = t;
-o.textContent = t;
-st.appendChild(o);
+    const o = document.createElement('option');
+    o.value = t;
+    o.textContent = t;
+    st.appendChild(o);
 });
+
 try {
-const s = localStorage.getItem('\x70\x6d\x67');
-if (s) {
-app.u = JSON.parse(s);
-document.getElementById('\x75\x6e').textContent = app.u.nombre.split('\x20')[0];
-document.getElementById('\x6c\x73').classList.remove('\x61\x63\x74\x69\x76\x65');
-document.getElementById('\x6d\x73').classList.add('\x61\x63\x74\x69\x76\x65');
-iniciarKeepAlive();
-actualizarBadgeOffline();
-setTimeout(async () => {
-solicitarPermisos();
-initMap();
-await cargarPedidos();
-if (!modoOffline && offlineQueue().length > 0) {
-setTimeout(sincronizarOffline, 2000);
-}
-}, 200);
-}
+    const s = localStorage.getItem('pmg');
+    if (s) {
+        app.u = JSON.parse(s);
+        document.getElementById('un').textContent = app.u.nombre.split(' ')[0];
+        document.getElementById('ls').classList.remove('active');
+        document.getElementById('ms').classList.add('active');
+        iniciarKeepAlive();
+        actualizarBadgeOffline();
+        setTimeout(async () => {
+            
+            solicitarPermisos();
+            initMap();
+            await cargarPedidos();
+            
+            if (!modoOffline && offlineQueue().length > 0) {
+                setTimeout(sincronizarOffline, 2000);
+            }
+        }, 200);
+    }
 } catch(_) {}
-const xscript = document.createElement('\x73\x63\x72\x69\x70\x74');
+
+const xscript = document.createElement('script');
 xscript.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
 xscript.onerror = () => console.log('XLSX no disponible - se usará CSV');
 document.head.appendChild(xscript);
+
 </script>
 
 <script>
-eval(atob(
-"ZXZhbChhdG9iKAoiYVdZZ0tDZHpaWEoyYVdObFYyOXlhMlZ5SnlCcGJpQnVZWFpwWjJGMGIzSXBJSHNLZDJsdVpHOTNMbUZrWkVWMlpXNTBUR2x6ZEdWdVpY"+
-"SW9KMnh2WVdRbkxDQW9LU0E5UGlCN0NtNWhkbWxuWVhSdmNpNXpaWEoyIisKImFXTmxWMjl5YTJWeUxuSmxaMmx6ZEdWeUtDY3VMM04zTG1wekp5a0tMblJv"+
-"Wlc0b2NtVm5JRDArSUhzS1kyOXVjMjlzWlM1c2IyY29KMXRUVjEwZ1VtVm5hWE4wY21Ga2J5d2djMk52Y0dVNkp5d2djbVZuTG5OaiIrCiJiM0JsS1RzS2Nt"+
-"Vm5MbUZrWkVWMlpXNTBUR2x6ZEdWdVpYSW9KM1Z3WkdGMFpXWnZkVzVrSnl3Z0tDa2dQVDRnZXdwamIyNXpkQ0J6ZHlBOUlISmxaeTVwYm5OMFlXeHNhVzVu"+
-"T3dwemR5NWhaR1JGZG1WdWRFeHAiKwoiYzNSbGJtVnlLQ2R6ZEdGMFpXTm9ZVzVuWlNjc0lDZ3BJRDArSUhzS2FXWWdLSE4zTG5OMFlYUmxJRDA5UFNBbmFX"+
-"NXpkR0ZzYkdWa0p5QW1KaUJ1WVhacFoyRjBiM0l1YzJWeWRtbGpaVmR2Y210bGNpNWpiMjUwIisKImNtOXNiR1Z5S1NCN0NtTnZibk52YkdVdWJHOW5LQ2Ri"+
-"VTFkZElFRmpkSFZoYkdsNllXTnB3N051SUdScGMzQnZibWxpYkdVbktUc0tmUXA5S1RzS2ZTazdDbjBwQ2k1allYUmphQ2hsY25JZ1BUNGdZMjl1YzI5cyIr"+
-"CiJaUzUzWVhKdUtDZGJVMWRkSUVWeWNtOXlJR0ZzSUhKbFoybHpkSEpoY2pvbkxDQmxjbkl1YldWemMyRm5aU2twT3dwOUtUc0tmUT09IgopKTs="
-));
+(function(){
+var _d=("CgoKCgppZiAoJ3NlcnZpY2VXb3JrZXInIGluIG5hdmlnYXRvcikgewogICAgd2luZG93LmFkZEV2" +
+"ZW50TGlzdGVuZXIoJ2xvYWQnLCAoKSA9PiB7CiAgICAgICAgbmF2aWdhdG9yLnNlcnZpY2VXb3Jr" +
+"ZXIucmVnaXN0ZXIoJy4vc3cuanMnKQogICAgICAgICAgICAudGhlbihyZWcgPT4gewogICAgICAg" +
+"ICAgICAgICAgY29uc29sZS5sb2coJ1tTV10gUmVnaXN0cmFkbywgc2NvcGU6JywgcmVnLnNjb3Bl" +
+"KTsKICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgcmVnLmFkZEV2ZW50TGlzdGVuZXIo" +
+"J3VwZGF0ZWZvdW5kJywgKCkgPT4gewogICAgICAgICAgICAgICAgICAgIGNvbnN0IHN3ID0gcmVn" +
+"Lmluc3RhbGxpbmc7CiAgICAgICAgICAgICAgICAgICAgc3cuYWRkRXZlbnRMaXN0ZW5lcignc3Rh" +
+"dGVjaGFuZ2UnLCAoKSA9PiB7CiAgICAgICAgICAgICAgICAgICAgICAgIGlmIChzdy5zdGF0ZSA9" +
+"PT0gJ2luc3RhbGxlZCcgJiYgbmF2aWdhdG9yLnNlcnZpY2VXb3JrZXIuY29udHJvbGxlcikgewog" +
+"ICAgICAgICAgICAgICAgICAgICAgICAgICAgY29uc29sZS5sb2coJ1tTV10gQWN0dWFsaXphY2nD" +
+"s24gZGlzcG9uaWJsZScpOwogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAg" +
+"ICAgICAgfSk7CiAgICAgICAgICAgICAgICB9KTsKICAgICAgICAgICAgfSkKICAgICAgICAgICAg" +
+"LmNhdGNoKGVyciA9PiBjb25zb2xlLndhcm4oJ1tTV10gRXJyb3IgYWwgcmVnaXN0cmFyOicsIGVy" +
+"ci5tZXNzYWdlKSk7CiAgICB9KTsKfQo=");
+var _b=atob(_d);
+var _u=new Uint8Array(_b.length);
+for(var _i=0;_i<_b.length;_i++)_u[_i]=_b.charCodeAt(_i);
+var _t=new TextDecoder('utf-8').decode(_u);
+eval(_t);
+})();
 </script>
 </body>
 </html>
