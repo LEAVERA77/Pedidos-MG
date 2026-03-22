@@ -1,7 +1,0 @@
-{
-    "db_host": "ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech",
-    "db_user": "neondb_owner",
-    "db_password": "npg_uqKG4gLvcOj7",
-    "db_name": "neondb",
-    "db_port": 5432
-}
