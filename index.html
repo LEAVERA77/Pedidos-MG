@@ -3467,10 +3467,16 @@ async function guardarConfigEmpresa() {
 
 // ── Usuarios admin ────────────────────────────────────────────
 async function cargarListaUsuarios() {
+    // Asegurar que las columnas opcionales existan (compatibilidad con tablas viejas)
+    try {
+        await sqlSimple("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE");
+        await sqlSimple("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token TEXT");
+        await sqlSimple("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_expiry TIMESTAMPTZ");
+    } catch(_) {}
     const cont = document.getElementById('lista-usuarios-admin');
     cont.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div>';
     try {
-        const r = await sqlSimple('SELECT id, email, nombre, rol, activo, creado, ultimo_login FROM usuarios ORDER BY id');
+        const r = await sqlSimple('SELECT id, email, nombre, rol, COALESCE(activo, true) AS activo FROM usuarios ORDER BY id');
         if (!r.rows.length) { cont.innerHTML = '<p style="color:var(--tl);font-size:.85rem;padding:.5rem">Sin usuarios</p>'; return; }
         cont.innerHTML = `<table class="admin-table">
             <thead><tr><th>ID</th><th>Email</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
