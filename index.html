@@ -3940,6 +3940,32 @@ if ('serviceWorker' in navigator) {
     await conectarNeon();
 })();
 
+
+// ── Exponer funciones admin al scope global ────────────
+if (typeof adminTab !== "undefined") window.adminTab = adminTab;
+if (typeof guardarConfigEmpresa !== "undefined") window.guardarConfigEmpresa = guardarConfigEmpresa;
+if (typeof abrirFormUsuario !== "undefined") window.abrirFormUsuario = abrirFormUsuario;
+if (typeof crearUsuario !== "undefined") window.crearUsuario = crearUsuario;
+if (typeof toggleUsuario !== "undefined") window.toggleUsuario = toggleUsuario;
+if (typeof eliminarUsuario !== "undefined") window.eliminarUsuario = eliminarUsuario;
+if (typeof abrirFormDistribuidor !== "undefined") window.abrirFormDistribuidor = abrirFormDistribuidor;
+if (typeof crearDistribuidor !== "undefined") window.crearDistribuidor = crearDistribuidor;
+if (typeof toggleDistribuidor !== "undefined") window.toggleDistribuidor = toggleDistribuidor;
+if (typeof eliminarDistribuidor !== "undefined") window.eliminarDistribuidor = eliminarDistribuidor;
+if (typeof importarExcelDistribuidores !== "undefined") window.importarExcelDistribuidores = importarExcelDistribuidores;
+if (typeof mostrarFormatoExcel !== "undefined") window.mostrarFormatoExcel = mostrarFormatoExcel;
+if (typeof cargarEstadisticas !== "undefined") window.cargarEstadisticas = cargarEstadisticas;
+if (typeof cargarUbicacionesUsuarios !== "undefined") window.cargarUbicacionesUsuarios = cargarUbicacionesUsuarios;
+if (typeof cambiarContrasena !== "undefined") window.cambiarContrasena = cambiarContrasena;
+if (typeof pasoResetPw !== "undefined") window.pasoResetPw = pasoResetPw;
+if (typeof toggleOfflineBanner !== "undefined") window.toggleOfflineBanner = toggleOfflineBanner;
+if (typeof reactivarSesion !== "undefined") window.reactivarSesion = reactivarSesion;
+if (typeof abrirAdmin !== "undefined") window.abrirAdmin = abrirAdmin;
+if (typeof cargarListaUsuarios !== "undefined") window.cargarListaUsuarios = cargarListaUsuarios;
+if (typeof cargarListaDistribuidoresAdmin !== "undefined") window.cargarListaDistribuidoresAdmin = cargarListaDistribuidoresAdmin;
+if (typeof cargarFormEmpresa !== "undefined") window.cargarFormEmpresa = cargarFormEmpresa;
+if (typeof iniciarMapaUsuariosAdmin !== "undefined") window.iniciarMapaUsuariosAdmin = iniciarMapaUsuariosAdmin;
+
 </script>
 <script>
 (function(){
