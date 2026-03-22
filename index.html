@@ -1117,7 +1117,7 @@ dbs.className = 'dbs c';
 dbs.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando red...';
 
 
-(async function conectarNeon() {
+async function conectarNeon() {
     try {
         const ok = await initNeon();
         if (ok) {
@@ -1163,7 +1163,7 @@ dbs.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando red...'
         NEON_OK = false;
         const tieneCache = (() => {
             try { return JSON.parse(localStorage.getItem('pmg_offline_user') || '[]').length > 0; } catch(_) { return false; }
-        })();
+        }
         dbs.className = 'dbs er';
         dbs.innerHTML = tieneCache
             ? '<i class="fas fa-wifi-slash"></i> Sin conexión — podés ingresar offline'
@@ -3936,8 +3936,8 @@ if ('serviceWorker' in navigator) {
         document.head.appendChild(ejsScript);
     }
 
-    // El initNeon original se llama dentro del IIFE conectarNeon que ya existe
-    // Solo necesitamos iniciar la app
+    // Llamar conectarNeon() DESPUÉS de cargar config (timing correcto)
+    await conectarNeon();
 })();
 
 </script>
