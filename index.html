@@ -1163,14 +1163,14 @@ async function conectarNeon() {
         NEON_OK = false;
         const tieneCache = (() => {
             try { return JSON.parse(localStorage.getItem('pmg_offline_user') || '[]').length > 0; } catch(_) { return false; }
-        }
+        })();
         dbs.className = 'dbs er';
         dbs.innerHTML = tieneCache
             ? '<i class="fas fa-wifi-slash"></i> Sin conexión — podés ingresar offline'
             : '<i class="fas fa-wifi-slash"></i> Sin conexión — ingresá con internet primero';
         setModoOffline(true);
     }
-})();
+}
 
 
 
