@@ -1,12 +1,5 @@
-# Despliegue estático a GitHub Pages (index.html, sw.js, etc.)
-#
-# Antes de que pase el primer deploy:
-# 1. Repo → Settings → Secrets and variables → Actions → New repository secret
-#    - NEON_CONNECTION_STRING = URI completa postgresql://... (obligatorio)
-#    - EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID (opcional)
-# 2. Settings → Pages → Build and deployment → Source = "GitHub Actions"
-#
-# Ejecutar: push a main, o pestaña Actions → "Deploy GitHub Pages" → Run workflow.
+# Patrón oficial GitHub: job build (artefacto) + job deploy (solo deploy-pages).
+# Secret obligatorio: NEON_CONNECTION_STRING (Settings → Secrets → Actions).
 
 name: Deploy GitHub Pages
 
@@ -25,11 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,7 +35,7 @@ jobs:
           EJS_TPL: ${{ secrets.EMAILJS_TEMPLATE_ID }}
         run: |
           if [ -z "$NEON_CS" ]; then
-            echo "::error::Falta el secret NEON_CONNECTION_STRING (Settings → Secrets and variables → Actions)."
+            echo "::error::Falta el secret NEON_CONNECTION_STRING en Settings → Secrets and variables → Actions."
             exit 1
           fi
           jq -n \
@@ -55,16 +45,23 @@ jobs:
             --arg tpl "${EJS_TPL:-}" \
             '{neon:{connectionString:$cs},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},app:{version:"2.0.0"}}' \
             > config.json
-          echo "OK: config.json generado (sin imprimir contenido)."
+          echo "OK: config.json generado."
 
-      - name: Quitar metadatos Git del artefacto
+      - name: Quitar .git del artefacto
         run: rm -rf .git
 
-      - name: Subir sitio
-        uses: actions/upload-pages-artifact@v3
+      - name: Subir artefacto del sitio
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .
 
-      - name: Publicar en Pages
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar en GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
