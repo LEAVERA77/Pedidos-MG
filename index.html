@@ -5,6 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pedidos de Mantenimiento</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -214,9 +215,9 @@ textarea{resize:vertical;min-height:80px}
 .btn-sm.warning{background:#fef9c3;color:#854d0e}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 .form-grid .full{grid-column:1/-1}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem}
-.stat-card{background:var(--bg);border-radius:.75rem;padding:1rem;border:1px solid var(--bo);text-align:center}
-.stat-card .val{font-size:1.8rem;font-weight:700;color:var(--bd)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem;margin-bottom:.75rem}
+.stat-card{background:var(--bg);border-radius:.75rem;padding:.65rem .5rem;border:1px solid var(--bo);text-align:center}
+.stat-card .val{font-size:1.5rem;font-weight:700;color:var(--bd)}
 .stat-card .lbl{font-size:.75rem;color:var(--tm);margin-top:.2rem}
 .stat-card.red .val{color:var(--re)}.stat-card.green .val{color:var(--gr)}.stat-card.orange .val{color:var(--or)}
 .chart-wrap{background:white;border:1px solid var(--bo);border-radius:.75rem;padding:1rem;margin-bottom:1rem}
@@ -513,12 +514,58 @@ textarea{resize:vertical;min-height:80px}
         <button class="btn-sm primary" onclick="cargarEstadisticas()"><i class="fas fa-sync"></i> Actualizar</button>
       </div>
       <div id="stats-cards" class="stat-grid"></div>
-      <div class="chart-wrap"><h4>Pedidos por mes</h4><canvas id="chart-mensual" height="200"></canvas></div>
-      <div class="chart-wrap"><h4>Por estado</h4><canvas id="chart-estados" height="200"></canvas></div>
-      <div class="chart-wrap"><h4>Por prioridad</h4><canvas id="chart-prioridades" height="200"></canvas></div>
-      <div class="chart-wrap"><h4>Por tipo de trabajo</h4><canvas id="chart-tipos" height="200"></canvas></div>
-      <div class="chart-wrap"><h4>Por distribuidor (top 10)</h4><canvas id="chart-distribuidores" height="200"></canvas></div>
-      <div class="chart-wrap" id="chart-wrap-tecnicos" style="display:none"><h4>Por técnico de cierre</h4><canvas id="chart-tecnicos" height="200"></canvas></div>
+      <!-- Grilla 2 columnas en desktop, 1 en mobile -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.75rem;margin-top:.5rem">
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Pedidos por mes</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-mensual','pedidos_por_mes')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-mensual" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por estado</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-estados','por_estado')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-estados" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por prioridad</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-prioridades','por_prioridad')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-prioridades" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por distribuidor</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-distribuidores','por_distribuidor')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-distribuidores" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por tipo de trabajo</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-tipos','por_tipo')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-tipos" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por usuario creador</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-usuarios','por_usuario')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-usuarios" height="160"></canvas>
+        </div>
+        <div class="chart-wrap" id="chart-wrap-tecnicos" style="display:none;margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+            <h4 style="margin:0">Por técnico de cierre</h4>
+            <button class="btn-sm" onclick="descargarGrafico('chart-tecnicos','por_tecnico')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
+          </div>
+          <canvas id="chart-tecnicos" height="160"></canvas>
+        </div>
+      </div>
     </div>
     <div id="admin-mapa-usuarios" class="admin-section">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
@@ -1368,10 +1415,17 @@ async function cargarPedidos() {
         const r = await ejecutarSQLConReintentos('SELECT * FROM pedidos ORDER BY fecha_creacion DESC');
         const prevIds = new Set(app.p.map(p => p.id));
         app.p = (r.rows || []).map(norm);
-        // Detectar pedidos urgentes/críticos nuevos
-        if (app.u?.rol === 'admin') {
-            app.p.filter(p => !prevIds.has(p.id) && ['Crítica','Alta'].includes(p.pr) && p.es === 'Pendiente')
-                .forEach(p => mostrarAlertaPedidoUrgente(p));
+        // Detectar pedidos urgentes/críticos RECIÉN creados (últimos 2 min)
+        // Solo cuando hay IDs previos (no en la carga inicial) y el pedido
+        // fue creado hace menos de 2 minutos (lo acaba de cargar alguien)
+        if (app.u?.rol === 'admin' && prevIds.size > 0) {
+            const dosMinutosAtras = Date.now() - 2 * 60 * 1000;
+            app.p.filter(p =>
+                !prevIds.has(p.id) &&
+                ['Crítica','Alta'].includes(p.pr) &&
+                p.es === 'Pendiente' &&
+                new Date(p.f).getTime() > dosMinutosAtras
+            ).forEach(p => mostrarAlertaPedidoUrgente(p));
         }
         
         offlinePedidosSave(app.p);
@@ -3668,7 +3722,7 @@ async function cargarEstadisticas() {
     if (statsEl) statsEl.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Calculando...</div>';
 
     try {
-        const [rTotal, rEstados, rPrior, rMensual, rTipos, rDist, rTiempos, rTecnicos, rAvance] = await Promise.all([
+        const [rTotal, rEstados, rPrior, rMensual, rTipos, rDist, rTiempos, rTecnicos, rAvance, rUsuarios] = await Promise.all([
             // Resumen general
             sqlSimple(`SELECT
                 COUNT(*) AS total,
@@ -3706,7 +3760,12 @@ async function cargarEstadisticas() {
             sqlSimple(`SELECT COALESCE(tecnico_cierre,'Sin asignar') AS tecnico, COUNT(*) AS n
                 FROM pedidos WHERE ${condFecha} AND estado='Cerrado' GROUP BY tecnico ORDER BY n DESC LIMIT 8`),
             // Avance promedio de pedidos en ejecución
-            sqlSimple(`SELECT ROUND(AVG(avance)) AS avance_prom FROM pedidos WHERE ${condFecha} AND estado='En ejecución'`)
+            sqlSimple(`SELECT ROUND(AVG(avance)) AS avance_prom FROM pedidos WHERE ${condFecha} AND estado='En ejecución'`),
+            // Pedidos por usuario creador
+            sqlSimple(`SELECT COALESCE(u.nombre, 'Sin asignar') AS usuario, COUNT(*) AS n
+                FROM pedidos p LEFT JOIN usuarios u ON u.id = p.usuario_creador_id
+                WHERE p.fecha_creacion >= ${esc(fechaDesde.toISOString())}
+                GROUP BY usuario ORDER BY n DESC LIMIT 10`)
         ]);
 
         const t = rTotal.rows[0] || {};
@@ -3810,19 +3869,22 @@ async function cargarEstadisticas() {
         );
 
         // ── Gráfico técnicos de cierre ────────────────────────
-        if (rTecnicos.rows.length) {
-            // Agregar canvas si no existe
-            let wrapTec = document.getElementById('chart-wrap-tecnicos');
-            if (!wrapTec) {
-                const statsParent = document.getElementById('chart-distribuidores')?.closest('.chart-wrap')?.parentElement;
-                if (statsParent) {
-                    wrapTec = document.createElement('div');
-                    wrapTec.id = 'chart-wrap-tecnicos';
-                    wrapTec.className = 'chart-wrap';
-                    wrapTec.innerHTML = '<h4>Por técnico de cierre</h4><canvas id="chart-tecnicos" height="200"></canvas>';
-                    statsParent.appendChild(wrapTec);
-                }
-            }
+        // ── Gráfico por usuario creador ──────────────────────
+        if ((rUsuarios?.rows || []).length) {
+            crearChart('chart-usuarios', 'bar',
+                rUsuarios.rows.map(r => r.usuario.length > 14 ? r.usuario.substring(0,14)+'…' : r.usuario),
+                [{ label: 'Pedidos', data: rUsuarios.rows.map(r => parseInt(r.n)),
+                   backgroundColor: COLORES.slice(0,10) }],
+                { plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}},
+                  scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            );
+        }
+
+        // ── Gráfico técnicos ──────────────────────────────────
+        if ((rTecnicos?.rows || []).length) {
+            const wrapTec0 = document.getElementById('chart-wrap-tecnicos');
+            if (wrapTec0) wrapTec0.style.display = '';
             crearChart('chart-tecnicos', 'bar',
                 rTecnicos.rows.map(r => r.tecnico.length > 15 ? r.tecnico.substring(0,15)+'…' : r.tecnico),
                 [{ label: 'Pedidos cerrados', data: rTecnicos.rows.map(r => parseInt(r.n)),
@@ -4130,6 +4192,30 @@ if ('serviceWorker' in navigator) {
     await conectarNeon();
 })();
 
+
+// ── Descargar gráfico como PNG ────────────────────────────────
+function descargarGrafico(canvasId, nombre) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) { toast('Gráfico no disponible', 'error'); return; }
+    try {
+        // Crear canvas con fondo blanco para la descarga
+        const tmp = document.createElement('canvas');
+        tmp.width  = canvas.width;
+        tmp.height = canvas.height;
+        const ctx = tmp.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, tmp.width, tmp.height);
+        ctx.drawImage(canvas, 0, 0);
+        const link = document.createElement('a');
+        link.download = nombre + '_' + new Date().toISOString().slice(0,10) + '.png';
+        link.href = tmp.toDataURL('image/png');
+        link.click();
+        toast('Gráfico descargado', 'success');
+    } catch(e) {
+        toast('Error al descargar: ' + e.message, 'error');
+    }
+}
+window.descargarGrafico = descargarGrafico;
 
 // ── Exponer funciones admin al scope global ────────────
 if (typeof adminTab !== "undefined") window.adminTab = adminTab;
