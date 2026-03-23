@@ -222,6 +222,21 @@ textarea{resize:vertical;min-height:80px}
 .stat-card.red .val{color:var(--re)}.stat-card.green .val{color:var(--gr)}.stat-card.orange .val{color:var(--or)}
 .chart-wrap{background:white;border:1px solid var(--bo);border-radius:.75rem;padding:1rem;margin-bottom:1rem}
 .chart-wrap h4{font-size:.85rem;color:var(--tm);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:.05em}
+/* Chart.js + maintainAspectRatio:false: contenedor con altura fija; sin esto el canvas puede crecer sin límite */
+.chart-container{
+  position:relative;width:100%;
+  height:260px;min-height:260px;max-height:260px;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.chart-container--tall{height:300px;min-height:300px;max-height:300px}
+#admin-estadisticas .chart-container>canvas{
+  display:block!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  width:100%!important;
+  height:100%!important;
+}
 .user-marker-admin{display:flex;align-items:center;gap:.25rem;background:white;border:2px solid var(--bd);border-radius:1rem;padding:.2rem .5rem;font-size:.75rem;font-weight:600;color:var(--bd);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 #offline-banner{position:fixed;top:0;left:0;right:0;z-index:9000;background:#dc2626;color:white;padding:.45rem 1rem;font-size:.82rem;font-weight:600;text-align:center;display:none;align-items:center;justify-content:center;gap:.5rem;transition:transform .3s}
 #offline-banner.visible{display:flex}
@@ -237,7 +252,6 @@ textarea{resize:vertical;min-height:80px}
 </style>
 </head>
 <body>
-<div id="app">
 <div id="app">
 
 <!-- BANNER OFFLINE -->
@@ -433,8 +447,6 @@ textarea{resize:vertical;min-height:80px}
 <!-- CONTENEDOR PARA IMPRESIÓN -->
 <div id="print-container"></div>
 
-</div>
-
 <!-- Leaflet JS -->
 
 <!-- PANEL ADMIN -->
@@ -521,49 +533,49 @@ textarea{resize:vertical;min-height:80px}
             <h4 style="margin:0">Pedidos por mes</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-mensual','pedidos_por_mes')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-mensual" height="160"></canvas>
+          <div class="chart-container"><canvas id="chart-mensual"></canvas></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por estado</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-estados','por_estado')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-estados" height="160"></canvas>
+          <div class="chart-container"><canvas id="chart-estados"></canvas></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por prioridad</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-prioridades','por_prioridad')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-prioridades" height="160"></canvas>
+          <div class="chart-container"><canvas id="chart-prioridades"></canvas></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por distribuidor</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-distribuidores','por_distribuidor')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-distribuidores" height="160"></canvas>
+          <div class="chart-container chart-container--tall"><canvas id="chart-distribuidores"></canvas></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por tipo de trabajo</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-tipos','por_tipo')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-tipos" height="160"></canvas>
+          <div class="chart-container chart-container--tall"><canvas id="chart-tipos"></canvas></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por usuario creador</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-usuarios','por_usuario')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-usuarios" height="160"></canvas>
+          <div class="chart-container chart-container--tall"><canvas id="chart-usuarios"></canvas></div>
         </div>
         <div class="chart-wrap" id="chart-wrap-tecnicos" style="display:none;margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
             <h4 style="margin:0">Por técnico de cierre</h4>
             <button class="btn-sm" onclick="descargarGrafico('chart-tecnicos','por_tecnico')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
-          <canvas id="chart-tecnicos" height="160"></canvas>
+          <div class="chart-container chart-container--tall"><canvas id="chart-tecnicos"></canvas></div>
         </div>
       </div>
     </div>
@@ -3484,11 +3496,15 @@ async function cargarAppConfig() {
 }
 
 // ── Admin tab switcher ────────────────────────────────────────
+const _ADMIN_TAB_ORDER = ['empresa','usuarios','distribuidores','estadisticas','mapa-usuarios','contrasena'];
 function adminTab(tab) {
     document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-    document.getElementById('admin-' + tab).classList.add('active');
+    const tabs = document.querySelectorAll('#admin-panel .admin-tab');
+    const idx = _ADMIN_TAB_ORDER.indexOf(tab);
+    if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
+    const sec = document.getElementById('admin-' + tab);
+    if (sec) sec.classList.add('active');
     if (tab === 'estadisticas') cargarEstadisticas();
     if (tab === 'usuarios') cargarListaUsuarios();
     if (tab === 'distribuidores') cargarListaDistribuidoresAdmin();
@@ -3796,6 +3812,7 @@ async function cargarEstadisticas() {
             const canvas = document.getElementById(id);
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            const isVerticalBar = type === 'bar' && extraOpts.indexAxis !== 'y';
             _charts[id] = new Chart(ctx, {
                 type,
                 data: { labels, datasets },
@@ -3803,11 +3820,20 @@ async function cargarEstadisticas() {
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: { duration: 400 },
+                    layout: { padding: { top: 4, bottom: 4, left: 4, right: 8 } },
                     plugins: { legend: { display: false }, tooltip: { callbacks: {
-                        label: ctx2 => ' ' + ctx2.parsed.y + ' pedidos'
+                        label: ctx2 => {
+                            const v = ctx2.parsed && typeof ctx2.parsed === 'object' && 'y' in ctx2.parsed
+                                ? ctx2.parsed.y : (ctx2.parsed ?? ctx2.raw);
+                            return ' ' + v + ' pedidos';
+                        }
                     }}},
+                    ...(isVerticalBar ? { scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } } } : {}),
                     ...extraOpts
                 }
+            });
+            requestAnimationFrame(() => {
+                try { _charts[id]?.resize(); } catch (_) {}
             });
         };
 
@@ -3892,6 +3918,10 @@ async function cargarEstadisticas() {
                 { plugins: { legend: { display: false } } }
             );
         }
+
+        requestAnimationFrame(() => {
+            Object.values(_charts).forEach(ch => { try { ch.resize(); } catch (_) {} });
+        });
 
     } catch(e) {
         console.error('Error estadísticas:', e);
