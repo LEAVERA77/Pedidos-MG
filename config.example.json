@@ -7,6 +7,9 @@
     "serviceId": "TU_SERVICE_ID",
     "templateId": "TU_TEMPLATE_ID"
   },
+  "admin": {
+    "recoveryKey": "CLAVE_LARGA_SOLO_ADMIN"
+  },
   "app": {
     "version": "2.0.0"
   }
