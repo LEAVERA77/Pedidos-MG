@@ -518,12 +518,26 @@ textarea{resize:vertical;min-height:80px}
       <div class="chart-wrap"><h4>Por prioridad</h4><canvas id="chart-prioridades" height="200"></canvas></div>
       <div class="chart-wrap"><h4>Por tipo de trabajo</h4><canvas id="chart-tipos" height="200"></canvas></div>
       <div class="chart-wrap"><h4>Por distribuidor (top 10)</h4><canvas id="chart-distribuidores" height="200"></canvas></div>
+      <div class="chart-wrap" id="chart-wrap-tecnicos" style="display:none"><h4>Por técnico de cierre</h4><canvas id="chart-tecnicos" height="200"></canvas></div>
     </div>
     <div id="admin-mapa-usuarios" class="admin-section">
-      <p style="font-size:.85rem;color:var(--tm);margin-bottom:.75rem">Última ubicación reportada (cada 15 min desde el celular).</p>
-      <div id="mapa-usuarios-admin" style="height:350px;border-radius:.75rem;overflow:hidden;border:1px solid var(--bo)"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+        <p style="font-size:.85rem;color:var(--tm);margin:0">
+          <span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.5rem">
+            <span style="background:#1e3a8a;color:white;border-radius:.4rem;padding:.1rem .4rem;font-size:.72rem;font-weight:700">👤</span> Usuarios activos
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.4rem"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block"></span>Crítica</span>
+          <span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.4rem"><span style="width:10px;height:10px;border-radius:50%;background:#f97316;display:inline-block"></span>Alta</span>
+          <span style="display:inline-flex;align-items:center;gap:.3rem;margin-right:.4rem"><span style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block"></span>Media</span>
+          <span style="display:inline-flex;align-items:center;gap:.3rem"><span style="width:10px;height:10px;border-radius:50%;background:#3b82f6;display:inline-block"></span>Baja</span>
+        </p>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn-sm primary" onclick="cargarUbicacionesUsuarios()"><i class="fas fa-sync"></i> Actualizar</button>
+          <button class="btn-sm" onclick="if(window._mapaUsuariosAdmin){var bs=[];window._marcadoresUsuarios&&window._marcadoresUsuarios.forEach(function(m){bs.push(m.getLatLng());});if(bs.length)window._mapaUsuariosAdmin.fitBounds(bs,{padding:[40,40]});}" style="background:var(--bg);border:1px solid var(--bo)"><i class="fas fa-expand"></i> Centrar</button>
+        </div>
+      </div>
+      <div id="mapa-usuarios-admin" style="height:390px;border-radius:.75rem;overflow:hidden;border:1px solid var(--bo)"></div>
       <div id="lista-ubicaciones" style="margin-top:.75rem;font-size:.82rem"></div>
-      <button class="btn-sm primary" style="margin-top:.5rem" onclick="cargarUbicacionesUsuarios()"><i class="fas fa-sync"></i> Actualizar</button>
     </div>
     <div id="admin-contrasena" class="admin-section">
       <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem">Cambiar contraseña</h3>
@@ -3645,86 +3659,186 @@ async function cargarEstadisticas() {
 
     const filtro = `WHERE fecha_creacion >= ${esc(fechaDesde.toISOString())}`;
 
+    // Mostrar loading
+    const statsEl = document.getElementById('stats-cards');
+    if (statsEl) statsEl.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Calculando...</div>';
+
     try {
-        const [rTotal, rEstados, rPrior, rMensual, rTipos, rDist, rTiempos] = await Promise.all([
-            sqlSimple(`SELECT COUNT(*) AS total, COUNT(*) FILTER(WHERE estado='Cerrado') AS cerrados, COUNT(*) FILTER(WHERE estado='Pendiente') AS pendientes, COUNT(*) FILTER(WHERE estado='En ejecución') AS en_ejec, COUNT(*) FILTER(WHERE prioridad='Crítica' AND estado!='Cerrado') AS criticos FROM pedidos ${filtro}`),
-            sqlSimple(`SELECT estado, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY estado`),
-            sqlSimple(`SELECT prioridad, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY prioridad`),
-            sqlSimple(`SELECT TO_CHAR(fecha_creacion,'YYYY-MM') AS mes, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY mes ORDER BY mes`),
-            sqlSimple(`SELECT COALESCE(tipo_trabajo,'Sin tipo') AS tipo, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY tipo ORDER BY n DESC LIMIT 8`),
-            sqlSimple(`SELECT distribuidor, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY distribuidor ORDER BY n DESC LIMIT 10`),
-            sqlSimple(`SELECT AVG(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_prom FROM pedidos ${filtro} WHERE estado='Cerrado' AND fecha_cierre IS NOT NULL`)
+        const [rTotal, rEstados, rPrior, rMensual, rTipos, rDist, rTiempos, rTecnicos, rAvance] = await Promise.all([
+            // Resumen general
+            sqlSimple(`SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER(WHERE estado='Cerrado') AS cerrados,
+                COUNT(*) FILTER(WHERE estado='Pendiente') AS pendientes,
+                COUNT(*) FILTER(WHERE estado='En ejecución') AS en_ejec,
+                COUNT(*) FILTER(WHERE prioridad='Crítica' AND estado!='Cerrado') AS criticos,
+                COUNT(*) FILTER(WHERE prioridad='Alta' AND estado!='Cerrado') AS altos,
+                COUNT(*) FILTER(WHERE estado='Cerrado' AND fecha_cierre::date = CURRENT_DATE) AS cerrados_hoy
+                FROM pedidos ${filtro}`),
+            // Por estado
+            sqlSimple(`SELECT estado, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY estado ORDER BY n DESC`),
+            // Por prioridad
+            sqlSimple(`SELECT prioridad, COUNT(*) AS n FROM pedidos ${filtro} GROUP BY prioridad ORDER BY
+                CASE prioridad WHEN 'Crítica' THEN 1 WHEN 'Alta' THEN 2 WHEN 'Media' THEN 3 ELSE 4 END`),
+            // Por mes
+            sqlSimple(`SELECT TO_CHAR(fecha_creacion,'YYYY-MM') AS mes,
+                COUNT(*) AS total,
+                COUNT(*) FILTER(WHERE estado='Cerrado') AS cerrados
+                FROM pedidos ${filtro} GROUP BY mes ORDER BY mes`),
+            // Por tipo de trabajo
+            sqlSimple(`SELECT COALESCE(tipo_trabajo,'Sin tipo') AS tipo, COUNT(*) AS n
+                FROM pedidos ${filtro} GROUP BY tipo ORDER BY n DESC LIMIT 10`),
+            // Por distribuidor (top 10)
+            sqlSimple(`SELECT distribuidor, COUNT(*) AS n,
+                COUNT(*) FILTER(WHERE estado='Cerrado') AS cerrados
+                FROM pedidos ${filtro} GROUP BY distribuidor ORDER BY n DESC LIMIT 10`),
+            // Tiempo promedio de cierre (horas) — solo pedidos cerrados con fecha
+            sqlSimple(`SELECT
+                AVG(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_prom,
+                MIN(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_min,
+                MAX(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_max
+                FROM pedidos ${filtro} WHERE estado='Cerrado' AND fecha_cierre IS NOT NULL AND fecha_cierre > fecha_creacion`),
+            // Por técnico de cierre (top 8)
+            sqlSimple(`SELECT COALESCE(tecnico_cierre,'Sin asignar') AS tecnico, COUNT(*) AS n
+                FROM pedidos ${filtro} WHERE estado='Cerrado' GROUP BY tecnico ORDER BY n DESC LIMIT 8`),
+            // Avance promedio de pedidos en ejecución
+            sqlSimple(`SELECT ROUND(AVG(avance)) AS avance_prom FROM pedidos ${filtro} WHERE estado='En ejecución'`)
         ]);
 
         const t = rTotal.rows[0] || {};
         const horasProm = parseFloat(rTiempos.rows[0]?.horas_prom || 0);
+        const horasMin  = parseFloat(rTiempos.rows[0]?.horas_min  || 0);
+        const horasMax  = parseFloat(rTiempos.rows[0]?.horas_max  || 0);
+        const avanceProm = parseInt(rAvance.rows[0]?.avance_prom  || 0);
 
-        // Cards de resumen
+        const fmtHoras = h => h === 0 ? '—' : h < 1 ? Math.round(h*60)+'min' : h < 24 ? h.toFixed(1)+'h' : (h/24).toFixed(1)+'d';
+
+        // ── Cards de resumen ───────────────────────────────────
         document.getElementById('stats-cards').innerHTML = [
-            { val: t.total || 0, lbl: 'Total pedidos', cls: '' },
-            { val: t.pendientes || 0, lbl: 'Pendientes', cls: 'orange' },
-            { val: t.en_ejec || 0, lbl: 'En ejecución', cls: '' },
-            { val: t.cerrados || 0, lbl: 'Cerrados', cls: 'green' },
-            { val: t.criticos || 0, lbl: 'Críticos activos', cls: t.criticos > 0 ? 'red' : '' },
-            { val: horasProm < 24 ? horasProm.toFixed(1) + 'h' : (horasProm/24).toFixed(1) + 'd', lbl: 'Tiempo prom. cierre', cls: '' }
+            { val: t.total       || 0, lbl: 'Total pedidos',     cls: '' },
+            { val: t.pendientes  || 0, lbl: 'Pendientes',         cls: t.pendientes > 0 ? 'orange' : '' },
+            { val: t.en_ejec     || 0, lbl: 'En ejecución',       cls: '' },
+            { val: t.cerrados    || 0, lbl: 'Cerrados',           cls: 'green' },
+            { val: t.criticos    || 0, lbl: '🔴 Críticos activos', cls: t.criticos > 0 ? 'red' : '' },
+            { val: t.altos       || 0, lbl: '🟠 Altos activos',   cls: t.altos > 0 ? 'orange' : '' },
+            { val: t.cerrados_hoy|| 0, lbl: 'Cerrados hoy',       cls: 'green' },
+            { val: fmtHoras(horasProm), lbl: 'Prom. tiempo cierre', cls: '' },
+            { val: fmtHoras(horasMin),  lbl: 'Cierre más rápido',   cls: 'green' },
+            { val: avanceProm + '%',    lbl: 'Avance prom. en ejec.', cls: '' },
         ].map(s => `<div class="stat-card ${s.cls}"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
 
-        // Función helper para chart
-        const crearChart = (id, type, labels, datasets, opts = {}) => {
-            if (_charts[id]) _charts[id].destroy();
-            const ctx = document.getElementById(id)?.getContext('2d');
-            if (!ctx) return;
-            _charts[id] = new Chart(ctx, { type, data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, ...opts } });
+        // ── Helper para crear/recrear charts (Chart.js v4) ────
+        const crearChart = (id, type, labels, datasets, extraOpts = {}) => {
+            if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            _charts[id] = new Chart(ctx, {
+                type,
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: {
+                        label: ctx2 => ' ' + ctx2.parsed.y + ' pedidos'
+                    }}},
+                    ...extraOpts
+                }
+            });
         };
 
-        const COLORES = ['#1e3a8a','#10b981','#f97316','#ef4444','#eab308','#8b5cf6','#06b6d4','#84cc16'];
+        const COLORES = ['#1e3a8a','#10b981','#f97316','#ef4444','#eab308','#8b5cf6','#06b6d4','#84cc16','#f43f5e','#a78bfa'];
+        const priorColor = { 'Crítica':'#ef4444','Alta':'#f97316','Media':'#eab308','Baja':'#3b82f6' };
 
-        // Mensual
+        // ── Gráfico mensual: total y cerrados por mes ─────────
         crearChart('chart-mensual', 'bar',
             rMensual.rows.map(r => r.mes),
-            [{ label: 'Pedidos', data: rMensual.rows.map(r => parseInt(r.n)), backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 1 }],
-            { plugins: { legend: { display: false } } }
+            [
+                { label: 'Creados',  data: rMensual.rows.map(r => parseInt(r.total   || 0)), backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 2 },
+                { label: 'Cerrados', data: rMensual.rows.map(r => parseInt(r.cerrados|| 0)), backgroundColor: '#10b98188', borderColor: '#10b981', borderWidth: 2 }
+            ],
+            { plugins: { legend: { display: true, position: 'top' },
+                tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y }}}}
         );
 
-        // Estados
-        const estadoRows = rEstados.rows;
+        // ── Gráfico estados: doughnut ─────────────────────────
+        const estadoColors = { 'Pendiente':'#eab308','En ejecución':'#3b82f6','Cerrado':'#10b981' };
         crearChart('chart-estados', 'doughnut',
-            estadoRows.map(r => r.estado),
-            [{ data: estadoRows.map(r => parseInt(r.n)), backgroundColor: ['#eab308','#3b82f6','#10b981','#94a3b8'] }]
+            rEstados.rows.map(r => r.estado),
+            [{ data: rEstados.rows.map(r => parseInt(r.n)),
+               backgroundColor: rEstados.rows.map(r => estadoColors[r.estado] || '#94a3b8'),
+               borderWidth: 2, borderColor: '#fff' }],
+            { plugins: { legend: { display: true, position: 'bottom' },
+                tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + c.parsed + ' pedidos' }}}}
         );
 
-        // Prioridades
-        const priorMap = { 'Crítica':'#ef4444','Alta':'#f97316','Media':'#eab308','Baja':'#3b82f6' };
-        const priorRows = rPrior.rows;
+        // ── Gráfico prioridades: barras coloreadas ────────────
         crearChart('chart-prioridades', 'bar',
-            priorRows.map(r => r.prioridad),
-            [{ label: '', data: priorRows.map(r => parseInt(r.n)), backgroundColor: priorRows.map(r => priorMap[r.prioridad] || '#94a3b8') }],
-            { plugins: { legend: { display: false } } }
+            rPrior.rows.map(r => r.prioridad),
+            [{ label: 'Pedidos', data: rPrior.rows.map(r => parseInt(r.n)),
+               backgroundColor: rPrior.rows.map(r => priorColor[r.prioridad] || '#94a3b8') }],
+            { plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}}}
         );
 
-        // Tipos de trabajo
-        crearChart('chart-tipos', 'horizontalBar',
-            rTipos.rows.map(r => r.tipo.length > 22 ? r.tipo.substring(0,22)+'…' : r.tipo),
-            [{ label: 'Pedidos', data: rTipos.rows.map(r => parseInt(r.n)), backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 1 }],
-            { indexAxis: 'y', plugins: { legend: { display: false } } }
+        // ── Gráfico tipos de trabajo: barras horizontales ─────
+        // En Chart.js v4: 'bar' con indexAxis:'y' (horizontalBar fue eliminado)
+        crearChart('chart-tipos', 'bar',
+            rTipos.rows.map(r => r.tipo.length > 25 ? r.tipo.substring(0,25)+'…' : r.tipo),
+            [{ label: 'Pedidos', data: rTipos.rows.map(r => parseInt(r.n)),
+               backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 1 }],
+            { indexAxis: 'y',
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.parsed.x + ' pedidos' }}},
+              scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
         );
 
-        // Distribuidores
+        // ── Gráfico distribuidores: barras con % cierre ────────
         crearChart('chart-distribuidores', 'bar',
             rDist.rows.map(r => r.distribuidor),
-            [{ label: 'Pedidos', data: rDist.rows.map(r => parseInt(r.n)), backgroundColor: COLORES.slice(0,10) }],
-            { plugins: { legend: { display: false } } }
+            [
+                { label: 'Total',    data: rDist.rows.map(r => parseInt(r.n        || 0)), backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 1 },
+                { label: 'Cerrados', data: rDist.rows.map(r => parseInt(r.cerrados || 0)), backgroundColor: '#10b98188', borderColor: '#10b981', borderWidth: 1 }
+            ],
+            { plugins: { legend: { display: true, position: 'top' },
+                tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y }}},
+              scales: { x: { ticks: { maxRotation: 45, font: { size: 10 } } } } }
         );
+
+        // ── Gráfico técnicos de cierre ────────────────────────
+        if (rTecnicos.rows.length) {
+            // Agregar canvas si no existe
+            let wrapTec = document.getElementById('chart-wrap-tecnicos');
+            if (!wrapTec) {
+                const statsParent = document.getElementById('chart-distribuidores')?.closest('.chart-wrap')?.parentElement;
+                if (statsParent) {
+                    wrapTec = document.createElement('div');
+                    wrapTec.id = 'chart-wrap-tecnicos';
+                    wrapTec.className = 'chart-wrap';
+                    wrapTec.innerHTML = '<h4>Por técnico de cierre</h4><canvas id="chart-tecnicos" height="200"></canvas>';
+                    statsParent.appendChild(wrapTec);
+                }
+            }
+            crearChart('chart-tecnicos', 'bar',
+                rTecnicos.rows.map(r => r.tecnico.length > 15 ? r.tecnico.substring(0,15)+'…' : r.tecnico),
+                [{ label: 'Pedidos cerrados', data: rTecnicos.rows.map(r => parseInt(r.n)),
+                   backgroundColor: COLORES }],
+                { plugins: { legend: { display: false } } }
+            );
+        }
 
     } catch(e) {
         console.error('Error estadísticas:', e);
-        toast('Error al cargar estadísticas', 'error');
+        if (document.getElementById('stats-cards'))
+            document.getElementById('stats-cards').innerHTML = `<div style="color:var(--re);padding:1rem;font-size:.85rem">Error al cargar estadísticas: ${e.message}</div>`;
+        toast('Error al cargar estadísticas: ' + e.message, 'error');
     }
 }
 
 // ── Ubicaciones de usuarios en mapa ──────────────────────────
 let _mapaUsuariosAdmin = null;
 let _marcadoresUsuarios = [];
+let _marcadoresPedidosAdmin = [];
 
 function iniciarMapaUsuariosAdmin() {
     const el = document.getElementById('mapa-usuarios-admin');
@@ -3743,52 +3857,118 @@ function iniciarMapaUsuariosAdmin() {
 }
 
 async function cargarUbicacionesUsuarios() {
+    const esActualizacion = _marcadoresUsuarios.length > 0 || _marcadoresPedidosAdmin.length > 0;
     try {
-        // Obtener última ubicación de cada usuario activo
-        const r = await sqlSimple(`
-            SELECT DISTINCT ON (uu.usuario_id)
-                uu.usuario_id, uu.lat, uu.lng, uu.precision_m, uu.timestamp,
-                u.nombre, u.email
-            FROM ubicaciones_usuarios uu
-            JOIN usuarios u ON u.id = uu.usuario_id
-            WHERE u.activo = TRUE AND uu.timestamp > NOW() - INTERVAL '2 hours'
-            ORDER BY uu.usuario_id, uu.timestamp DESC
-        `);
+        // ── Usuarios activos con ubicación reciente ───────────
+        const [rUsr, rPed] = await Promise.all([
+            sqlSimple(`
+                SELECT DISTINCT ON (uu.usuario_id)
+                    uu.usuario_id, uu.lat, uu.lng, uu.precision_m, uu.timestamp,
+                    u.nombre, u.email
+                FROM ubicaciones_usuarios uu
+                JOIN usuarios u ON u.id = uu.usuario_id
+                WHERE u.activo = TRUE AND uu.timestamp > NOW() - INTERVAL '2 hours'
+                ORDER BY uu.usuario_id, uu.timestamp DESC
+            `),
+            // Pedidos pendientes y en ejecución con coordenadas
+            sqlSimple(`
+                SELECT id, numero_pedido, descripcion, prioridad, estado, lat, lng, distribuidor
+                FROM pedidos
+                WHERE estado != 'Cerrado' AND lat IS NOT NULL AND lng IS NOT NULL
+                ORDER BY
+                    CASE prioridad WHEN 'Crítica' THEN 1 WHEN 'Alta' THEN 2 WHEN 'Media' THEN 3 ELSE 4 END
+            `)
+        ]);
 
-        // Limpiar marcadores anteriores
+        // ── Limpiar marcadores anteriores ────────────────────
         _marcadoresUsuarios.forEach(m => { if (_mapaUsuariosAdmin) _mapaUsuariosAdmin.removeLayer(m); });
         _marcadoresUsuarios = [];
+        _marcadoresPedidosAdmin.forEach(m => { if (_mapaUsuariosAdmin) _mapaUsuariosAdmin.removeLayer(m); });
+        _marcadoresPedidosAdmin = [];
 
         const lista = document.getElementById('lista-ubicaciones');
-        if (!r.rows.length) {
-            if (lista) lista.textContent = 'Ningún usuario ha compartido su ubicación en las últimas 2 horas.';
-            return;
-        }
 
+        // ── Marcadores de pedidos ─────────────────────────────
+        const fillPrior = { 'Crítica':'#ef4444','Alta':'#f97316','Media':'#eab308','Baja':'#3b82f6' };
+        (rPed.rows || []).forEach(p => {
+            const lat = parseFloat(p.lat), lng = parseFloat(p.lng);
+            if (!lat || !lng) return;
+            const color = fillPrior[p.prioridad] || '#3b82f6';
+            const iconPed = L.divIcon({
+                className: '',
+                html: `<div style="width:14px;height:14px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3);position:relative">
+                    <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:${color};color:white;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap">#${p.numero_pedido}</div>
+                </div>`,
+                iconSize: [14,14], iconAnchor: [7,7]
+            });
+            const mk = L.marker([lat, lng], { icon: iconPed, zIndexOffset: 100 })
+                .addTo(_mapaUsuariosAdmin)
+                .bindPopup(`<b style="color:${color}">#${p.numero_pedido}</b><br>
+                    <span style="font-size:11px">${p.prioridad} — ${p.estado}</span><br>
+                    <span style="font-size:11px;color:#475569">${p.distribuidor || ''}</span><br>
+                    <span style="font-size:11px">${(p.descripcion||'').substring(0,60)}...</span>`);
+            _marcadoresPedidosAdmin.push(mk);
+        });
+
+        // ── Marcadores de usuarios ────────────────────────────
+        const usuariosRows = rUsr.rows || [];
         const bounds = [];
-        r.rows.forEach(row => {
+
+        usuariosRows.forEach(row => {
             const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
             bounds.push([lat, lng]);
             const hace = Math.round((Date.now() - new Date(row.timestamp)) / 60000);
+
+            // Calcular pedido más cercano a este usuario
+            let pedidoCercano = null, distMin = Infinity;
+            (rPed.rows || []).forEach(p => {
+                const plat = parseFloat(p.lat), plng = parseFloat(p.lng);
+                if (!plat || !plng) return;
+                // Distancia aproximada en km (fórmula simple)
+                const dlat = (lat - plat) * 111;
+                const dlng = (lng - plng) * 111 * Math.cos(lat * Math.PI / 180);
+                const d = Math.sqrt(dlat*dlat + dlng*dlng);
+                if (d < distMin) { distMin = d; pedidoCercano = p; }
+            });
+
+            const cercanoHtml = pedidoCercano
+                ? `<br><span style="font-size:10px;color:#059669">📍 Pedido más cercano: #${pedidoCercano.numero_pedido} (${distMin < 1 ? (distMin*1000).toFixed(0)+'m' : distMin.toFixed(1)+'km'})</span>`
+                : '';
+
             if (_mapaUsuariosAdmin) {
                 const icon = L.divIcon({
                     className: '',
                     html: `<div class="user-marker-admin"><i class="fas fa-user" style="font-size:.65rem"></i> ${row.nombre.split(' ')[0]}</div>`,
                     iconAnchor: [0, 12]
                 });
-                const m = L.marker([lat, lng], { icon })
+                const m = L.marker([lat, lng], { icon, zIndexOffset: 1000 })
                     .addTo(_mapaUsuariosAdmin)
-                    .bindPopup(`<b>${row.nombre}</b><br>${row.email}<br>Hace ${hace} min<br>±${row.precision_m || '?'}m`);
+                    .bindPopup(`<b>${row.nombre}</b><br>${row.email}<br>Hace ${hace} min<br>±${row.precision_m || '?'}m${cercanoHtml}`);
                 _marcadoresUsuarios.push(m);
             }
         });
 
-        if (_mapaUsuariosAdmin && bounds.length) _mapaUsuariosAdmin.fitBounds(bounds, { padding: [30, 30] });
+        // fitBounds SOLO la primera vez (no al actualizar)
+        if (!esActualizacion && _mapaUsuariosAdmin && bounds.length) {
+            _mapaUsuariosAdmin.fitBounds(bounds, { padding: [40, 40] });
+        }
 
-        if (lista) lista.innerHTML = r.rows.map(row => {
-            const hace = Math.round((Date.now() - new Date(row.timestamp)) / 60000);
-            return `<span style="display:inline-flex;align-items:center;gap:.3rem;background:var(--bg);border-radius:.5rem;padding:.25rem .6rem;margin:.15rem;font-size:.78rem"><i class="fas fa-user"></i> <b>${row.nombre}</b> — hace ${hace} min</span>`;
-        }).join('');
+        // ── Lista inferior ────────────────────────────────────
+        if (!usuariosRows.length) {
+            if (lista) lista.textContent = 'Ningún usuario ha compartido su ubicación en las últimas 2 horas.';
+        } else {
+            if (lista) lista.innerHTML = usuariosRows.map(row => {
+                const hace = Math.round((Date.now() - new Date(row.timestamp)) / 60000);
+                return `<span style="display:inline-flex;align-items:center;gap:.3rem;background:var(--bg);border-radius:.5rem;padding:.25rem .6rem;margin:.15rem;font-size:.78rem">
+                    <i class="fas fa-user"></i> <b>${row.nombre}</b> — hace ${hace} min
+                </span>`;
+            }).join('') + `<span style="display:inline-flex;align-items:center;gap:.3rem;background:#f0fdf4;border-radius:.5rem;padding:.25rem .6rem;margin:.15rem;font-size:.78rem">
+                <i class="fas fa-circle" style="color:#ef4444;font-size:.5rem"></i> Crítica &nbsp;
+                <i class="fas fa-circle" style="color:#f97316;font-size:.5rem"></i> Alta &nbsp;
+                <i class="fas fa-circle" style="color:#eab308;font-size:.5rem"></i> Media &nbsp;
+                <i class="fas fa-circle" style="color:#3b82f6;font-size:.5rem"></i> Baja
+            </span>`;
+        }
 
     } catch(e) { console.warn('Error ubicaciones usuarios:', e.message); }
 }
