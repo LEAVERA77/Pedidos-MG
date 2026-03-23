@@ -112,7 +112,21 @@ textarea{resize:vertical;min-height:80px}
 .ds h4{color:var(--bd);margin-bottom:.65rem;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.4rem}
 .dr{display:flex;margin-bottom:.4rem;font-size:.88rem;align-items:flex-start;gap:.5rem}
 .dl{min-width:115px;color:var(--tm);flex-shrink:0;font-size:.82rem}
-.dv{flex:1;color:var(--td);font-weight:500;word-break:break-word;display:flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+.dv{flex:1;color:var(--td);font-weight:500;word-break:break-word;display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;min-width:0}
+.coord-proy-meta{font-size:.76rem;color:var(--tm);font-weight:600;margin:.2rem 0 .35rem;line-height:1.3}
+.dr.coord-proy-row{flex-direction:column;align-items:stretch;gap:.25rem}
+.dr.coord-proy-row .dl{min-width:0;max-width:100%}
+.dr.coord-proy-row .dv{width:100%;justify-content:flex-start;align-items:center}
+@media print{
+  .no-print,.print-preview-toolbar{display:none!important}
+}
+.print-preview-wrap{min-height:100%;padding-bottom:5.5rem;box-sizing:border-box}
+.print-preview-toolbar{position:fixed;bottom:0;left:0;right:0;z-index:10001;display:flex;gap:.65rem;justify-content:center;align-items:center;flex-wrap:wrap;padding:.75rem 1rem;background:linear-gradient(180deg,rgba(255,255,255,.97),#fff);border-top:1px solid #e2e8f0;box-shadow:0 -6px 24px rgba(15,23,42,.12)}
+.ppt-btn{border:none;border-radius:.65rem;padding:.65rem 1.1rem;font-size:.9rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;font-family:inherit}
+.ppt-cancel{background:#f1f5f9;color:#334155;border:1.5px solid #e2e8f0}
+.ppt-cancel:active{background:#e2e8f0}
+.ppt-ok{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff}
+.ppt-ok:active{opacity:.92}
 .dv-copy{cursor:pointer;padding:.2rem .5rem;background:var(--bg);border-radius:.5rem;font-size:.75rem;color:var(--bd);display:inline-flex;align-items:center;gap:.25rem}
 .dv-copy:hover{background:var(--bo)}
 .dv-copy.copied{background:var(--gr);color:white}
@@ -781,7 +795,8 @@ function resolverFajaProyeccion(modo, lngPedido) {
 
 /**
  * Proyecta WGS84 según empresa_config (visible en detalle / impresión / export).
- * Retorna { titulo, z, modoTxt, lx, ly, vx, vy } o null.
+ * Retorna { titulo, z, modoTxt, crsLinea, lx, ly, vx, vy } o null.
+ * Etiquetas cortas: crsLinea = sistema + faja; lx/ly = X/Y en metros.
  */
 function proyectarCoordPedido(lat, lng) {
     const cfg = window.EMPRESA_CFG || {};
@@ -802,12 +817,13 @@ function proyectarCoordPedido(lat, lng) {
         return null;
     }
     const titulo = PMG_COORD_TITULO[fam] || fam;
-    const modoTxt = /^[1-7]$/.test(modo) ? 'faja fija ' + z : (modo === 'instal' ? 'faja 1.ª ubicación' : 'faja por pedido');
-    const lx = titulo + ' · X (este, m) · ' + modoTxt;
-    const ly = titulo + ' · Y (norte, m) · ' + modoTxt;
+    const modoTxt = /^[1-7]$/.test(modo) ? 'Faja ' + z + ' (fija)' : (modo === 'instal' ? 'Faja ' + z + ' (1.ª GPS)' : 'Faja ' + z);
+    const crsLinea = titulo + ' · Faja ' + z;
+    const lx = 'X (este, m)';
+    const ly = 'Y (norte, m)';
     const vx = e.toFixed(3).replace('.', ',');
     const vy = n.toFixed(3).replace('.', ',');
-    return { titulo, z, modoTxt, lx, ly, vx, vy, e, n };
+    return { titulo, z, modoTxt, crsLinea, lx, ly, vx, vy, e, n };
 }
 window.proyectarCoordPedido = proyectarCoordPedido;
 
@@ -2382,14 +2398,57 @@ window.confirmarEnviarNotifPedido = confirmarEnviarNotifPedido;
 window.abrirModalNotificarPedidoPorId = abrirModalNotificarPedidoPorId;
 
 
+window.cerrarVistaImpresion = function() {
+    const contenedor = document.getElementById('print-container');
+    if (!contenedor) return;
+    contenedor.classList.remove('printing');
+    contenedor.innerHTML = '';
+};
+
+window.confirmarImpresionPedido = function() {
+    document.querySelectorAll('#print-container .print-preview-toolbar').forEach(el => { el.style.display = 'none'; });
+    try {
+        if (window.AndroidPrint && typeof window.AndroidPrint.printWebContent === 'function') {
+            window.AndroidPrint.printWebContent();
+            setTimeout(() => { window.cerrarVistaImpresion(); }, 900);
+        } else {
+            let listo = false;
+            const fin = () => {
+                if (listo) return;
+                listo = true;
+                window.cerrarVistaImpresion();
+            };
+            window.addEventListener('afterprint', fin, { once: true });
+            window.print();
+            setTimeout(fin, 60000);
+        }
+    } catch (_) {
+        window.cerrarVistaImpresion();
+    }
+};
+
 window.imprimirPedido = function(p) {
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
     const f = p.f ? new Date(p.f).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
     const fc = p.fc ? new Date(p.fc).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
     const fa = p.fa ? new Date(p.fa).toLocaleString('es-AR', {...tz, hour12:false}) : '--';
-    
-    const contenido = `
-        <div class="print-content">
+
+    const filasCoordsPrint = (() => {
+        const pc = proyectarCoordPedido(p.la, p.ln);
+        if (pc) {
+            return `<tr><td colspan="2" style="font-size:10pt;color:#64748b;padding-bottom:4px">${pc.crsLinea}</td></tr>
+                <tr><td>${pc.lx}</td><td>${pc.vx}</td></tr>
+                <tr><td>${pc.ly}</td><td>${pc.vy}</td></tr>`;
+        }
+        const cf = ((window.EMPRESA_CFG || {}).coord_proy_familia || 'none').trim();
+        if (cf === 'none' && p.x_inchauspe && p.y_inchauspe) {
+            return `<tr><td>Inchauspe X (hist.)</td><td>${String(p.x_inchauspe).replace('.', ',')}</td></tr>
+                <tr><td>Inchauspe Y (hist.)</td><td>${String(p.y_inchauspe).replace('.', ',')}</td></tr>`;
+        }
+        return '';
+    })();
+
+    const contenidoCuerpo = `
             <h1>Pedido de Mantenimiento N° ${p.np}</h1>
             
             <h2>📋 Información General</h2>
@@ -2426,41 +2485,23 @@ window.imprimirPedido = function(p) {
             <table>
                 <tr><td>WGS84 Lat:</td><td>${p.la?.toFixed(5).replace('.', ',')}</td></tr>
                 <tr><td>WGS84 Lng:</td><td>${p.ln?.toFixed(5).replace('.', ',')}</td></tr>
-                ${(() => {
-                    const pc = proyectarCoordPedido(p.la, p.ln);
-                    if (pc) {
-                        return `<tr><td>${pc.lx}</td><td>${pc.vx}</td></tr>
-                <tr><td>${pc.ly}</td><td>${pc.vy}</td></tr>`;
-                    }
-                    const cf = ((window.EMPRESA_CFG || {}).coord_proy_familia || 'none').trim();
-                    if (cf === 'none' && p.x_inchauspe && p.y_inchauspe) {
-                        return `<tr><td>Inchauspe X (histórico)</td><td>${String(p.x_inchauspe).replace('.', ',')}</td></tr>
-                <tr><td>Inchauspe Y (histórico)</td><td>${String(p.y_inchauspe).replace('.', ',')}</td></tr>`;
-                    }
-                    return '';
-                })()}
+                ${filasCoordsPrint}
             </table>
             
             <div style="margin-top:3rem; text-align:center; color:#94a3b8; font-size:0.8rem;">
                 Documento generado el ${new Date().toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires', hour12:false})}
-            </div>
-        </div>
-    `;
-    
-    const contenedor = document.getElementById('print-container');
-    contenedor.innerHTML = contenido;
-    contenedor.classList.add('printing');
+            </div>`;
 
-    try {
-        if (window.AndroidPrint && typeof window.AndroidPrint.printWebContent === 'function') {
-            window.AndroidPrint.printWebContent();
-        } else {
-            window.print();
-        }
-    } finally {
-        contenedor.classList.remove('printing');
-        contenedor.innerHTML = '';
-    }
+    const contenedor = document.getElementById('print-container');
+    contenedor.innerHTML = `
+        <div class="print-preview-wrap">
+            <div class="print-preview-toolbar no-print">
+                <button type="button" class="ppt-btn ppt-cancel" onclick="window.cerrarVistaImpresion()"><i class="fas fa-times"></i> Cancelar</button>
+                <button type="button" class="ppt-btn ppt-ok" onclick="window.confirmarImpresionPedido()"><i class="fas fa-print"></i> Imprimir</button>
+            </div>
+            <div class="print-content">${contenidoCuerpo}</div>
+        </div>`;
+    contenedor.classList.add('printing');
 };
 
 
@@ -3435,8 +3476,9 @@ function detalle(p) {
         const qx = String(pcDet.vx).replace(/'/g, "\\'");
         const qy = String(pcDet.vy).replace(/'/g, "\\'");
         filasProyectadas = `
-            <div class="dr"><span class="dl">${pcDet.lx}</span><span class="dv">${pcDet.vx} <span class="dv-copy" onclick="copiarTexto('${qx}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
-            <div class="dr"><span class="dl">${pcDet.ly}</span><span class="dv">${pcDet.vy} <span class="dv-copy" onclick="copiarTexto('${qy}')"><i class="fas fa-copy"></i> Copiar</span></span></div>`;
+            <div class="coord-proy-meta">${pcDet.crsLinea}</div>
+            <div class="dr coord-proy-row"><span class="dl">${pcDet.lx}</span><span class="dv">${pcDet.vx} <span class="dv-copy" onclick="copiarTexto('${qx}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
+            <div class="dr coord-proy-row"><span class="dl">${pcDet.ly}</span><span class="dv">${pcDet.vy} <span class="dv-copy" onclick="copiarTexto('${qy}')"><i class="fas fa-copy"></i> Copiar</span></span></div>`;
     } else if (cfgFam === 'none' && p.x_inchauspe && p.y_inchauspe) {
         const xi = String(p.x_inchauspe).replace('.', ',');
         const yi = String(p.y_inchauspe).replace('.', ',');
@@ -3560,7 +3602,7 @@ function exportPedido(pedidos, nombre) {
         let xPlano = '';
         let yPlano = '';
         if (pc) {
-            crsAdm = pc.titulo + ' · faja ' + pc.z + ' · ' + pc.modoTxt;
+            crsAdm = pc.crsLinea + ' · ' + pc.modoTxt;
             xPlano = pc.vx;
             yPlano = pc.vy;
         } else if (cf === 'none' && p.x_inchauspe != null && p.y_inchauspe != null) {
