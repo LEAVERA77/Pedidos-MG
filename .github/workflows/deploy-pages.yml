@@ -1,10 +1,19 @@
-# Genera config.json en el artefacto de Pages a partir de secretos del repositorio
-# (sin commitear contraseñas). Requiere: Settings → Secrets → Actions.
+# Despliegue estático a GitHub Pages (index.html, sw.js, etc.)
+#
+# Antes de que pase el primer deploy:
+# 1. Repo → Settings → Secrets and variables → Actions → New repository secret
+#    - NEON_CONNECTION_STRING = URI completa postgresql://... (obligatorio)
+#    - EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID (opcional)
+# 2. Settings → Pages → Build and deployment → Source = "GitHub Actions"
+#
+# Ejecutar: push a main, o pestaña Actions → "Deploy GitHub Pages" → Run workflow.
+
 name: Deploy GitHub Pages
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,9 +31,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/configure-pages@v4
+      - name: Configurar Pages
+        uses: actions/configure-pages@v4
 
       - name: Generar config.json desde secretos
         env:
@@ -34,7 +45,7 @@ jobs:
           EJS_TPL: ${{ secrets.EMAILJS_TEMPLATE_ID }}
         run: |
           if [ -z "$NEON_CS" ]; then
-            echo "::error::Definí el secret NEON_CONNECTION_STRING en el repo (Settings → Secrets → Actions)."
+            echo "::error::Falta el secret NEON_CONNECTION_STRING (Settings → Secrets and variables → Actions)."
             exit 1
           fi
           jq -n \
@@ -44,13 +55,16 @@ jobs:
             --arg tpl "${EJS_TPL:-}" \
             '{neon:{connectionString:$cs},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},app:{version:"2.0.0"}}' \
             > config.json
+          echo "OK: config.json generado (sin imprimir contenido)."
 
-      - name: Artefacto sin carpeta .git
+      - name: Quitar metadatos Git del artefacto
         run: rm -rf .git
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Subir sitio
+        uses: actions/upload-pages-artifact@v3
         with:
           path: .
 
-      - uses: actions/deploy-pages@v4
+      - name: Publicar en Pages
         id: deployment
+        uses: actions/deploy-pages@v4
