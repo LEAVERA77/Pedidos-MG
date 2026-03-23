@@ -631,6 +631,26 @@ textarea{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- Admin: enviar aviso de pedido a un usuario (notificación en app Android) -->
+<div id="modal-notif-pedido" class="mo">
+  <div class="mc" style="max-width:440px">
+    <div class="mh"><h3><i class="fas fa-bell"></i> Enviar pedido a usuario</h3><button type="button" class="cm" onclick="cerrarModalNotifPedido()"><i class="fas fa-times"></i></button></div>
+    <div class="mb">
+      <p id="notif-pedido-resumen" style="font-size:.88rem;color:var(--tm);margin-bottom:.75rem"></p>
+      <div class="fg" style="padding:0"><label><i class="fas fa-user"></i> Usuario destino</label>
+        <select id="notif-usuario-select"></select></div>
+      <div class="fg" style="padding:0;margin-top:.75rem"><label>Mensaje adicional (opcional)</label>
+        <textarea id="notif-mensaje-extra" rows="2" maxlength="240" placeholder="Ej.: Pasá por este punto antes del mediodía"></textarea></div>
+      <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap">
+        <button type="button" class="sec" onclick="cerrarModalNotifPedido()">Cancelar</button>
+        <button type="button" class="bp" onclick="confirmarEnviarNotifPedido()"><i class="fas fa-paper-plane"></i> Enviar notificación</button>
+      </div>
+      <p id="notif-pedido-msg" style="margin-top:.75rem;font-size:.82rem;color:var(--re)"></p>
+      <p style="margin-top:.5rem;font-size:.75rem;color:var(--tl)">Requiere tabla <code>notificaciones_movil</code> en la base (ver script SQL en el repo Android). En Android, el técnico recibe avisos mientras la app está abierta o en segundo plano.</p>
+    </div>
+  </div>
+</div>
+
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -1008,6 +1028,7 @@ function detenerKeepAlive() {
         keepAliveInterval = null;
     }
     keepAliveStartTime = null;
+    detenerPollNotifMovil();
 }
 
 
@@ -1016,6 +1037,7 @@ document.addEventListener('visibilitychange', () => {
     if (!document.hidden && app.u) {
         console.log('Tab visible: heartbeat preventivo');
         heartbeat();
+        if (app.u.rol !== 'admin') window.pollNotificacionesMovil();
     }
 });
 
@@ -1269,6 +1291,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
         document.getElementById('ms').classList.add('active');
         iniciarKeepAlive();
         iniciarTracking();
+        iniciarPollNotifMovil();
         const btnAdm = document.getElementById('btn-admin');
         if (btnAdm) btnAdm.style.display = u.rol === 'admin' ? 'flex' : 'none';
         setTimeout(async () => {
@@ -1300,7 +1323,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
                 offlinePedidosSave(app.p);
         if (app.u?.rol === 'admin') {
             try {
-                const ru = await sqlSimple('SELECT id, nombre FROM usuarios WHERE activo = TRUE');
+                const ru = await sqlSimple('SELECT id, nombre, email, rol FROM usuarios WHERE activo = TRUE ORDER BY nombre');
                 app.usuariosCache = ru.rows || [];
             } catch(_) {}
         }
@@ -1892,12 +1915,13 @@ function renderMk() {
             <div style="min-width:160px;font-family:system-ui">
                 <b style="color:#1e3a8a">#${p.np} - ${p.pr}</b><br>
                 <span style="font-size:11px;color:#475569">${p.tt} - ${p.es} (${p.av}%)</span><br>
-                <div style="font-size:12px;margin-top:4px">${p.de.substring(0,70)}...</div>
-                <div style="display:flex;gap:4px;margin-top:6px">
-                    <button style="flex:1;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
-                    <button style="flex:1;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
+                <div style="font-size:12px;margin-top:4px">${(p.de || '').substring(0,70)}${(p.de && p.de.length > 70) ? '…' : ''}</div>
+                <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+                    <button style="flex:1;min-width:72px;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
+                    <button style="flex:1;min-width:72px;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
+                    ${app.u?.rol === 'admin' ? `<button style="flex:1;min-width:72px;padding:4px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="window._notificarPedidoMapa('${p.id}')">Avisar</button>` : ''}
                 </div>
-            </div>`, { maxWidth: 240 });
+            </div>`, { maxWidth: 260 });
         
         app.mk.push(m);
     });
@@ -1945,6 +1969,141 @@ window._zm = id => {
         }, 100);
     }
 };
+
+// ── Notificaciones a usuarios (admin → técnico, cola en Neon + Android) ──
+let _pedidoNotifContext = null;
+let _pollNotifMovilInterval = null;
+
+function llenarSelectUsuariosNotif() {
+    const sel = document.getElementById('notif-usuario-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const list = app.usuariosCache || [];
+    list.forEach(u => {
+        if (String(u.id) === String(app.u?.id)) return;
+        if (u.rol === 'admin') return;
+        const o = document.createElement('option');
+        o.value = u.id;
+        o.textContent = (u.nombre || 'Usuario') + (u.email ? ' — ' + u.email : '');
+        sel.appendChild(o);
+    });
+    if (!sel.options.length) {
+        const o = document.createElement('option');
+        o.value = '';
+        o.textContent = 'No hay técnicos activos';
+        sel.appendChild(o);
+    }
+}
+
+function cerrarModalNotifPedido() {
+    const m = document.getElementById('modal-notif-pedido');
+    if (m) m.classList.remove('active');
+    _pedidoNotifContext = null;
+}
+
+async function abrirModalNotificarPedidoPorId(pedidoId) {
+    if (app.u?.rol !== 'admin') { toast('Solo administradores', 'error'); return; }
+    let p = app.p.find(x => String(x.id) === String(pedidoId));
+    if (!p) {
+        try {
+            const r = await sqlSimple(`SELECT id, numero_pedido AS np, descripcion AS de FROM pedidos WHERE id = ${esc(parseInt(pedidoId, 10))}`);
+            const row = r.rows?.[0];
+            if (!row) { toast('Pedido no encontrado', 'error'); return; }
+            p = { id: row.id, np: row.np, de: row.de };
+        } catch (e) {
+            toast('Error: ' + e.message, 'error');
+            return;
+        }
+    }
+    if (!app.usuariosCache?.length) {
+        try {
+            const ru = await sqlSimple('SELECT id, nombre, email, rol FROM usuarios WHERE activo = TRUE ORDER BY nombre');
+            app.usuariosCache = ru.rows || [];
+        } catch (_) {}
+    }
+    _pedidoNotifContext = { id: p.id, np: p.np, de: p.de || '' };
+    const res = document.getElementById('notif-pedido-resumen');
+    if (res) res.textContent = 'Pedido #' + p.np + ' — ' + (p.de || '').substring(0, 120) + ((p.de && p.de.length > 120) ? '…' : '');
+    const msg = document.getElementById('notif-pedido-msg');
+    if (msg) msg.textContent = '';
+    llenarSelectUsuariosNotif();
+    const ex = document.getElementById('notif-mensaje-extra');
+    if (ex) ex.value = '';
+    document.getElementById('modal-notif-pedido')?.classList.add('active');
+}
+
+window._notificarPedidoMapa = function (id) {
+    try { app.map?.closePopup(); } catch (_) {}
+    abrirModalNotificarPedidoPorId(id);
+};
+window._notificarPedidoMapaAdmin = function (id) {
+    try { if (typeof _mapaUsuariosAdmin !== 'undefined' && _mapaUsuariosAdmin) _mapaUsuariosAdmin.closePopup(); } catch (_) {}
+    abrirModalNotificarPedidoPorId(id);
+};
+
+async function confirmarEnviarNotifPedido() {
+    const msgEl = document.getElementById('notif-pedido-msg');
+    const sel = document.getElementById('notif-usuario-select');
+    if (!_pedidoNotifContext || !sel?.value) {
+        if (msgEl) msgEl.textContent = 'Seleccioná un usuario destino.';
+        return;
+    }
+    const uid = parseInt(sel.value, 10);
+    const extra = (document.getElementById('notif-mensaje-extra')?.value || '').trim();
+    const titulo = 'Pedido #' + _pedidoNotifContext.np;
+    const cuerpo = extra || ((_pedidoNotifContext.de || '').substring(0, 160) || 'Nuevo aviso de pedido');
+    if (msgEl) msgEl.textContent = '';
+    try {
+        await sqlSimple(`INSERT INTO notificaciones_movil (usuario_id, pedido_id, titulo, cuerpo) VALUES (${esc(uid)}, ${esc(_pedidoNotifContext.id)}, ${esc(titulo)}, ${esc(cuerpo)})`);
+        toast('Notificación encolada ✓ El usuario la verá en el teléfono.', 'success');
+        cerrarModalNotifPedido();
+    } catch (e) {
+        const m = e.message || String(e);
+        if (msgEl) msgEl.textContent = m.includes('notificaciones_movil') || m.includes('does not exist') || m.includes('no existe')
+            ? 'Falta crear la tabla en Neon. Ejecutá el script SQL del proyecto (notificaciones_movil).'
+            : m;
+        toast('No se pudo enviar: ' + m, 'error');
+    }
+}
+
+window.pollNotificacionesMovil = async function () {
+    if (!app.u || app.u.rol === 'admin' || modoOffline || !NEON_OK || !_sql) return;
+    try {
+        const r = await sqlSimple(`SELECT id, titulo, cuerpo, pedido_id FROM notificaciones_movil WHERE usuario_id = ${esc(app.u.id)} AND leida = FALSE ORDER BY id ASC LIMIT 15`);
+        const rows = r.rows || [];
+        for (const row of rows) {
+            const t = row.titulo || 'Pedidos MG';
+            const b = row.cuerpo || '';
+            const pid = row.pedido_id != null ? String(row.pedido_id) : '';
+            if (window.AndroidLocalNotify && typeof window.AndroidLocalNotify.show === 'function') {
+                try {
+                    window.AndroidLocalNotify.show(String(row.id), t, b, pid);
+                } catch (_) {}
+            }
+            await sqlSimple(`UPDATE notificaciones_movil SET leida = TRUE WHERE id = ${esc(row.id)}`);
+        }
+    } catch (e) {
+        if (!String(e.message || e).includes('notificaciones_movil')) console.warn('[notif-movil]', e.message || e);
+    }
+};
+
+function iniciarPollNotifMovil() {
+    detenerPollNotifMovil();
+    if (app.u?.rol === 'admin') return;
+    window.pollNotificacionesMovil();
+    _pollNotifMovilInterval = setInterval(() => { window.pollNotificacionesMovil(); }, 45000);
+}
+
+function detenerPollNotifMovil() {
+    if (_pollNotifMovilInterval) {
+        clearInterval(_pollNotifMovilInterval);
+        _pollNotifMovilInterval = null;
+    }
+}
+
+window.cerrarModalNotifPedido = cerrarModalNotifPedido;
+window.confirmarEnviarNotifPedido = confirmarEnviarNotifPedido;
+window.abrirModalNotificarPedidoPorId = abrirModalNotificarPedidoPorId;
 
 
 window.imprimirPedido = function(p) {
@@ -3017,6 +3176,7 @@ function detalle(p) {
             <div class="dr"><span class="dl">Inchauspe Y:</span><span class="dv">${p.y_inchauspe.toString().replace('.', ',')} <span class="dv-copy" onclick="copiarTexto('${p.y_inchauspe.toString().replace('.', ',')}')"><i class="fas fa-copy"></i> Copiar</span></span></div>
             ` : ''}
             <button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa (zoom máximo)</button>
+            ${app.u?.rol === 'admin' ? `<button type="button" class="ba2" style="margin-top:.5rem;margin-left:.35rem;background:#059669;color:white;border-color:#059669" onclick="document.getElementById('dm').classList.remove('active');window.abrirModalNotificarPedidoPorId('${p.id}')"><i class="fas fa-bell"></i> Enviar a usuario</button>` : ''}
         </div>
         
         ${_auditLineas ? `<div class="ds"><h4>👤 Auditoría</h4>${_auditLineas}</div>` : ''}
@@ -4002,7 +4162,8 @@ async function cargarUbicacionesUsuarios() {
                 .bindPopup(`<b style="color:${color}">#${p.numero_pedido}</b><br>
                     <span style="font-size:11px">${p.prioridad} — ${p.estado}</span><br>
                     <span style="font-size:11px;color:#475569">${p.distribuidor || ''}</span><br>
-                    <span style="font-size:11px">${(p.descripcion||'').substring(0,60)}...</span>`);
+                    <span style="font-size:11px">${(p.descripcion||'').substring(0,60)}...</span>
+                    <div style="margin-top:6px"><button type="button" style="width:100%;padding:6px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600" onclick="window._notificarPedidoMapaAdmin('${p.id}')"><i class="fas fa-bell"></i> Enviar a usuario</button></div>`);
             _marcadoresPedidosAdmin.push(mk);
         });
 
