@@ -3657,7 +3657,11 @@ async function cargarEstadisticas() {
     else if (periodo === 'anio')   fechaDesde = new Date(ahora.getFullYear(), 0, 1);
     else                           fechaDesde = new Date('2000-01-01');
 
-    const filtro = `WHERE fecha_creacion >= ${esc(fechaDesde.toISOString())}`;
+    // filtro: solo la condición, sin WHERE
+    // Las queries que necesitan WHERE adicional usan AND
+    const condFecha = `fecha_creacion >= ${esc(fechaDesde.toISOString())}`;
+    const filtro    = `WHERE ${condFecha}`;
+    const andFecha  = `AND ${condFecha}`;
 
     // Mostrar loading
     const statsEl = document.getElementById('stats-cards');
@@ -3697,12 +3701,12 @@ async function cargarEstadisticas() {
                 AVG(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_prom,
                 MIN(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_min,
                 MAX(EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600) AS horas_max
-                FROM pedidos ${filtro} WHERE estado='Cerrado' AND fecha_cierre IS NOT NULL AND fecha_cierre > fecha_creacion`),
+                FROM pedidos WHERE ${condFecha} AND estado='Cerrado' AND fecha_cierre IS NOT NULL AND fecha_cierre > fecha_creacion`),
             // Por técnico de cierre (top 8)
             sqlSimple(`SELECT COALESCE(tecnico_cierre,'Sin asignar') AS tecnico, COUNT(*) AS n
-                FROM pedidos ${filtro} WHERE estado='Cerrado' GROUP BY tecnico ORDER BY n DESC LIMIT 8`),
+                FROM pedidos WHERE ${condFecha} AND estado='Cerrado' GROUP BY tecnico ORDER BY n DESC LIMIT 8`),
             // Avance promedio de pedidos en ejecución
-            sqlSimple(`SELECT ROUND(AVG(avance)) AS avance_prom FROM pedidos ${filtro} WHERE estado='En ejecución'`)
+            sqlSimple(`SELECT ROUND(AVG(avance)) AS avance_prom FROM pedidos WHERE ${condFecha} AND estado='En ejecución'`)
         ]);
 
         const t = rTotal.rows[0] || {};
