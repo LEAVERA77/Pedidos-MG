@@ -1,11 +1,11 @@
 // ================================================================
 //  SERVICE WORKER — Pedidos MG v2.0
-//  Cache dinámico de tiles OSM dentro de 200km de la ubicación
+//  Cache dinámico de tiles dentro de 150km de la ubicación
 //  del usuario, calculado UNA SOLA VEZ al primer login.
 // ================================================================
 const CACHE_TILES = 'pmg-tiles-v2';
 const CACHE_APP   = 'pmg-app-v2';
-const SW_VERSION  = '2.0.0';
+const SW_VERSION  = '2.1.0';
 
 self.addEventListener('install', event => {
     console.log('[SW] v' + SW_VERSION);
@@ -25,7 +25,7 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-    if (!event.request.url.includes('tile.openstreetmap.org')) return;
+    if (!event.request.url.includes('basemaps.cartocdn.com/light_all/')) return;
     event.respondWith(
         caches.match(event.request).then(cached => {
             if (cached) return cached;
@@ -55,7 +55,7 @@ self.addEventListener('message', async event => {
 
     if (msg.tipo !== 'CACHEAR_ZONA') return;
 
-    const { lat, lng, radioKm = 200 } = msg;
+    const { lat, lng, radioKm = 150 } = msg;
 
     const appCache = await caches.open(CACHE_APP);
     const yaHecho = await appCache.match('pmg-zona-cacheada');
@@ -104,7 +104,7 @@ self.addEventListener('message', async event => {
 });
 
 function _calcTiles(lat, lng, radioKm, zMin, zMax) {
-    const urls = [], subs = ['a','b','c'];
+    const urls = [], subs = ['a','b','c','d'];
     let idx = 0;
     for (let z = zMin; z <= zMax; z++) {
         const dLat = (radioKm / 111) * 1.1;
@@ -113,7 +113,7 @@ function _calcTiles(lat, lng, radioKm, zMin, zMax) {
         const [x2, y1] = _ll2t(lat + dLat, lng + dLng, z);
         for (let x = x1; x <= x2; x++)
             for (let y = y1; y <= y2; y++)
-                urls.push(`https://${subs[idx++ % 3]}.tile.openstreetmap.org/${z}/${x}/${y}.png`);
+                urls.push(`https://${subs[idx++ % 4]}.basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`);
     }
     return urls;
 }

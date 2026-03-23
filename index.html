@@ -269,8 +269,8 @@ textarea{resize:vertical;min-height:80px}
     <p class="sub" id="app-subtitulo"></p>
     <div id="dbs" class="dbs c"><i class="fas fa-circle-notch fa-spin"></i> Conectando...</div>
     <form id="lf">
-      <div class="ig"><i class="fas fa-envelope"></i><input type="text" id="em" placeholder="Usuario" value="admin" required autocomplete="username"></div>
-      <div class="ig"><i class="fas fa-lock"></i><input type="password" id="pw" placeholder="Contraseña" value="admin" required autocomplete="current-password"></div>
+      <div class="ig"><i class="fas fa-envelope"></i><input type="text" id="em" placeholder="Usuario" required autocomplete="username"></div>
+      <div class="ig"><i class="fas fa-lock"></i><input type="password" id="pw" placeholder="Contraseña" required autocomplete="current-password"></div>
       <button type="submit" id="lb" class="bp" disabled><i class="fas fa-sign-in-alt"></i> Ingresar</button>
     </form>
     <div id="le" class="le"></div>
@@ -1309,7 +1309,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
                                 tipo: 'CACHEAR_ZONA',
                                 lat: ultimaUbicacion.lat,
                                 lng: ultimaUbicacion.lon,
-                                radioKm: 200
+                                radioKm: 150
                             });
                         }
                     };
@@ -1544,7 +1544,12 @@ function initMap() {
         zoomControl: true,
         attributionControl: true,
         maxZoom: 19,
-        zoom: 13 
+        zoom: 13,
+        preferCanvas: true,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
+        inertia: false
     }).setView([-31.505, -60.02], 13);
     
     
@@ -4131,7 +4136,14 @@ function iniciarMapaUsuariosAdmin() {
     if (!el) return;
     setTimeout(() => {
         if (!_mapaUsuariosAdmin) {
-            _mapaUsuariosAdmin = L.map('mapa-usuarios-admin', { zoomControl: true }).setView([-31.5, -60.0], 10);
+            _mapaUsuariosAdmin = L.map('mapa-usuarios-admin', {
+                zoomControl: true,
+                preferCanvas: true,
+                zoomAnimation: false,
+                fadeAnimation: false,
+                markerZoomAnimation: false,
+                inertia: false
+            }).setView([-31.5, -60.0], 10);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap © CARTO',
                 subdomains: 'abcd',
