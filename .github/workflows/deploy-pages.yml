@@ -47,13 +47,19 @@ jobs:
             > config.json
           echo "OK: config.json generado."
 
-      - name: Quitar .git del artefacto
-        run: rm -rf .git
+      - name: Preparar carpeta publicable
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp index.html sw.js config.example.json config.json dist/
+          [ -f README.md ] && cp README.md dist/ || true
+          [ -f SECURITY.md ] && cp SECURITY.md dist/ || true
+          [ -f COPYRIGHT.md ] && cp COPYRIGHT.md dist/ || true
 
       - name: Subir artefacto del sitio
         uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: dist
 
   deploy:
     runs-on: ubuntu-latest
