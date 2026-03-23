@@ -1,0 +1,56 @@
+# Genera config.json en el artefacto de Pages a partir de secretos del repositorio
+# (sin commitear contraseñas). Requiere: Settings → Secrets → Actions.
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v4
+
+      - name: Generar config.json desde secretos
+        env:
+          NEON_CS: ${{ secrets.NEON_CONNECTION_STRING }}
+          EJS_PK: ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EJS_SV: ${{ secrets.EMAILJS_SERVICE_ID }}
+          EJS_TPL: ${{ secrets.EMAILJS_TEMPLATE_ID }}
+        run: |
+          if [ -z "$NEON_CS" ]; then
+            echo "::error::Definí el secret NEON_CONNECTION_STRING en el repo (Settings → Secrets → Actions)."
+            exit 1
+          fi
+          jq -n \
+            --arg cs "$NEON_CS" \
+            --arg pk "${EJS_PK:-}" \
+            --arg sv "${EJS_SV:-}" \
+            --arg tpl "${EJS_TPL:-}" \
+            '{neon:{connectionString:$cs},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},app:{version:"2.0.0"}}' \
+            > config.json
+
+      - name: Artefacto sin carpeta .git
+        run: rm -rf .git
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - uses: actions/deploy-pages@v4
+        id: deployment
