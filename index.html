@@ -2424,8 +2424,9 @@ async function confirmarEnviarNotifPedido() {
     try {
         const telWa = telefonoNorm.replace(/[^\d]/g, '');
         const waUrl = `https://wa.me/${telWa}?text=${encodeURIComponent(cuerpo)}`;
-        // Reutilizar pestaña/ventana wa_send si ya está abierta (WhatsApp Web en uso)
+        // Reutilizar pestaña wa_send si ya la abrimos antes; enfocarla para que quede al frente
         const popup = window.open(waUrl, 'wa_send', 'noopener');
+        if (popup && !popup.closed) try { popup.focus(); } catch (_) {}
         if (!popup) window.location.href = waUrl;
         try {
             await sqlSimple(`INSERT INTO whatsapp_notificaciones
