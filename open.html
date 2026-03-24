@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Abrir pedido - Pedidos MG</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;padding:2rem;text-align:center;background:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}.box{background:white;padding:1.5rem;border-radius:1rem;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:320px}.btn{display:inline-block;background:#10b981;color:white;padding:.75rem 1.5rem;border-radius:.5rem;text-decoration:none;font-weight:600;margin-top:1rem}.btn:hover{background:#059669}p{color:#64748b;font-size:.9rem;margin:.5rem 0}</style>
+</head>
+<body>
+<div class="box">
+<p id="msg">Abriendo pedido en la app…</p>
+<a id="fallback" class="btn" href="#" style="display:none">Abrir en app Pedidos MG</a>
+</div>
+<script>
+(function(){
+var m=document.getElementById('msg'),fb=document.getElementById('fallback');
+var pid=(new URLSearchParams(location.search).get('p')||new URLSearchParams(location.search).get('id')||'').trim();
+if(!pid){m.textContent='Faltan parámetros. Usá el enlace desde WhatsApp.';return;}
+var deep='pedidosmg://pedido/'+pid;
+fb.href=deep;
+fb.onclick=function(){try{location.href=deep;}catch(e){}return false;};
+var isMobile=/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+if(isMobile){
+location.href=deep;
+setTimeout(function(){fb.style.display='inline-block';m.textContent='Si no se abrió la app, tocá el botón:';},800);
+}else{
+fb.style.display='inline-block';
+m.textContent='En el celular este enlace abre la app. En PC, escaneá el QR de WhatsApp desde el teléfono.';
+}
+})();
+</script>
+</body>
+</html>
