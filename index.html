@@ -227,6 +227,8 @@ textarea{resize:vertical;min-height:80px}
 .admin-table td{padding:.55rem .75rem;border-bottom:1px solid var(--bo);vertical-align:middle}
 .admin-table tr:last-child td{border-bottom:none}
 .admin-table tr:hover td{background:#f8fafc}
+#lista-usuarios-admin,#lista-distribuidores-admin{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#lista-usuarios-admin .admin-table,#lista-distribuidores-admin .admin-table{min-width:680px}
 .btn-sm{padding:.3rem .7rem;font-size:.78rem;border:none;border-radius:.4rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:.3rem}
 .btn-sm.danger{background:#fee2e2;color:#dc2626}
 .btn-sm.primary{background:var(--bd);color:white}
@@ -695,6 +697,7 @@ textarea{resize:vertical;min-height:80px}
         <button type="button" class="sec" onclick="cerrarModalNotifPedido()">Cancelar</button>
         <button type="button" class="bp" onclick="confirmarEnviarNotifPedido()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
       </div>
+      <p style="margin-top:.6rem;font-size:.76rem;color:var(--tl);line-height:1.35">Si no tenés sesión en WhatsApp Web, usá <b>Abrir aplicación</b> o iniciá sesión primero en <a href="https://web.whatsapp.com" target="_blank" rel="noopener">web.whatsapp.com</a>.</p>
       <p id="notif-pedido-msg" style="margin-top:.75rem;font-size:.82rem;color:var(--re)"></p>
       <p style="margin-top:.5rem;font-size:.75rem;color:var(--tl)">El usuario destino debe tener teléfono cargado con formato internacional, por ejemplo <code>+543434540250</code>.</p>
     </div>
@@ -2427,7 +2430,7 @@ async function confirmarEnviarNotifPedido() {
                 (destinatario_id, destinatario_tipo, telefono, mensaje, pedido_id, estado, fecha_envio)
                 VALUES (${esc(uid)}, 'usuario', ${esc(telefonoNorm)}, ${esc(cuerpo)}, ${esc(_pedidoNotifContext.id)}, 'enviado', NOW())`);
         } catch (_) {}
-        toast('WhatsApp preparado para envío ✓', 'success');
+        toast('WhatsApp abierto. Usá "Abrir aplicación" si el QR no carga.', 'success');
         cerrarModalNotifPedido();
     } catch (e) {
         const m = e.message || String(e);
