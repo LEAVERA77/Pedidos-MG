@@ -50,6 +50,13 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 .moui-full{width:100%;margin-top:.5rem}
 #mapa-dash-body.collapsed{display:none}
 #mapa-filtros-body.collapsed{display:none}
+#mapa-android-strip{display:none;position:absolute;top:58px;left:0;right:0;z-index:852;pointer-events:none}
+#mapa-android-strip .mas-inner{pointer-events:auto;margin:.3rem .45rem;padding:.4rem .55rem;background:#fff;border:1px solid var(--bo);border-radius:.5rem;display:flex;flex-wrap:wrap;gap:.45rem .65rem;align-items:center;font-size:.72rem;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+#mapa-leyenda-prioridad{pointer-events:auto;position:absolute;bottom:5.2rem;left:.45rem;z-index:851;max-width:min(280px,88vw);background:rgba(255,255,255,.95);border:1px solid var(--bo);border-radius:.5rem;padding:.35rem .5rem;font-size:.68rem;color:var(--tm);box-shadow:0 2px 10px rgba(0,0,0,.1)}
+#mapa-leyenda-prioridad .ll-row{display:flex;align-items:center;gap:.35rem;margin:.12rem 0}
+#mapa-leyenda-prioridad .ll-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.9)}
+.chart-legend-caption{margin-top:.4rem;padding:.5rem .65rem;background:var(--bg);border-radius:.45rem;font-size:.78rem;line-height:1.42;color:var(--tm);border:1px solid var(--bo);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.chart-legend-caption strong{color:var(--bd);font-size:.8rem;font-weight:700}
 .lc{background:white;padding:2rem 2rem 1.5rem;border-radius:1.25rem;width:92%;max-width:420px;box-shadow:0 25px 60px rgba(0,0,0,.4);max-height:95vh;overflow-y:auto}
 .ll{width:56px;height:56px;background:linear-gradient(135deg,var(--bd),var(--bl));border-radius:1rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:1.6rem;color:white}
 .lc h1{font-size:1.4rem;color:var(--td);text-align:center;font-weight:700;margin-bottom:.2rem}
@@ -245,7 +252,9 @@ textarea{resize:vertical;min-height:80px}
 @keyframes slideIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 .admin-panel{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:none;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto}
 .admin-panel.active{display:flex}
-.admin-box{background:white;border-radius:1rem;width:100%;max-width:760px;box-shadow:0 25px 60px rgba(0,0,0,.35);animation:slideIn .25s ease;margin:auto}
+.admin-box{background:white;border-radius:1rem;width:100%;max-width:min(1120px,calc(100vw - 1.5rem));box-shadow:0 25px 60px rgba(0,0,0,.35);animation:slideIn .25s ease;margin:1rem auto;max-height:calc(100vh - 2rem);overflow:hidden;display:flex;flex-direction:column}
+.admin-box .admin-tabs{flex-shrink:0}
+.admin-box .admin-section{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
 .admin-tabs{display:flex;border-bottom:2px solid var(--bo);flex-wrap:wrap;gap:.25rem;padding:.75rem .75rem 0}
 .admin-tab{padding:.5rem .9rem;border:none;background:none;font-weight:600;font-size:.83rem;color:var(--tm);cursor:pointer;border-bottom:2.5px solid transparent;border-radius:.4rem .4rem 0 0;white-space:nowrap}
 .admin-tab.active{color:var(--bd);border-bottom-color:var(--bd);background:var(--bg)}
@@ -359,8 +368,18 @@ textarea{resize:vertical;min-height:80px}
           <span class="moui-lbl">Asignado a</span>
           <select id="mapa-filtro-asignado" class="moui-sel" onchange="onMapaFiltroChange()"><option value="">Todos</option><option value="__sin__">Sin asignar</option></select>
         </div>
+        <label class="moui-chk" style="width:100%;margin-top:.25rem"><input type="checkbox" id="mapa-chk-label-np" onchange="onToggleMapaLabelsNp()"> Mostrar N° de pedido en el mapa</label>
         <button type="button" class="moui-btn-reset" onclick="resetMapaFiltros()">Restablecer filtros</button>
       </div>
+    </div>
+    <div id="mapa-leyenda-prioridad">
+      <div style="font-weight:700;color:var(--bd);margin-bottom:.2rem">Colores (prioridad)</div>
+      <div class="ll-row"><span class="ll-dot" style="background:#ef4444"></span> Crítica</div>
+      <div class="ll-row"><span class="ll-dot" style="background:#f97316"></span> Alta</div>
+      <div class="ll-row"><span class="ll-dot" style="background:#eab308"></span> Media</div>
+      <div class="ll-row"><span class="ll-dot" style="background:#3b82f6"></span> Baja</div>
+      <div class="ll-row"><span class="ll-dot" style="background:#94a3b8"></span> Cerrado</div>
+      <div style="margin-top:.3rem;font-size:.62rem;opacity:.88;line-height:1.3">Casco verde en mapa: técnico con GPS reciente (solo admin).</div>
     </div>
     <div id="mapa-card-dashboard" class="moui-card moui-dash" style="display:none">
       <div class="moui-hd" onclick="toggleMapaDashBody()"><i class="fas fa-tachometer-alt"></i> Dashboard <span id="mapa-dash-chevron" style="margin-left:auto;opacity:.6">▼</span></div>
@@ -374,6 +393,16 @@ textarea{resize:vertical;min-height:80px}
       </div>
     </div>
   </div>
+  <div id="mapa-android-strip"><div class="mas-inner">
+    <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;white-space:nowrap"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"> Filtros avanzados</label>
+    <span id="wrap-android-scope" style="display:none;align-items:center;gap:.35rem;flex-wrap:wrap">
+      <span style="color:var(--tl)">Pedidos:</span>
+      <select id="sel-android-pedidos-scope" style="font-size:.72rem;padding:.2rem .35rem;border-radius:.35rem;border:1px solid var(--bo)" onchange="onAndroidPedidosScopeChange()">
+        <option value="asignados">Solo asignados a mí</option>
+        <option value="todos">Todos (mapa / lista)</option>
+      </select>
+    </span>
+  </div></div>
   
   <!-- Botones en el mapa -->
   <button id="btn-ubicacion" class="fab-ubicacion" title="Zoom a mi ubicación">
@@ -668,7 +697,9 @@ textarea{resize:vertical;min-height:80px}
           <option value="anio">Este año</option><option value="todo">Todo</option>
         </select>
         <button class="btn-sm primary" onclick="cargarEstadisticas()"><i class="fas fa-sync"></i> Actualizar</button>
-        <button type="button" class="btn-sm" style="background:#b91c1c;color:#fff;border:none" onclick="generarInformeMensualENRE()"><i class="fas fa-file-pdf"></i> Informe mensual (imprimir / PDF)</button>
+        <button type="button" class="btn-sm" style="background:#15803d;color:#fff;border:none" onclick="exportInformeMensualExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+        <button type="button" class="btn-sm" style="background:#b91c1c;color:#fff;border:none" onclick="generarInformeMensualENRE()"><i class="fas fa-file-pdf"></i> Tabla (imprimir / PDF)</button>
+        <button type="button" class="btn-sm" style="background:#4338ca;color:#fff;border:none" onclick="imprimirInformeConGraficos()"><i class="fas fa-chart-pie"></i> Todos los gráficos</button>
       </div>
       <div id="enre-marco" style="font-size:.78rem;color:var(--tm);padding:.75rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:.5rem;margin-bottom:.75rem;line-height:1.45">
         <strong>Referencia ENRE</strong> — Calidad del producto, técnica (p. ej. SAIDI/SAIFI) y comercial (plazos de reclamos). Este tablero muestra gestión de órdenes y tiempos internos; los indicadores de red deben cruzarse con el sistema de interrupciones. Más info: <a href="https://www.argentina.gob.ar/enre/calidad-del-servicio" target="_blank" rel="noopener">argentina.gob.ar/enre/calidad-del-servicio</a>.
@@ -682,6 +713,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-mensual','pedidos_por_mes')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container"><canvas id="chart-mensual"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-mensual"></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -689,6 +721,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-estados','por_estado')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container"><canvas id="chart-estados"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-estados"></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -696,6 +729,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-prioridades','por_prioridad')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container"><canvas id="chart-prioridades"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-prioridades"></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -703,6 +737,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-distribuidores','por_distribuidor')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container chart-container--tall"><canvas id="chart-distribuidores"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-distribuidores"></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -710,6 +745,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-tipos','por_tipo')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container chart-container--tall"><canvas id="chart-tipos"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-tipos"></div>
         </div>
         <div class="chart-wrap" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -717,6 +753,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-usuarios','por_usuario')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container chart-container--tall"><canvas id="chart-usuarios"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-usuarios"></div>
         </div>
         <div class="chart-wrap" id="chart-wrap-tecnicos" style="display:none;margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
@@ -724,6 +761,7 @@ textarea{resize:vertical;min-height:80px}
             <button class="btn-sm" onclick="descargarGrafico('chart-tecnicos','por_tecnico')" title="Descargar" style="background:var(--bg);border:1px solid var(--bo);padding:.2rem .5rem"><i class="fas fa-download"></i></button>
           </div>
           <div class="chart-container chart-container--tall"><canvas id="chart-tecnicos"></canvas></div>
+          <div class="chart-legend-caption" id="chart-cap-tecnicos"></div>
         </div>
       </div>
     </div>
@@ -767,7 +805,6 @@ textarea{resize:vertical;min-height:80px}
       <p style="font-size:.8rem;color:var(--tm);margin:0 0 .75rem">Pedidos activos, técnicos con posición reciente y cierres. Las alertas de cierre aparecen también como avisos en pantalla.</p>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
         <button type="button" class="btn-sm primary" onclick="refrescarDashboardGerencia()"><i class="fas fa-sync"></i> Actualizar ahora</button>
-        <button type="button" class="btn-sm" style="background:var(--bg);border:1px solid var(--bo)" onclick="document.getElementById('modal-dashboard-gerencia').classList.remove('active');abrirAdmin();adminTab('mapa-usuarios');"><i class="fas fa-map"></i> Mapa técnicos (admin)</button>
       </div>
       <div id="dashboard-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem;margin-bottom:1rem"></div>
       <h4 style="font-size:.85rem;color:var(--bd);margin:.75rem 0 .4rem"><i class="fas fa-users"></i> Técnicos en calle (GPS &lt; 20 min)</h4>
@@ -1420,7 +1457,7 @@ document.addEventListener('visibilitychange', () => {
     if (!document.hidden && app.u) {
         console.log('Tab visible: heartbeat preventivo');
         heartbeat();
-        if (app.u.rol !== 'admin') window.pollNotificacionesMovil();
+        if (!esAdmin()) window.pollNotificacionesMovil();
     }
 });
 
@@ -1583,6 +1620,29 @@ const app = {
     ok: false
 };
 
+function normalizarRolStr(r) {
+    const x = String(r == null ? '' : r).trim().toLowerCase();
+    if (x === 'administrador') return 'admin';
+    return x || 'tecnico';
+}
+function rolApp() {
+    return app.u ? normalizarRolStr(app.u.rol) : '';
+}
+function esAdmin() {
+    return rolApp() === 'admin';
+}
+function esTecnicoOSupervisor() {
+    const r = rolApp();
+    return r === 'tecnico' || r === 'supervisor';
+}
+function esAndroidWebViewMapa() {
+    try {
+        return /GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent) || window.location.protocol === 'file:';
+    } catch (_) {
+        return false;
+    }
+}
+
 
 
 
@@ -1702,6 +1762,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
     
     
     function entrarConUsuario(u, offline = false) {
+        u.rol = normalizarRolStr(u.rol);
         app.u = u;
         localStorage.setItem('pmg', JSON.stringify(app.u));
         document.getElementById('un').textContent = u.nombre.split(' ')[0];
@@ -1712,15 +1773,15 @@ document.getElementById('lf').addEventListener('submit', async e => {
         iniciarPollNotifMovil();
         iniciarSyncCatalogos();
         const btnAdm = document.getElementById('btn-admin');
-        if (btnAdm) btnAdm.style.display = u.rol === 'admin' ? 'flex' : 'none';
+        if (btnAdm) btnAdm.style.display = esAdmin() ? 'flex' : 'none';
         const btnDash = document.getElementById('btn-dashboard-gerencia');
-        if (btnDash) btnDash.style.display = u.rol === 'admin' ? 'flex' : 'none';
+        if (btnDash) btnDash.style.display = esAdmin() ? 'flex' : 'none';
         const mapDashCard = document.getElementById('mapa-card-dashboard');
-        if (mapDashCard) mapDashCard.style.display = u.rol === 'admin' ? 'block' : 'none';
+        if (mapDashCard) mapDashCard.style.display = esAdmin() ? 'block' : 'none';
         const wrapTog = document.getElementById('wrap-toggle-ver-todos');
         const chkTod = document.getElementById('toggle-ver-todos-pedidos');
         if (wrapTog && chkTod) {
-            wrapTog.style.display = u.rol === 'tecnico' ? 'inline-flex' : 'none';
+            wrapTog.style.display = esTecnicoOSupervisor() ? 'inline-flex' : 'none';
             chkTod.checked = localStorage.getItem('pmg_tecnico_ver_todos') === '1';
         }
         try {
@@ -1728,12 +1789,11 @@ document.getElementById('lf').addEventListener('submit', async e => {
                 AndroidSession.setUser(parseInt(u.id, 10) || 0, String(u.rol || ''));
             }
         } catch (_) {}
-        if (u.rol === 'admin') {
+        if (esAdmin()) {
             iniciarDashboardGerenciaPoll();
         } else {
             detenerDashboardGerenciaPoll();
-            if (String(u.rol || '').toLowerCase() === 'supervisor') iniciarTecnicosMapaPrincipalPoll();
-            else detenerTecnicosMapaPrincipalPoll();
+            detenerTecnicosMapaPrincipalPoll();
         }
         setTimeout(async () => {
 
@@ -1762,10 +1822,10 @@ document.getElementById('lf').addEventListener('submit', async e => {
                 await cargarPedidos();
                 
                 offlinePedidosSave(app.p);
-        if (app.u?.rol === 'admin') {
+        if (esAdmin()) {
             try {
                 const ru = await sqlSimple('SELECT id, nombre, email, rol, telefono, COALESCE(whatsapp_notificaciones, true) AS whatsapp_notificaciones FROM usuarios WHERE activo = TRUE ORDER BY nombre');
-                app.usuariosCache = ru.rows || [];
+                app.usuariosCache = (ru.rows || []).map(row => ({ ...row, rol: normalizarRolStr(row.rol) }));
             } catch(_) {}
         }
             } else {
@@ -1831,7 +1891,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
         const usuario = resultado.rows?.[0];
         if (usuario) {
             try { localStorage.setItem('gestornova_saved_login', em); } catch (_) {}
-            const u = { id: usuario.id, email: usuario.email, nombre: usuario.nombre || 'Administrador', rol: usuario.rol || 'admin' };
+            const u = { id: usuario.id, email: usuario.email, nombre: usuario.nombre || 'Administrador', rol: normalizarRolStr(usuario.rol || 'tecnico') };
             guardarUsuarioOffline(u, pw);
             entrarConUsuario(u, false);
             toast('Bienvenido ' + u.nombre, 'success');
@@ -1983,7 +2043,7 @@ function llenarSelectsFiltroMapa() {
         const name = nombrePorId.get(String(id)) || ('Usuario #' + id);
         selU.insertAdjacentHTML('beforeend', `<option value="${id}">${_escOpt(name)}</option>`);
     });
-    if (app.u?.rol === 'admin') {
+    if (esAdmin()) {
         (app.usuariosCache || []).forEach(u => {
             if (seenCre.has(String(u.id))) return;
             selU.insertAdjacentHTML('beforeend', `<option value="${u.id}">${_escOpt(u.nombre || u.email)}</option>`);
@@ -2024,6 +2084,61 @@ function resetMapaFiltros() {
     onMapaFiltroChange();
 }
 
+function onToggleMapaLabelsNp() {
+    try {
+        localStorage.setItem('pmg_map_labels_np', document.getElementById('mapa-chk-label-np')?.checked ? '1' : '0');
+    } catch (_) {}
+    try { renderMk(); } catch (_) {}
+}
+
+function syncMapaLabelsNpCheckbox() {
+    const el = document.getElementById('mapa-chk-label-np');
+    if (!el) return;
+    try { el.checked = localStorage.getItem('pmg_map_labels_np') === '1'; } catch (_) {}
+}
+
+function onToggleAndroidFiltrosMapa() {
+    const chk = document.getElementById('chk-android-filtros-av');
+    const card = document.getElementById('mapa-card-filtros');
+    if (!card) return;
+    const on = !!chk?.checked;
+    try { localStorage.setItem('pmg_show_map_filters', on ? '1' : '0'); } catch (_) {}
+    card.style.display = on ? 'block' : 'none';
+}
+
+function onAndroidPedidosScopeChange() {
+    const v = document.getElementById('sel-android-pedidos-scope')?.value;
+    try {
+        localStorage.setItem('pmg_tecnico_ver_todos', v === 'todos' ? '1' : '0');
+    } catch (_) {}
+    const wt = document.getElementById('toggle-ver-todos-pedidos');
+    if (wt) wt.checked = v === 'todos';
+    cargarPedidos();
+}
+
+function aplicarUIMapaPlataforma() {
+    syncMapaLabelsNpCheckbox();
+    const strip = document.getElementById('mapa-android-strip');
+    const card = document.getElementById('mapa-card-filtros');
+    if (!strip || !card) return;
+    if (esAndroidWebViewMapa()) {
+        strip.style.display = 'block';
+        const adv = localStorage.getItem('pmg_show_map_filters') === '1';
+        const chk = document.getElementById('chk-android-filtros-av');
+        if (chk) chk.checked = adv;
+        card.style.display = adv ? 'block' : 'none';
+        const wrap = document.getElementById('wrap-android-scope');
+        if (wrap) {
+            wrap.style.display = esTecnicoOSupervisor() ? 'inline-flex' : 'none';
+            const sel = document.getElementById('sel-android-pedidos-scope');
+            if (sel) sel.value = localStorage.getItem('pmg_tecnico_ver_todos') === '1' ? 'todos' : 'asignados';
+        }
+    } else {
+        strip.style.display = 'none';
+        card.style.display = 'block';
+    }
+}
+
 function toggleMapaFiltrosBody() {
     const b = document.getElementById('mapa-filtros-body');
     const ch = document.getElementById('mapa-filtros-chevron');
@@ -2046,8 +2161,7 @@ async function refrescarTecnicosMapaPrincipal() {
         _marcadoresTecnicosPrincipal = [];
         return;
     }
-    const rol = String(app.u?.rol || '').toLowerCase();
-    if (rol !== 'admin' && rol !== 'supervisor') {
+    if (!esAdmin()) {
         _marcadoresTecnicosPrincipal.forEach(m => { try { app.map.removeLayer(m); } catch (_) {} });
         _marcadoresTecnicosPrincipal = [];
         return;
@@ -2083,7 +2197,7 @@ async function refrescarTecnicosMapaPrincipal() {
 }
 
 function activarModoFijarUbicacionAdmin() {
-    if (!app.u || app.u.rol !== 'admin') return;
+    if (!app.u || !esAdmin()) return;
     document.getElementById('admin-panel')?.classList.remove('active');
     _modoFijarUbicacionAdmin = true;
     document.body.classList.add('modo-fijar-ubicacion');
@@ -2091,7 +2205,7 @@ function activarModoFijarUbicacionAdmin() {
 }
 
 async function registrarUbicacionManualAdmin(lat, lng) {
-    if (!app.u || app.u.rol !== 'admin' || modoOffline || !NEON_OK) return;
+    if (!app.u || !esAdmin() || modoOffline || !NEON_OK) return;
     try {
         await sqlSimple(`INSERT INTO ubicaciones_usuarios(usuario_id, lat, lng, precision_m, timestamp)
             VALUES(${esc(app.u.id)}, ${esc(lat)}, ${esc(lng)}, ${esc(80)}, NOW())`);
@@ -2115,19 +2229,10 @@ function detenerTecnicosMapaPrincipalPoll() {
 }
 
 /** Supervisor (sin panel KPI): solo técnicos en mapa principal. */
-function iniciarTecnicosMapaPrincipalPoll() {
-    detenerTecnicosMapaPrincipalPoll();
-    const r = String(app.u?.rol || '').toLowerCase();
-    if (r !== 'supervisor' || modoOffline) return;
-    const tick = () => { try { refrescarTecnicosMapaPrincipal(); } catch (_) {} };
-    tick();
-    _pollTecnicosMapaInterval = setInterval(tick, 45000);
-}
-
 function iniciarDashboardGerenciaPoll() {
     detenerDashboardGerenciaPoll();
     detenerTecnicosMapaPrincipalPoll();
-    if (!app.u || app.u.rol !== 'admin') return;
+    if (!esAdmin()) return;
     const tick = () => { pollCierresGerencia(); refrescarDashboardGerencia(true); };
     tick();
     _pollDashInterval = setInterval(tick, 25000);
@@ -2141,7 +2246,7 @@ function detenerDashboardGerenciaPoll() {
 }
 
 async function pollCierresGerencia() {
-    if (!app.u || app.u.rol !== 'admin' || modoOffline || !NEON_OK) return;
+    if (!app.u || !esAdmin() || modoOffline || !NEON_OK) return;
     try {
         const r = await sqlSimple(`SELECT id, numero_pedido, fecha_cierre, trabajo_realizado, tecnico_cierre, nis_medidor, descripcion
             FROM pedidos WHERE estado='Cerrado' AND fecha_cierre IS NOT NULL AND fecha_cierre > NOW() - INTERVAL '14 days'
@@ -2192,13 +2297,13 @@ function mostrarToastCierreGerencia(row) {
 }
 
 function abrirModalDashboardGerencia() {
-    if (!app.u || app.u.rol !== 'admin') return;
+    if (!app.u || !esAdmin()) return;
     document.getElementById('modal-dashboard-gerencia')?.classList.add('active');
     refrescarDashboardGerencia(false);
 }
 
 async function refrescarDashboardGerencia(silent) {
-    if (!app.u || app.u.rol !== 'admin' || modoOffline || !NEON_OK) return;
+    if (!app.u || !esAdmin() || modoOffline || !NEON_OK) return;
     const kpi = document.getElementById('dashboard-kpi-grid');
     const lt = document.getElementById('dashboard-lista-tecnicos');
     const lc = document.getElementById('dashboard-lista-cierres');
@@ -2273,7 +2378,7 @@ window.cerrarModalDashYVerCierre = async function (pid) {
 };
 
 async function intentarAutoInicioEjecucionTecnico(lat, lng) {
-    if (!app.u || app.u.rol !== 'tecnico' || modoOffline || !NEON_OK) return;
+    if (!app.u || !esTecnicoOSupervisor() || modoOffline || !NEON_OK) return;
     const uid = parseInt(app.u.id, 10);
     const umbral = 0.03;
     for (const p of app.p) {
@@ -2297,7 +2402,7 @@ async function cargarPedidos() {
     }
     try {
         let qPed = 'SELECT * FROM pedidos ORDER BY fecha_creacion DESC';
-        if (app.u?.rol === 'tecnico') {
+        if (esTecnicoOSupervisor()) {
             const verTodos = localStorage.getItem('pmg_tecnico_ver_todos') === '1';
             if (!verTodos) {
                 qPed = `SELECT * FROM pedidos WHERE tecnico_asignado_id = ${esc(parseInt(app.u.id, 10))} ORDER BY fecha_creacion DESC`;
@@ -2309,7 +2414,7 @@ async function cargarPedidos() {
         // Detectar pedidos urgentes/críticos RECIÉN creados (últimos 2 min)
         // Solo cuando hay IDs previos (no en la carga inicial) y el pedido
         // fue creado hace menos de 2 minutos (lo acaba de cargar alguien)
-        if (app.u?.rol === 'admin' && prevIds.size > 0) {
+        if (esAdmin() && prevIds.size > 0) {
             const dosMinutosAtras = Date.now() - 2 * 60 * 1000;
             app.p.filter(p =>
                 !prevIds.has(p.id) &&
@@ -2372,6 +2477,8 @@ function calcularEscalaReal(zoom) {
 function initMap() {
     if (mapaInicializado && app.map) {
         app.map.invalidateSize();
+        aplicarUIMapaPlataforma();
+        renderMk();
         return;
     }
     
@@ -2448,6 +2555,7 @@ function initMap() {
     });
     
     mapaInicializado = true;
+    aplicarUIMapaPlataforma();
     renderMk();
     
     
@@ -2777,16 +2885,32 @@ function renderMk() {
         'Baja': '#3b82f6'
     };
     
+    const showNp = document.getElementById('mapa-chk-label-np')?.checked;
     pedidosParaMarcadoresMapa().forEach(p => {
         const cer = p.es === 'Cerrado';
-        const m = L.circleMarker([p.la, p.ln], {
-            radius: cer ? 6 : 9,
-            fillColor: cer ? '#94a3b8' : (fill[p.pr] || '#3b82f6'),
-            color: '#fff',
-            weight: 2,
-            fillOpacity: cer ? 0.5 : 0.9
-        }).addTo(app.map);
-        
+        const col = cer ? '#94a3b8' : (fill[p.pr] || '#3b82f6');
+        const npEsc = String(p.np || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        let m;
+        if (showNp) {
+            const icon = L.divIcon({
+                className: '',
+                html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">
+                    <div style="margin-bottom:2px;background:${col};color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(255,255,255,.85)">#${npEsc}</div>
+                    <div style="width:13px;height:13px;background:${col};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.35)"></div>
+                </div>`,
+                iconSize: [100, 36],
+                iconAnchor: [50, 36]
+            });
+            m = L.marker([p.la, p.ln], { icon, zIndexOffset: cer ? 80 : 220 }).addTo(app.map);
+        } else {
+            m = L.circleMarker([p.la, p.ln], {
+                radius: cer ? 6 : 9,
+                fillColor: col,
+                color: '#fff',
+                weight: 2,
+                fillOpacity: cer ? 0.5 : 0.9
+            }).addTo(app.map);
+        }
         m.bindPopup(`
             <div style="min-width:160px;font-family:system-ui">
                 <b style="color:#1e3a8a">#${p.np} - ${p.pr}</b><br>
@@ -2795,7 +2919,7 @@ function renderMk() {
                 <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
                     <button style="flex:1;min-width:72px;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
                     <button style="flex:1;min-width:72px;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
-                    ${app.u?.rol === 'admin' && p.es !== 'Cerrado' ? `<button style="flex:1;min-width:72px;padding:4px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_assignMapa('${p.id}')">Asignar</button>` : ''}
+                    ${esAdmin() && p.es !== 'Cerrado' && (p.tai == null) ? `<button style="flex:1;min-width:72px;padding:4px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_assignMapa('${p.id}')">Asignar</button>` : ''}
                 </div>
             </div>`, { maxWidth: 260 });
         
@@ -2928,7 +3052,7 @@ function llenarSelectUsuariosNotif() {
     const list = app.usuariosCache || [];
     list.forEach(u => {
         if (String(u.id) === String(app.u?.id)) return;
-        if (u.rol === 'admin') return;
+        if (normalizarRolStr(u.rol) === 'admin') return;
         const o = document.createElement('option');
         o.value = u.id;
         const tel = (u.telefono || '').trim();
@@ -2967,7 +3091,7 @@ function llenarSelectAssignTecnico() {
     const list = app.usuariosCache || [];
     list.forEach(u => {
         if (String(u.id) === String(app.u?.id)) return;
-        if (u.rol === 'admin') return;
+        if (normalizarRolStr(u.rol) === 'admin') return;
         const o = document.createElement('option');
         o.value = u.id;
         o.textContent = (u.nombre || 'Usuario') + ' (' + (u.rol || '') + ')';
@@ -2982,7 +3106,7 @@ function llenarSelectAssignTecnico() {
 }
 
 window.abrirModalAsignarTecnico = function (pedidoId) {
-    if (app.u?.rol !== 'admin') {
+    if (!esAdmin()) {
         toast('Solo administrador puede asignar', 'error');
         return;
     }
@@ -3040,7 +3164,7 @@ async function confirmarEnviarNotifPedido() {
 }
 
 window.pollNotificacionesMovil = async function () {
-    if (!app.u || app.u.rol === 'admin' || modoOffline || !NEON_OK || !_sql) return;
+    if (!app.u || esAdmin() || modoOffline || !NEON_OK || !_sql) return;
     try {
         const r = await sqlSimple(`SELECT id, titulo, cuerpo, pedido_id FROM notificaciones_movil WHERE usuario_id = ${esc(app.u.id)} AND leida = FALSE ORDER BY id ASC LIMIT 15`);
         const rows = r.rows || [];
@@ -3064,7 +3188,7 @@ window.pollNotificacionesMovil = async function () {
 
 function iniciarPollNotifMovil() {
     detenerPollNotifMovil();
-    if (app.u?.rol === 'admin') return;
+    if (esAdmin()) return;
     window.pollNotificacionesMovil();
     _pollNotifMovilInterval = setInterval(() => { window.pollNotificacionesMovil(); }, 45000);
 }
@@ -4146,14 +4270,14 @@ async function refrescarMaterialesEnDetalle(p) {
             const des = String(row.descripcion || '').replace(/</g, '&lt;');
             const un = String(row.unidad || '').replace(/</g, '&lt;');
             html += `<tr><td>${des}</td><td>${row.cantidad ?? ''}</td><td>${un}</td><td>`;
-            if (p.es !== 'Cerrado' && app.u?.rol === 'admin') {
+            if (p.es !== 'Cerrado' && esAdmin()) {
                 html += `<button type="button" class="btn-sm" onclick="eliminarMaterialPedido(${row.id},${pid})" style="font-size:.7rem;padding:.15rem .4rem">Borrar</button>`;
             }
             html += '</td></tr>';
         });
         html += '</tbody></table>';
-        const puedeAgregar = p.es !== 'Cerrado' && (app.u?.rol === 'tecnico' || app.u?.rol === 'admin' || app.u?.rol === 'supervisor')
-            && (String(p.tai) === String(app.u?.id) || app.u?.rol === 'admin' || app.u?.rol === 'supervisor');
+        const puedeAgregar = p.es !== 'Cerrado' && (esTecnicoOSupervisor() || esAdmin())
+            && (String(p.tai) === String(app.u?.id) || esAdmin());
         if (puedeAgregar) {
             html += `<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;align-items:flex-end">
                 <input type="text" id="mat-desc-${pid}" placeholder="Descripción" style="flex:2;min-width:120px;padding:.35rem;border:1px solid var(--bo);border-radius:.4rem">
@@ -4288,8 +4412,8 @@ function detalle(p) {
         'Cerrado': '#166534'
     };
     
-    const ed = app.u?.rol === 'admin' || String(p.ui) === String(app.u?.id)
-        || (app.u?.rol === 'tecnico' && p.tai != null && String(p.tai) === String(app.u?.id));
+    const ed = esAdmin() || String(p.ui) === String(app.u?.id)
+        || (esTecnicoOSupervisor() && p.tai != null && String(p.tai) === String(app.u?.id));
     const findUser = id => {
         if (!id) return null;
         const u = app.usuariosCache?.find(u => String(u.id) === String(id));
@@ -4302,7 +4426,11 @@ function detalle(p) {
         p.uci ? '<div class="dr"><span class="dl">Cerrado por</span><span class="dv">'  + (findUser(p.uci) || 'id:'+p.uci) + '</span></div>' : '',
     ].filter(Boolean).join('');
     const nisEsc = String(p.nis || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '—';
-    const nAsig = (p.tai != null) ? (findUser(p.tai) || ('id ' + p.tai)) : 'Sin asignar';
+    const uAsig = (app.usuariosCache || []).find(u => String(u.id) === String(p.tai));
+    const rolAsig = uAsig ? normalizarRolStr(uAsig.rol) : '';
+    const nAsig = (p.tai != null)
+        ? `${findUser(p.tai) || ('id ' + p.tai)}${rolAsig ? ' · ' + rolAsig : ''}`
+        : 'Sin asignar';
     const fasiStr = p.fasi ? new Date(p.fasi).toLocaleString('es-AR', {...tz, hour12:false}) : '';
     let chkResumen = '';
     try {
@@ -4404,7 +4532,7 @@ function detalle(p) {
         </div>` : ''}
         
         <div class="da">
-            ${app.u?.rol === 'admin' && p.es !== 'Cerrado' ? `<button type="button" class="ba2" style="background:#059669;color:#fff;border-color:#059669" onclick="abrirModalAsignarTecnico('${p.id}')"><i class="fas fa-user-hard-hat"></i> Asignar técnico</button>` : ''}
+            ${esAdmin() && p.es !== 'Cerrado' && (p.tai == null) ? `<button type="button" class="ba2" style="background:#059669;color:#fff;border-color:#059669" onclick="abrirModalAsignarTecnico('${p.id}')"><i class="fas fa-user-hard-hat"></i> Asignar técnico</button>` : ''}
             ${ed && (p.es === 'Pendiente' || p.es === 'Asignado') ? `<button class="ba2 p2" onclick="_a('i','${p.id}')"><i class="fas fa-play"></i> Iniciar en sitio</button><button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button>` : ''}
             ${ed && p.es === 'En ejecución' ? `<button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button><button class="ba2 p2" onclick="_a('av','${p.id}')"><i class="fas fa-percent"></i> Cargar Avance (${p.av}%)</button>` : ''}
             <button class="ba2 imprimir" onclick="imprimirPedido(${JSON.stringify(p).replace(/"/g, '&quot;')})"><i class="fas fa-print"></i> Imprimir</button>
@@ -4726,7 +4854,9 @@ document.querySelectorAll('.tb').forEach(b => {
 
 document.getElementById('toggle-ver-todos-pedidos')?.addEventListener('change', function () {
     localStorage.setItem('pmg_tecnico_ver_todos', this.checked ? '1' : '0');
-    if (app.u?.rol === 'tecnico' && !modoOffline && NEON_OK) cargarPedidos();
+    const sel = document.getElementById('sel-android-pedidos-scope');
+    if (sel) sel.value = this.checked ? 'todos' : 'asignados';
+    if (esTecnicoOSupervisor() && !modoOffline && NEON_OK) cargarPedidos();
 });
 
 document.getElementById('eb').addEventListener('click', () => {
@@ -4815,17 +4945,19 @@ try {
     const s = localStorage.getItem('pmg');
     if (s) {
         app.u = JSON.parse(s);
+        app.u.rol = normalizarRolStr(app.u.rol);
+        try { localStorage.setItem('pmg', JSON.stringify(app.u)); } catch (_) {}
         document.getElementById('un').textContent = app.u.nombre.split(' ')[0];
         const btnAdm = document.getElementById('btn-admin');
-        if (btnAdm) btnAdm.style.display = app.u.rol === 'admin' ? 'flex' : 'none';
+        if (btnAdm) btnAdm.style.display = esAdmin() ? 'flex' : 'none';
         const btnDash2 = document.getElementById('btn-dashboard-gerencia');
-        if (btnDash2) btnDash2.style.display = app.u.rol === 'admin' ? 'flex' : 'none';
+        if (btnDash2) btnDash2.style.display = esAdmin() ? 'flex' : 'none';
         const mapDashCard2 = document.getElementById('mapa-card-dashboard');
-        if (mapDashCard2) mapDashCard2.style.display = app.u.rol === 'admin' ? 'block' : 'none';
+        if (mapDashCard2) mapDashCard2.style.display = esAdmin() ? 'block' : 'none';
         const wrapTog2 = document.getElementById('wrap-toggle-ver-todos');
         const chkTod2 = document.getElementById('toggle-ver-todos-pedidos');
         if (wrapTog2 && chkTod2) {
-            wrapTog2.style.display = app.u.rol === 'tecnico' ? 'inline-flex' : 'none';
+            wrapTog2.style.display = esTecnicoOSupervisor() ? 'inline-flex' : 'none';
             chkTod2.checked = localStorage.getItem('pmg_tecnico_ver_todos') === '1';
         }
         try {
@@ -4833,12 +4965,11 @@ try {
                 AndroidSession.setUser(parseInt(app.u.id, 10) || 0, String(app.u.rol || ''));
             }
         } catch (_) {}
-        if (app.u.rol === 'admin') {
+        if (esAdmin()) {
             iniciarDashboardGerenciaPoll();
         } else {
             detenerDashboardGerenciaPoll();
-            if (String(app.u.rol || '').toLowerCase() === 'supervisor') iniciarTecnicosMapaPrincipalPoll();
-            else detenerTecnicosMapaPrincipalPoll();
+            detenerTecnicosMapaPrincipalPoll();
         }
         document.getElementById('ls').classList.remove('active');
         document.getElementById('ms').classList.add('active');
@@ -4944,7 +5075,7 @@ function tocarAlarma() {
 
 function mostrarAlertaPedidoUrgente(pedido) {
     // Solo al admin
-    if (app.u?.rol !== 'admin') return;
+    if (!esAdmin()) return;
     if (!['Crítica','Alta'].includes(pedido.pr)) return;
 
     tocarAlarma();
@@ -5403,9 +5534,7 @@ async function buscarHistorialPorNIS() {
     } catch (e) { out.innerHTML = '<span style="color:var(--re)">' + e.message + '</span>'; }
 }
 
-async function generarInformeMensualENRE() {
-    if (!app.u || app.u.rol !== 'admin') { toast('Solo administrador', 'error'); return; }
-    if (modoOffline || !NEON_OK) { toast('Requiere conexión', 'error'); return; }
+function periodoInformeDesdeSelectEstadisticas() {
     const periodo = document.getElementById('est-periodo')?.value || 'mes';
     const ahora = new Date();
     let fechaDesde;
@@ -5414,6 +5543,60 @@ async function generarInformeMensualENRE() {
     else if (periodo === 'anio') fechaDesde = new Date(ahora.getFullYear(), 0, 1);
     else fechaDesde = new Date('2000-01-01');
     const condFecha = `fecha_creacion >= ${esc(fechaDesde.toISOString())}`;
+    return { periodo, fechaDesde, condFecha };
+}
+
+async function exportInformeMensualExcel() {
+    if (!esAdmin()) { toast('Solo administrador', 'error'); return; }
+    if (modoOffline || !NEON_OK) { toast('Requiere conexión', 'error'); return; }
+    if (!window.XLSX || !XLSX.utils) { toast('Excel aún no cargó — esperá unos segundos y reintentá', 'error'); return; }
+    const { fechaDesde, condFecha } = periodoInformeDesdeSelectEstadisticas();
+    try {
+        const r = await sqlSimple(`SELECT numero_pedido, nis_medidor, estado, prioridad, fecha_creacion, fecha_cierre, distribuidor, tipo_trabajo, descripcion FROM pedidos WHERE ${condFecha} ORDER BY fecha_creacion DESC LIMIT 500`);
+        const rows = (r.rows || []).map(row => ({
+            Pedido: row.numero_pedido,
+            NIS: row.nis_medidor,
+            Estado: row.estado,
+            Prioridad: row.prioridad,
+            Creado: fmtInformeFecha(row.fecha_creacion),
+            Cierre: fmtInformeFecha(row.fecha_cierre),
+            Distribuidor: row.distribuidor,
+            Tipo: row.tipo_trabajo,
+            Descripcion: row.descripcion
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Pedido: '—', Nota: 'Sin filas en el período' }]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+        const suf = fechaDesde.toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `gestornova_pedidos_${suf}.xlsx`);
+        toast('Excel descargado', 'success');
+    } catch (e) { toast('Error: ' + (e.message || e), 'error'); }
+}
+
+async function imprimirInformeConGraficos() {
+    if (!esAdmin()) { toast('Solo administrador', 'error'); return; }
+    if (modoOffline || !NEON_OK) { toast('Requiere conexión', 'error'); return; }
+    if (typeof html2canvas !== 'function') { toast('html2canvas no disponible', 'error'); return; }
+    document.getElementById('admin-panel')?.classList.add('active');
+    adminTab('estadisticas');
+    await new Promise(r => setTimeout(r, 900));
+    const el = document.getElementById('admin-estadisticas');
+    if (!el) return;
+    try {
+        const canvas = await html2canvas(el, { scale: 1.25, useCORS: true, logging: false, backgroundColor: '#f8fafc' });
+        const w = window.open('', '_blank');
+        if (!w) { toast('Permití ventanas emergentes para imprimir', 'error'); return; }
+        w.document.write('<!DOCTYPE html><html><head><title>Informe — gráficos</title></head><body style="margin:0;text-align:center;background:#fff"><img src="' + canvas.toDataURL('image/png') + '" style="max-width:100%;height:auto" alt=""/></body></html>');
+        w.document.close();
+        w.focus();
+        setTimeout(() => { try { w.print(); } catch (_) {} }, 450);
+    } catch (e) { toast('Error: ' + (e.message || e), 'error'); }
+}
+
+async function generarInformeMensualENRE() {
+    if (!esAdmin()) { toast('Solo administrador', 'error'); return; }
+    if (modoOffline || !NEON_OK) { toast('Requiere conexión', 'error'); return; }
+    const { fechaDesde, condFecha } = periodoInformeDesdeSelectEstadisticas();
     try {
         const r = await sqlSimple(`SELECT numero_pedido, nis_medidor, estado, prioridad, fecha_creacion, fecha_cierre, distribuidor, tipo_trabajo, descripcion FROM pedidos WHERE ${condFecha} ORDER BY fecha_creacion DESC LIMIT 500`);
         const rows = r.rows || [];
@@ -5433,6 +5616,69 @@ async function generarInformeMensualENRE() {
 }
 
 // ── Estadísticas con Chart.js ─────────────────────────────────
+(function initGNChartPercentPlugins() {
+    if (window.__gnChartPctPlugins || typeof Chart === 'undefined') return;
+    window.__gnChartPctPlugins = true;
+    Chart.register({
+        id: 'gestornovaPctDoughnut',
+        afterDatasetsDraw(chart) {
+            if (chart.config.type !== 'doughnut') return;
+            const ds = chart.data.datasets[0];
+            if (!ds?.data?.length) return;
+            const total = ds.data.reduce((s, v) => s + Number(v || 0), 0);
+            if (!total) return;
+            const ctx = chart.ctx;
+            const meta = chart.getDatasetMeta(0);
+            ctx.save();
+            ctx.font = '600 12px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            meta.data.forEach((arc, i) => {
+                const v = Number(ds.data[i] || 0);
+                if (!v) return;
+                const pct = Math.round(1000 * v / total) / 10;
+                const { x, y } = arc.tooltipPosition();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = 'rgba(255,255,255,.95)';
+                ctx.fillStyle = '#0f172a';
+                const t = pct + '%';
+                ctx.strokeText(t, x, y);
+                ctx.fillText(t, x, y);
+            });
+            ctx.restore();
+        }
+    });
+    Chart.register({
+        id: 'gestornovaBarVPctLabels',
+        afterDatasetsDraw(chart) {
+            const cid = chart.canvas?.id;
+            const ok = { 'chart-prioridades': true, 'chart-usuarios': true, 'chart-tecnicos': true };
+            if (!cid || !ok[cid] || chart.config.type !== 'bar' || chart.options.indexAxis === 'y') return;
+            const data = chart.data.datasets[0]?.data;
+            if (!data) return;
+            const total = data.reduce((s, v) => s + Number(v || 0), 0);
+            if (!total) return;
+            const meta = chart.getDatasetMeta(0);
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = '600 10px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0f172a';
+            meta.data.forEach((bar, i) => {
+                const v = Number(data[i] || 0);
+                if (!v) return;
+                const pct = Math.round(1000 * v / total) / 10;
+                const { x, y } = bar.tooltipPosition();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(255,255,255,.92)';
+                const t = pct + '%';
+                ctx.strokeText(t, x, y - 6);
+                ctx.fillText(t, x, y - 6);
+            });
+            ctx.restore();
+        }
+    });
+})();
 let _charts = {};
 async function cargarEstadisticas() {
     const periodo = document.getElementById('est-periodo')?.value || 'mes';
@@ -5654,6 +5900,89 @@ async function cargarEstadisticas() {
                    backgroundColor: COLORES }],
                 { plugins: { legend: { display: false } } }
             );
+        } else {
+            const wrapTec1 = document.getElementById('chart-wrap-tecnicos');
+            if (wrapTec1) wrapTec1.style.display = 'none';
+            const capTx = document.getElementById('chart-cap-tecnicos');
+            if (capTx) capTx.innerHTML = '';
+        }
+
+        const scap = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        const pctOf = (n, tot) => (!tot ? 0 : Math.round(1000 * Number(n) / tot) / 10);
+        const capM = document.getElementById('chart-cap-mensual');
+        if (capM) {
+            const totCr = rMensual.rows.reduce((s, r) => s + parseInt(r.total || 0, 10), 0);
+            const totCe = rMensual.rows.reduce((s, r) => s + parseInt(r.cerrados || 0, 10), 0);
+            capM.innerHTML = `<strong>Resumen numérico</strong> · Suma de pedidos creados (por mes): ${totCr}. Suma de cierres registrados por mes: ${totCe}.<br><strong>Colores:</strong> azul = ingresos del mes; verde = cierres del mes.`;
+        }
+        const totEst = (rEstados.rows || []).reduce((s, r) => s + parseInt(r.n || 0, 10), 0);
+        const capE = document.getElementById('chart-cap-estados');
+        if (capE) {
+            if (totEst) {
+                const estadoLeg = 'Amarillo: Pendiente · Violeta: Asignado · Azul: En ejecución · Verde: Cerrado.';
+                const lines = rEstados.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    return `${scap(r.estado)} <strong>${pctOf(n, totEst)}%</strong> (${n})`;
+                }).join(' · ');
+                capE.innerHTML = `<strong>Distribución sobre ${totEst} pedidos</strong><br>${lines}<br><strong>Significado de colores:</strong> ${estadoLeg}`;
+            } else capE.textContent = 'Sin datos en el período.';
+        }
+        const totPr = (rPrior.rows || []).reduce((s, r) => s + parseInt(r.n || 0, 10), 0);
+        const capP = document.getElementById('chart-cap-prioridades');
+        if (capP) {
+            if (totPr) {
+                const prLeg = 'Rojo: Crítica · Naranja: Alta · Amarillo: Media · Azul: Baja.';
+                const lines = rPrior.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    return `${scap(r.prioridad)} <strong>${pctOf(n, totPr)}%</strong> (${n})`;
+                }).join(' · ');
+                capP.innerHTML = `<strong>Distribución sobre ${totPr} pedidos</strong><br>${lines}<br><strong>Significado de colores:</strong> ${prLeg}`;
+            } else capP.textContent = 'Sin datos en el período.';
+        }
+        const capD = document.getElementById('chart-cap-distribuidores');
+        if (capD) {
+            if ((rDist.rows || []).length) {
+                const lines = rDist.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    const c = parseInt(r.cerrados || 0, 10);
+                    const pc = n ? pctOf(c, n) : 0;
+                    return `${scap(r.distribuidor)}: total ${n}, cerrados ${c} (<strong>${pc}%</strong> del propio distribuidor)`;
+                }).join('<br>');
+                capD.innerHTML = `<strong>Por distribuidor</strong><br>${lines}<br><strong>Colores:</strong> azul = total de pedidos; verde = cerrados en el período.`;
+            } else capD.textContent = 'Sin datos en el período.';
+        }
+        const totTip = (rTipos.rows || []).reduce((s, r) => s + parseInt(r.n || 0, 10), 0);
+        const capT = document.getElementById('chart-cap-tipos');
+        if (capT) {
+            if (totTip) {
+                const lines = rTipos.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    return `${scap(r.tipo)} <strong>${pctOf(n, totTip)}%</strong> (${n})`;
+                }).join(' · ');
+                capT.innerHTML = `<strong>Top tipos (${totTip} pedidos en la muestra)</strong><br>${lines}<br><strong>Color:</strong> azul = volumen relativo de cada tipo (barras horizontales).`;
+            } else capT.textContent = 'Sin datos en el período.';
+        }
+        const totU = (rUsuarios?.rows || []).reduce((s, r) => s + parseInt(r.n || 0, 10), 0);
+        const capU = document.getElementById('chart-cap-usuarios');
+        if (capU) {
+            if (totU && (rUsuarios?.rows || []).length) {
+                const lines = rUsuarios.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    return `${scap(r.usuario)} <strong>${pctOf(n, totU)}%</strong> (${n})`;
+                }).join(' · ');
+                capU.innerHTML = `<strong>Creadores (${totU} pedidos)</strong><br>${lines}<br><strong>Colores:</strong> cada tono distingue un usuario en el ranking (no implica semáforo de calidad).`;
+            } else capU.textContent = 'Sin datos en el período.';
+        }
+        const totTc = (rTecnicos?.rows || []).reduce((s, r) => s + parseInt(r.n || 0, 10), 0);
+        const capTc = document.getElementById('chart-cap-tecnicos');
+        if (capTc) {
+            if (totTc && (rTecnicos?.rows || []).length) {
+                const lines = rTecnicos.rows.map(r => {
+                    const n = parseInt(r.n || 0, 10);
+                    return `${scap(r.tecnico)} <strong>${pctOf(n, totTc)}%</strong> (${n})`;
+                }).join(' · ');
+                capTc.innerHTML = `<strong>Cierres por técnico (${totTc} pedidos)</strong><br>${lines}<br><strong>Colores:</strong> cada tono distingue un técnico en el ranking.`;
+            } else if ((rTecnicos?.rows || []).length === 0) capTc.innerHTML = '';
         }
 
         requestAnimationFrame(() => {
@@ -6149,6 +6478,8 @@ if (typeof importarExcelSocios !== "undefined") window.importarExcelSocios = imp
 if (typeof mostrarFormatoExcelSocios !== "undefined") window.mostrarFormatoExcelSocios = mostrarFormatoExcelSocios;
 if (typeof buscarHistorialPorNIS !== "undefined") window.buscarHistorialPorNIS = buscarHistorialPorNIS;
 if (typeof generarInformeMensualENRE !== "undefined") window.generarInformeMensualENRE = generarInformeMensualENRE;
+if (typeof exportInformeMensualExcel !== "undefined") window.exportInformeMensualExcel = exportInformeMensualExcel;
+if (typeof imprimirInformeConGraficos !== "undefined") window.imprimirInformeConGraficos = imprimirInformeConGraficos;
 if (typeof abrirModalDashboardGerencia !== "undefined") window.abrirModalDashboardGerencia = abrirModalDashboardGerencia;
 if (typeof refrescarDashboardGerencia !== "undefined") window.refrescarDashboardGerencia = refrescarDashboardGerencia;
 if (typeof activarModoFijarUbicacionAdmin !== "undefined") window.activarModoFijarUbicacionAdmin = activarModoFijarUbicacionAdmin;
