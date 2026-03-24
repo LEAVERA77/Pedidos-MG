@@ -2401,6 +2401,7 @@ async function confirmarEnviarNotifPedido() {
         if (msgEl) msgEl.textContent = 'El usuario no tiene teléfono WhatsApp válido. Usá formato +543434540250.';
         return;
     }
+    const deepLinkPedido = `pedidosmg://pedido/${_pedidoNotifContext.id}`;
     const lineas = [
         `Hola ${usuarioDestino.nombre || ''}, tenés un pedido asignado.`,
         `Pedido #${_pedidoNotifContext.np}`,
@@ -2411,6 +2412,7 @@ async function confirmarEnviarNotifPedido() {
         _pedidoNotifContext.cliente_nombre ? `Cliente: ${_pedidoNotifContext.cliente_nombre}` : '',
         _pedidoNotifContext.telefono_contacto ? `Teléfono contacto: ${_pedidoNotifContext.telefono_contacto}` : '',
         extra ? `Mensaje admin: ${extra}` : '',
+        `Abrir pedido en app: ${deepLinkPedido}`,
         'Pedidos MG'
     ].filter(Boolean);
     const cuerpo = lineas.join('\n');
@@ -4153,7 +4155,7 @@ async function cargarAppConfig() {
     }
     const rutas = esAndroidApp
         ? ['./config.json', 'config.json', 'file:///android_asset/config.json']
-        : ['./config.json?' + Date.now()];
+        : ['./config.json?' + Date.now(), './config.example.json?' + Date.now()];
     let ultimoError = '';
     for (const ruta of rutas) {
         try {
@@ -4161,6 +4163,9 @@ async function cargarAppConfig() {
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             APP_CONFIG = await resp.json();
             window.APP_CONFIG = APP_CONFIG;
+            if (!APP_CONFIG?.neon?.connectionString) {
+                throw new Error('config sin neon.connectionString');
+            }
             console.log('[config] cargado OK desde', ruta);
             return true;
         } catch (e) {
@@ -4174,7 +4179,7 @@ async function cargarAppConfig() {
         dbs2.className = 'dbs er';
         dbs2.innerHTML = esAndroidApp
             ? '<i class="fas fa-exclamation-circle"></i> Error: no se pudo leer assets/config.json'
-            : '<i class="fas fa-exclamation-circle"></i> Error: no se encontró config.json en el repositorio';
+            : '<i class="fas fa-exclamation-circle"></i> Error de configuración: faltan secrets de GitHub Pages (NEON_CONNECTION_STRING) o no se generó config.json';
     }
     return false;
 }
