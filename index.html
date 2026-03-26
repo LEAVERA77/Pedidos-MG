@@ -476,12 +476,12 @@ textarea{resize:vertical;min-height:80px}
           <option value="">Seleccionar distribuidor...</option>
         </select>
       </div>
-      <div class="fg"><label for="nis">NIS / Medidor *</label>
-        <input type="text" id="nis" required maxlength="80" placeholder="Obligatorio — identidad del socio">
+      <div class="fg"><label for="nis" id="lbl-nis">NIS / Medidor</label>
+        <input type="text" id="nis" maxlength="80" placeholder="Opcional (obligatorio solo en Reclamo de Cliente / Conexión Nueva)">
       </div>
       <div class="fr">
         <div class="fg hf"><label for="sd">SETD</label><input type="text" id="sd" placeholder="Ej: 1234"></div>
-        <div class="fg hf"><label for="cl" id="lbl-cl">Cliente</label><input type="text" id="cl" placeholder="Nombre o razón social (obligatorio solo en Reclamo de Cliente / Conexión Nueva)"></div>
+        <div class="fg hf"><label for="cl" id="lbl-cl">Cliente</label><input type="text" id="cl" placeholder="Nombre o razón social"></div>
       </div>
       <div class="fg"><label for="tt">Tipo de trabajo *</label>
         <select id="tt" required></select>
@@ -2718,7 +2718,7 @@ function initMap() {
         const ui = document.getElementById('ui');
         ui.innerHTML = htmlLineaUbicacionFormulario(e.latlng.lat, e.latlng.lng, null);
         ui.className = 'ud sel';
-        try { syncClienteRequiredUI(); } catch (_) {}
+        try { syncNisClienteReclamoConexionUI(); } catch (_) {}
         document.getElementById('pm').classList.add('active');
     });
     
@@ -4201,15 +4201,16 @@ document.getElementById('pf').addEventListener('submit', async e => {
             yInchauspe = xyNuevo[1].toFixed(2);
         } catch (_) {}
 
+        const tipoTr = document.getElementById('tt')?.value || '';
+        const reqReclamoOConexion = tipoTr === 'Reclamo de Cliente' || tipoTr === 'Conexión Nueva';
         const nisVal = (document.getElementById('nis').value || '').trim();
-        if (!nisVal) {
-            toast('Indicá NIS o número de medidor', 'error');
+        const clVal = (document.getElementById('cl').value || '').trim();
+        if (reqReclamoOConexion && !nisVal) {
+            toast('En «Reclamo de Cliente» y «Conexión Nueva» el NIS / medidor es obligatorio', 'error');
             btn.disabled = false;
             return;
         }
-        const tipoTr = document.getElementById('tt')?.value || '';
-        const clVal = (document.getElementById('cl').value || '').trim();
-        if ((tipoTr === 'Reclamo de Cliente' || tipoTr === 'Conexión Nueva') && !clVal) {
+        if (reqReclamoOConexion && !clVal) {
             toast('En «Reclamo de Cliente» y «Conexión Nueva» el cliente es obligatorio', 'error');
             btn.disabled = false;
             return;
@@ -4236,7 +4237,7 @@ document.getElementById('pf').addEventListener('submit', async e => {
             ${esc(xInchauspe)},
             ${esc(yInchauspe)},
             ${esc(new Date().toISOString())},
-            ${esc(nisVal)}
+            ${esc(nisVal || null)}
         )`;
 
         if (modoOffline || !NEON_OK) {
@@ -5038,7 +5039,7 @@ function closeAll() {
     const nisEl = document.getElementById('nis');
     if (nisEl) nisEl.value = '';
     document.getElementById('dc').textContent = '0';
-    try { syncClienteRequiredUI(); } catch (_) {}
+    try { syncNisClienteReclamoConexionUI(); } catch (_) {}
     ['chk-epp','chk-corte','chk-senal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
@@ -5165,12 +5166,24 @@ TIPOS.forEach(t => {
     st.appendChild(o);
 });
 
-function tipoTrabajoRequiereCliente() {
+function tipoTrabajoRequiereNisYCliente() {
     const v = document.getElementById('tt')?.value || '';
     return v === 'Reclamo de Cliente' || v === 'Conexión Nueva';
 }
-function syncClienteRequiredUI() {
-    const req = tipoTrabajoRequiereCliente();
+function syncNisClienteReclamoConexionUI() {
+    const req = tipoTrabajoRequiereNisYCliente();
+    const lbN = document.getElementById('lbl-nis');
+    const inpN = document.getElementById('nis');
+    if (lbN) lbN.textContent = req ? 'NIS / Medidor *' : 'NIS / Medidor';
+    if (inpN) {
+        if (req) {
+            inpN.setAttribute('required', 'required');
+            inpN.placeholder = 'Obligatorio — NIS o número de medidor del socio';
+        } else {
+            inpN.removeAttribute('required');
+            inpN.placeholder = 'Opcional (obligatorio solo en Reclamo de Cliente / Conexión Nueva)';
+        }
+    }
     const lb = document.getElementById('lbl-cl');
     const inp = document.getElementById('cl');
     if (lb) lb.textContent = req ? 'Cliente *' : 'Cliente';
@@ -5179,8 +5192,8 @@ function syncClienteRequiredUI() {
         else inp.removeAttribute('required');
     }
 }
-st.addEventListener('change', syncClienteRequiredUI);
-syncClienteRequiredUI();
+st.addEventListener('change', syncNisClienteReclamoConexionUI);
+syncNisClienteReclamoConexionUI();
 
 // ── TRACKING DE UBICACIÓN (cada 15 min) — debe declararse antes del restore de sesión ──
 let _trackingInterval = null;
