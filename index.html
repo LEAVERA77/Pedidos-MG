@@ -51,8 +51,11 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 #mapa-dash-body.collapsed{display:none}
 #mapa-filtros-body.collapsed{display:none}
 .moui-card.moui-card-slideoff{transform:translateX(calc(-100% - 12px))!important;opacity:0!important;pointer-events:none!important;transition:transform .25s ease,opacity .2s}
-.map-slide-tab{position:absolute;top:120px;left:0;z-index:848;display:none;padding:.28rem .45rem;background:var(--bd);color:#fff;font-size:.65rem;font-weight:700;border-radius:0 .4rem .4rem 0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-.map-slide-tab.visible{display:block}
+.map-slide-tab{position:fixed;top:120px;left:0;z-index:9600;display:none;padding:.28rem .45rem;background:var(--bd);color:#fff;font-size:.65rem;font-weight:700;border-radius:0 .4rem .4rem 0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:auto}
+.map-slide-tab.visible{display:block!important}
+.dash-kpi-click{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.dash-kpi-click:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(30,58,138,.12)}
+.dash-kpi-click.active-ring{outline:2px solid var(--bm);outline-offset:2px}
 .bp2.bp2-fullhide{transform:translateY(100%)!important}
 .ib-mini{background:var(--bg);border:1px solid var(--bo);border-radius:.35rem;padding:.15rem .4rem;font-size:.7rem;cursor:pointer;color:var(--bd)}
 .fab-show-pedidos{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:1002;display:none;align-items:center;gap:.35rem;padding:.4rem 1rem;background:var(--bd);color:#fff;border:none;border-radius:2rem;font-size:.78rem;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2)}
@@ -411,6 +414,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="moui-hd" onclick="toggleMapaDashBody()"><i class="fas fa-tachometer-alt"></i> Dashboard <span id="mapa-dash-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-dashboard',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-dash-body" class="moui-bd moui-scroll">
         <div id="mapa-main-dash-kpi" class="dash-kpi-mini"></div>
+        <div id="mapa-main-dash-filtro-host" style="display:none;margin:.35rem 0 .5rem;font-size:.7rem;border:1px solid var(--bo);border-radius:.35rem;padding:.35rem;max-height:100px;overflow-y:auto;background:var(--bg)"></div>
         <h4 class="moui-subh"><i class="fas fa-users"></i> Técnicos (GPS &lt; 20 min)</h4>
         <div id="mapa-main-dash-tecnicos" class="dash-list-mini"></div>
         <h4 class="moui-subh"><i class="fas fa-check-double"></i> Últimos cierres</h4>
@@ -834,7 +838,9 @@ textarea{resize:vertical;min-height:80px}
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
         <button type="button" class="btn-sm primary" onclick="refrescarDashboardGerencia()"><i class="fas fa-sync"></i> Actualizar ahora</button>
       </div>
-      <div id="dashboard-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem;margin-bottom:1rem"></div>
+      <div id="dashboard-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem;margin-bottom:.5rem"></div>
+      <p style="font-size:.72rem;color:var(--tl);margin:0 0 .5rem">Tocá una tarjeta para ver el listado debajo.</p>
+      <div id="dashboard-filtro-lista-host" style="display:none;margin-bottom:1rem;font-size:.82rem;border:1px solid var(--bo);border-radius:.5rem;padding:.5rem .65rem;max-height:240px;overflow-y:auto;background:var(--bg)"></div>
       <h4 style="font-size:.85rem;color:var(--bd);margin:.75rem 0 .4rem"><i class="fas fa-users"></i> Técnicos en calle (GPS &lt; 20 min)</h4>
       <div id="dashboard-lista-tecnicos" style="font-size:.82rem;color:var(--tm);margin-bottom:1rem"></div>
       <h4 style="font-size:.85rem;color:var(--bd);margin:.75rem 0 .4rem"><i class="fas fa-check-double"></i> Últimos cierres</h4>
@@ -2362,6 +2368,65 @@ function abrirModalDashboardGerencia() {
     refrescarDashboardGerencia(false);
 }
 
+function bindDashboardKpiClicks(gridEl, hostId) {
+    if (!gridEl || gridEl._gnDashKpiBound) return;
+    gridEl._gnDashKpiBound = true;
+    gridEl.addEventListener('click', ev => {
+        const card = ev.target.closest('[data-dash-filter]');
+        if (!card) return;
+        gridEl.querySelectorAll('.dash-kpi-click.active-ring').forEach(x => x.classList.remove('active-ring'));
+        card.classList.add('active-ring');
+        ejecutarDashboardFiltroLista(card.dataset.dashFilter, hostId);
+    });
+}
+
+async function ejecutarDashboardFiltroLista(filter, hostId) {
+    const host = document.getElementById(hostId || 'dashboard-filtro-lista-host');
+    if (!host) return;
+    if (filter === 'tecnicos_gps') {
+        host.style.display = 'block';
+        host.innerHTML = '<span style="color:var(--tm)">Listado de técnicos con GPS reciente arriba (sección «Técnicos en calle»).</span>';
+        return;
+    }
+    host.style.display = 'block';
+    host.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div>';
+    const lim = hostId === 'mapa-main-dash-filtro-host' ? 25 : 100;
+    let q = '';
+    if (filter === 'activos') {
+        q = `SELECT id, numero_pedido, estado, prioridad, fecha_creacion, descripcion FROM pedidos WHERE estado <> 'Cerrado' ORDER BY fecha_creacion DESC LIMIT ${lim}`;
+    } else if (filter === 'pendientes') {
+        q = `SELECT id, numero_pedido, estado, prioridad, fecha_creacion, descripcion FROM pedidos WHERE estado = 'Pendiente' ORDER BY fecha_creacion DESC LIMIT ${lim}`;
+    } else if (filter === 'asignados') {
+        q = `SELECT id, numero_pedido, estado, prioridad, fecha_creacion, descripcion FROM pedidos WHERE estado = 'Asignado' ORDER BY fecha_creacion DESC LIMIT ${lim}`;
+    } else if (filter === 'en_ejecucion') {
+        q = `SELECT id, numero_pedido, estado, prioridad, fecha_creacion, descripcion FROM pedidos WHERE estado = 'En ejecución' ORDER BY fecha_creacion DESC LIMIT ${lim}`;
+    } else if (filter === 'cerrados_hoy') {
+        q = `SELECT id, numero_pedido, estado, prioridad, fecha_cierre, descripcion FROM pedidos WHERE estado = 'Cerrado' AND fecha_cierre::date = CURRENT_DATE ORDER BY fecha_cierre DESC LIMIT ${lim}`;
+    } else {
+        host.style.display = 'none';
+        host.innerHTML = '';
+        return;
+    }
+    try {
+        const r = await sqlSimple(q);
+        const rows = r.rows || [];
+        if (!rows.length) {
+            host.innerHTML = '<span style="color:var(--tl)">Sin pedidos en esta categoría.</span>';
+            return;
+        }
+        host.innerHTML = rows.map(row => {
+            const np = String(row.numero_pedido || '').replace(/</g, '&lt;');
+            const pr = String(row.prioridad || '').replace(/</g, '&lt;');
+            const es = String(row.estado || '').replace(/</g, '&lt;');
+            const de = String(row.descripcion || '').replace(/</g, '&lt;').substring(0, 72);
+            const fe = row.fecha_cierre ? fmtInformeFecha(row.fecha_cierre) : fmtInformeFecha(row.fecha_creacion);
+            return `<div style="padding:.3rem 0;border-bottom:1px solid var(--bo);cursor:pointer;color:var(--bm)" onclick="cerrarModalDashYVerCierre(${row.id})"><strong>#${np}</strong> · ${es} · ${pr}<br><span style="color:var(--tm);font-size:.78rem">${fe} — ${de}${(row.descripcion && row.descripcion.length > 72) ? '…' : ''}</span></div>`;
+        }).join('');
+    } catch (e) {
+        host.innerHTML = '<span style="color:var(--re)">' + (e.message || e) + '</span>';
+    }
+}
+
 async function refrescarDashboardGerencia(silent) {
     if (!app.u || !esAdmin() || modoOffline || !NEON_OK) return;
     const kpi = document.getElementById('dashboard-kpi-grid');
@@ -2370,6 +2435,10 @@ async function refrescarDashboardGerencia(silent) {
     const kpiM = document.getElementById('mapa-main-dash-kpi');
     const ltM = document.getElementById('mapa-main-dash-tecnicos');
     const lcM = document.getElementById('mapa-main-dash-cierres');
+    const hostF = document.getElementById('dashboard-filtro-lista-host');
+    const hostMap = document.getElementById('mapa-main-dash-filtro-host');
+    if (hostF) { hostF.style.display = 'none'; hostF.innerHTML = ''; }
+    if (hostMap) { hostMap.style.display = 'none'; hostMap.innerHTML = ''; }
     if (!silent && kpi) kpi.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div>';
     if (!silent && kpiM) kpiM.innerHTML = '<div class="ll2" style="padding:.5rem"><i class="fas fa-circle-notch fa-spin"></i></div>';
     try {
@@ -2392,14 +2461,14 @@ async function refrescarDashboardGerencia(silent) {
         ]);
         const a = rAct.rows[0] || {};
         const cards = [
-            { val: a.activos || 0, lbl: 'Activos (no cerrados)', cls: 'orange' },
-            { val: a.pendientes || 0, lbl: 'Pendiente', cls: '' },
-            { val: a.asignados || 0, lbl: 'Asignados', cls: '' },
-            { val: a.en_ejec || 0, lbl: 'En ejecución', cls: '' },
-            { val: a.cerrados_hoy || 0, lbl: 'Cerrados hoy', cls: 'green' },
-            { val: (rTec.rows || []).length, lbl: 'Con posición &lt;20 min', cls: '' }
+            { val: a.activos || 0, lbl: 'Activos (no cerrados)', cls: 'orange', filter: 'activos' },
+            { val: a.pendientes || 0, lbl: 'Pendiente', cls: '', filter: 'pendientes' },
+            { val: a.asignados || 0, lbl: 'Asignados', cls: '', filter: 'asignados' },
+            { val: a.en_ejec || 0, lbl: 'En ejecución', cls: '', filter: 'en_ejecucion' },
+            { val: a.cerrados_hoy || 0, lbl: 'Cerrados hoy', cls: 'green', filter: 'cerrados_hoy' },
+            { val: (rTec.rows || []).length, lbl: 'Con posición &lt;20 min', cls: '', filter: 'tecnicos_gps' }
         ];
-        const htmlKpi = cards.map(s => `<div class="stat-card ${s.cls}"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+        const htmlKpi = cards.map(s => `<div class="stat-card dash-kpi-click ${s.cls}" data-dash-filter="${s.filter}" tabindex="0" role="button"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
         const tr = rTec.rows || [];
         const htmlLt = tr.length
             ? tr.map(row => {
@@ -2419,6 +2488,8 @@ async function refrescarDashboardGerencia(silent) {
         if (kpiM) kpiM.innerHTML = htmlKpi;
         if (ltM) ltM.innerHTML = htmlLt;
         if (lcM) lcM.innerHTML = htmlLc;
+        bindDashboardKpiClicks(kpi, 'dashboard-filtro-lista-host');
+        bindDashboardKpiClicks(kpiM, 'mapa-main-dash-filtro-host');
         try { await refrescarTecnicosMapaPrincipal(); } catch (_) {}
     } catch (e) {
         if (kpi && !silent) kpi.innerHTML = '<span style="color:var(--re)">' + e.message + '</span>';
@@ -2641,11 +2712,13 @@ function initMap() {
         if (hayModalAbierto) return;
 
         app.sel = e.latlng;
+        limpiarFotosYPreviewNuevoPedido();
         document.getElementById('li').value = e.latlng.lat;
         document.getElementById('gi').value = e.latlng.lng;
         const ui = document.getElementById('ui');
         ui.innerHTML = htmlLineaUbicacionFormulario(e.latlng.lat, e.latlng.lng, null);
         ui.className = 'ud sel';
+        try { syncClienteRequiredUI(); } catch (_) {}
         document.getElementById('pm').classList.add('active');
     });
     
@@ -2914,8 +2987,7 @@ document.getElementById('btn-ubicacion').addEventListener('click', () => {
 
 
 document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => {
-    fotosTemporales = [];
-    actualizarVistaPreviaFotos();
+    limpiarFotosYPreviewNuevoPedido();
     closeAll();
 
     function aplicarUbicacionAlFormulario(lat, lon, acc) {
@@ -4349,7 +4421,7 @@ let _firmaCanvasBound = false;
 function initFirmaCierreCanvas() {
     const c = document.getElementById('firma-canvas-cierre');
     if (!c) return;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.strokeStyle = '#0f172a';
@@ -4380,14 +4452,14 @@ function initFirmaCierreCanvas() {
 function limpiarFirmaCierreCanvas() {
     const c = document.getElementById('firma-canvas-cierre');
     if (!c) return;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, c.width, c.height);
 }
 function firmaCierreCanvasVacio() {
     const c = document.getElementById('firma-canvas-cierre');
     if (!c) return true;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
     const d = ctx.getImageData(0, 0, c.width, c.height).data;
     for (let i = 0; i < d.length; i += 32) {
         if (d[i] < 248 || d[i + 1] < 248 || d[i + 2] < 248) return false;
@@ -4954,12 +5026,19 @@ function render() {
 }
 
 
+function limpiarFotosYPreviewNuevoPedido() {
+    fotosTemporales = [];
+    try { actualizarVistaPreviaFotos(); } catch (_) {}
+}
+
 function closeAll() {
     document.querySelectorAll('.mo').forEach(m => m.classList.remove('active'));
     document.getElementById('pf').reset();
+    limpiarFotosYPreviewNuevoPedido();
     const nisEl = document.getElementById('nis');
     if (nisEl) nisEl.value = '';
     document.getElementById('dc').textContent = '0';
+    try { syncClienteRequiredUI(); } catch (_) {}
     ['chk-epp','chk-corte','chk-senal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
@@ -5095,7 +5174,10 @@ function syncClienteRequiredUI() {
     const lb = document.getElementById('lbl-cl');
     const inp = document.getElementById('cl');
     if (lb) lb.textContent = req ? 'Cliente *' : 'Cliente';
-    if (inp) inp.required = !!req;
+    if (inp) {
+        if (req) inp.setAttribute('required', 'required');
+        else inp.removeAttribute('required');
+    }
 }
 st.addEventListener('change', syncClienteRequiredUI);
 syncClienteRequiredUI();
@@ -5766,23 +5848,60 @@ async function exportInformeMensualExcel() {
     } catch (e) { toast('Error: ' + (e.message || e), 'error'); }
 }
 
+async function html2canvasCapturaEstadisticasCompleta(el) {
+    if (!el || typeof html2canvas !== 'function') return null;
+    try {
+        Object.values(_charts).forEach(ch => { try { ch.resize(); } catch (_) {} });
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise(r => setTimeout(r, 400));
+        const sw = Math.max(el.scrollWidth, el.offsetWidth, 800);
+        const sh = Math.max(el.scrollHeight, el.offsetHeight, 400);
+        return await html2canvas(el, {
+            scale: Math.min(1.35, 2600 / sw),
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#f8fafc',
+            width: sw,
+            height: sh,
+            windowWidth: sw,
+            windowHeight: sh,
+            scrollX: 0,
+            scrollY: 0,
+            onclone: (_doc, node) => {
+                try {
+                    node.style.overflow = 'visible';
+                    node.style.height = 'auto';
+                    node.style.maxHeight = 'none';
+                } catch (_) {}
+            }
+        });
+    } catch (e) {
+        console.warn('html2canvas estadísticas', e);
+        return null;
+    }
+}
+
 async function imprimirInformeConGraficos() {
     if (!esAdmin()) { toast('Solo administrador', 'error'); return; }
     if (modoOffline || !NEON_OK) { toast('Requiere conexión', 'error'); return; }
     if (typeof html2canvas !== 'function') { toast('html2canvas no disponible', 'error'); return; }
     document.getElementById('admin-panel')?.classList.add('active');
     adminTab('estadisticas');
-    await new Promise(r => setTimeout(r, 900));
+    await cargarEstadisticas();
+    await new Promise(r => setTimeout(r, 500));
     const el = document.getElementById('admin-estadisticas');
     if (!el) return;
     try {
-        const canvas = await html2canvas(el, { scale: 1.25, useCORS: true, logging: false, backgroundColor: '#f8fafc' });
+        toast('Generando vista para imprimir…', 'info');
+        const canvas = await html2canvasCapturaEstadisticasCompleta(el);
+        if (!canvas) { toast('No se pudo capturar el panel', 'error'); return; }
+        const dataUrl = canvas.toDataURL('image/png');
         const w = window.open('', '_blank');
         if (!w) { toast('Permití ventanas emergentes para imprimir', 'error'); return; }
-        w.document.write('<!DOCTYPE html><html><head><title>Informe — gráficos</title></head><body style="margin:0;text-align:center;background:#fff"><img src="' + canvas.toDataURL('image/png') + '" style="max-width:100%;height:auto" alt=""/></body></html>');
+        w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe — gráficos</title><style>body{margin:0;background:#fff}img{display:block;width:100%;height:auto;max-width:100%}@media print{img{page-break-inside:auto}}</style></head><body><img src="' + dataUrl + '" alt="Estadísticas GestorNova"/></body></html>');
         w.document.close();
         w.focus();
-        setTimeout(() => { try { w.print(); } catch (_) {} }, 450);
+        setTimeout(() => { try { w.print(); } catch (_) {} }, 500);
     } catch (e) { toast('Error: ' + (e.message || e), 'error'); }
 }
 
@@ -5793,20 +5912,15 @@ async function generarPdfEstadisticasMultipaginaENRE() {
     document.getElementById('admin-panel')?.classList.add('active');
     adminTab('estadisticas');
     await cargarEstadisticas();
-    await new Promise(r => setTimeout(r, 750));
+    await new Promise(r => setTimeout(r, 500));
     const el = document.getElementById('admin-estadisticas');
     if (!el) return;
     try {
         toast('Generando PDF…', 'info');
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'p' });
-        const canvas = await html2canvas(el, {
-            scale: 1.05,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#f8fafc',
-            windowWidth: el.scrollWidth
-        });
+        const canvas = await html2canvasCapturaEstadisticasCompleta(el);
+        if (!canvas) { toast('No se pudo generar el PDF', 'error'); return; }
         const imgData = canvas.toDataURL('image/jpeg', 0.9);
         const pageW = pdf.internal.pageSize.getWidth();
         const pageH = pdf.internal.pageSize.getHeight();
@@ -6284,6 +6398,11 @@ async function cargarUbicacionesUsuarios() {
                     CASE prioridad WHEN 'Crítica' THEN 1 WHEN 'Alta' THEN 2 WHEN 'Media' THEN 3 ELSE 4 END
             `)
         ]);
+
+        if (!_mapaUsuariosAdmin) {
+            console.warn('[ubicaciones admin] mapa no inicializado');
+            return;
+        }
 
         // ── Limpiar marcadores anteriores ────────────────────
         _marcadoresUsuarios.forEach(m => { if (_mapaUsuariosAdmin) _mapaUsuariosAdmin.removeLayer(m); });
