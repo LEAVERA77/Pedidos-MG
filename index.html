@@ -50,6 +50,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 .moui-full{width:100%;margin-top:.5rem}
 #mapa-dash-body.collapsed{display:none}
 #mapa-filtros-body.collapsed{display:none}
+#mapa-colores-body.collapsed{display:none}
 .moui-card.moui-card-slideoff{transform:translateX(calc(-100% - 12px))!important;opacity:0!important;pointer-events:none!important;transition:transform .25s ease,opacity .2s}
 .map-slide-tab{position:fixed;top:120px;left:0;z-index:9600;display:none;padding:.28rem .45rem;background:var(--bd);color:#fff;font-size:.65rem;font-weight:700;border-radius:0 .4rem .4rem 0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:auto}
 .map-slide-tab.visible{display:block!important}
@@ -74,9 +75,16 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 .print-content.print-a4-tight .firma-print{max-height:70px;object-fit:contain}
 #mapa-android-strip{display:none;position:absolute;top:58px;left:0;right:0;z-index:852;pointer-events:none}
 #mapa-android-strip .mas-inner{pointer-events:auto;margin:.3rem .45rem;padding:.4rem .55rem;background:#fff;border:1px solid var(--bo);border-radius:.5rem;display:flex;flex-wrap:wrap;gap:.45rem .65rem;align-items:center;font-size:.72rem;box-shadow:0 2px 10px rgba(0,0,0,.1)}
-#mapa-leyenda-prioridad{pointer-events:auto;position:absolute;bottom:5.2rem;left:.45rem;z-index:851;max-width:min(280px,88vw);background:rgba(255,255,255,.95);border:1px solid var(--bo);border-radius:.5rem;padding:.35rem .5rem;font-size:.68rem;color:var(--tm);box-shadow:0 2px 10px rgba(0,0,0,.1)}
-#mapa-leyenda-prioridad .ll-row{display:flex;align-items:center;gap:.35rem;margin:.12rem 0}
-#mapa-leyenda-prioridad .ll-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.9)}
+#mapa-card-colores{bottom:4.35rem;left:.45rem;top:auto;z-index:851;max-width:min(12rem,calc(100vw - 1rem));font-size:.58rem}
+#mapa-card-colores .moui-bd{padding:.25rem .35rem .3rem}
+#mapa-card-colores .ll-hd{font-weight:700;color:var(--bd);font-size:.6rem;margin:0 0 .12rem;line-height:1.15}
+#mapa-card-colores .ll-grid{display:grid;grid-template-columns:1fr 1fr;gap:.06rem .3rem;align-items:center}
+#mapa-card-colores .ll-row{display:flex;align-items:center;gap:.22rem;margin:0;min-width:0;cursor:pointer;line-height:1.15}
+#mapa-card-colores .ll-row input{flex-shrink:0;cursor:pointer;width:12px;height:12px;margin:0}
+#mapa-card-colores .ll-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.85)}
+#mapa-card-colores .ll-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mapa-card-colores .ll-span2{grid-column:1/-1}
+#mapa-card-colores .ll-foot{margin-top:.2rem;font-size:.52rem;opacity:.88;line-height:1.25}
 .chart-legend-caption{margin-top:.4rem;padding:.5rem .65rem;background:var(--bg);border-radius:.45rem;font-size:.78rem;line-height:1.42;color:var(--tm);border:1px solid var(--bo);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 .chart-legend-caption strong{color:var(--bd);font-size:.8rem;font-weight:700}
 .lc{background:white;padding:2rem 2rem 1.5rem;border-radius:1.25rem;width:92%;max-width:420px;box-shadow:0 25px 60px rgba(0,0,0,.4);max-height:95vh;overflow-y:auto}
@@ -400,14 +408,19 @@ textarea{resize:vertical;min-height:80px}
         <button type="button" class="moui-btn-reset" onclick="resetMapaFiltros()">Restablecer filtros</button>
       </div>
     </div>
-    <div id="mapa-leyenda-prioridad">
-      <div style="font-weight:700;color:var(--bd);margin-bottom:.2rem">Colores (prioridad)</div>
-      <div class="ll-row"><span class="ll-dot" style="background:#ef4444"></span> Crítica</div>
-      <div class="ll-row"><span class="ll-dot" style="background:#f97316"></span> Alta</div>
-      <div class="ll-row"><span class="ll-dot" style="background:#eab308"></span> Media</div>
-      <div class="ll-row"><span class="ll-dot" style="background:#3b82f6"></span> Baja</div>
-      <div class="ll-row"><span class="ll-dot" style="background:#94a3b8"></span> Cerrado</div>
-      <div style="margin-top:.3rem;font-size:.62rem;opacity:.88;line-height:1.3">Casco verde en mapa: técnico con GPS reciente (solo admin).</div>
+    <button type="button" id="map-tab-colores" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-colores',false)" title="Mostrar colores" style="top:160px">Colores</button>
+    <div id="mapa-card-colores" class="moui-card">
+      <div class="moui-hd" onclick="toggleMapaColoresBody()"><i class="fas fa-palette"></i> Colores (prioridad) <span id="mapa-colores-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-colores',true)"><i class="fas fa-eye-slash"></i></button></div>
+      <div id="mapa-colores-body" class="moui-bd">
+        <div class="ll-grid">
+          <label class="ll-row"><input type="checkbox" id="mapa-flt-prio-critica" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#ef4444"></span><span class="ll-txt">Crítica</span></label>
+          <label class="ll-row"><input type="checkbox" id="mapa-flt-prio-alta" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#f97316"></span><span class="ll-txt">Alta</span></label>
+          <label class="ll-row"><input type="checkbox" id="mapa-flt-prio-media" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#eab308"></span><span class="ll-txt">Media</span></label>
+          <label class="ll-row"><input type="checkbox" id="mapa-flt-prio-baja" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#3b82f6"></span><span class="ll-txt">Baja</span></label>
+          <label class="ll-row ll-span2"><input type="checkbox" id="mapa-flt-prio-cerrado" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#94a3b8"></span><span class="ll-txt">Cerrado</span></label>
+        </div>
+        <div class="ll-foot">Casco verde: técnico con GPS reciente (solo admin).</div>
+      </div>
     </div>
     <button type="button" id="map-tab-dash" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-dashboard',false)" title="Mostrar dashboard" style="top:200px">Dash</button>
     <div id="mapa-card-dashboard" class="moui-card moui-dash" style="display:none">
@@ -470,6 +483,13 @@ textarea{resize:vertical;min-height:80px}
       <div class="fg"><label><i class="fas fa-map-marker-alt"></i> Ubicación en el mapa</label>
         <div id="ui" class="ud"><i class="fas fa-crosshairs"></i> Hacé clic en el mapa para seleccionar</div>
         <input type="hidden" id="li"><input type="hidden" id="gi">
+      </div>
+      <div class="fg" id="wrap-sel-coords-display" style="display:none">
+        <label for="sel-coords-display">Formato de coordenadas</label>
+        <select id="sel-coords-display" onchange="onCambioVisualizacionCoordsNuevoPedido()">
+          <option value="wgs84">WGS84 (latitud / longitud)</option>
+          <option value="proyectadas">Proyectadas (según configuración de empresa)</option>
+        </select>
       </div>
       <div class="fg"><label for="di2">Distribuidor *</label>
         <select id="di2" required>
@@ -554,14 +574,14 @@ textarea{resize:vertical;min-height:80px}
         <div id="vista-previa-foto-cierre" class="fotos-container"></div>
       </div>
       <div class="fg" style="padding:0;margin-top:1rem">
-        <label><i class="fas fa-hard-hat"></i> Checklist de seguridad (obligatorio)</label>
+        <label><i class="fas fa-hard-hat"></i> Checklist de seguridad <span style="font-weight:400;opacity:.85">(opcional — marcá lo que corresponda)</span></label>
         <label style="font-weight:500;margin-top:.35rem;display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="chk-epp"> EPPS / elementos de protección verificados</label>
         <label style="font-weight:500;display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="chk-corte"> Corte o seccionamiento de energía verificado</label>
         <label style="font-weight:500;display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="chk-senal"> Señalización del lugar de trabajo</label>
       </div>
       <div class="fg" style="padding:0;margin-top:1rem">
-        <label><i class="fas fa-signature"></i> Firma del cliente / socio (obligatorio)</label>
-        <canvas id="firma-canvas-cierre" width="320" height="140" style="border:1.5px solid var(--bo);border-radius:.5rem;touch-action:none;background:#fff;max-width:100%"></canvas>
+        <label id="lbl-firma-cierre"><i class="fas fa-signature"></i> Firma del cliente / socio</label>
+        <canvas id="firma-canvas-cierre" width="320" height="120" style="border:1.5px solid var(--bo);border-radius:.5rem;touch-action:none;background:#fff;max-width:100%"></canvas>
         <button type="button" class="btn-sm" id="btn-limpiar-firma-cierre" style="margin-top:.35rem">Limpiar firma</button>
       </div>
       <div class="fa2" style="padding:1.25rem 0 0">
@@ -878,13 +898,14 @@ textarea{resize:vertical;min-height:80px}
 
 <div id="modal-asignar-tecnico" class="mo">
   <div class="mc" style="max-width:440px">
-    <div class="mh"><h3><i class="fas fa-user-hard-hat"></i> Asignar técnico</h3><button type="button" class="cm" onclick="document.getElementById('modal-asignar-tecnico').classList.remove('active')"><i class="fas fa-times"></i></button></div>
+    <div class="mh"><h3 id="assign-modal-title"><i class="fas fa-user-hard-hat"></i> Asignar técnico</h3><button type="button" class="cm" onclick="document.getElementById('modal-asignar-tecnico').classList.remove('active')"><i class="fas fa-times"></i></button></div>
     <div class="mb">
-      <p style="font-size:.85rem;color:var(--tm);margin-bottom:.75rem">Se actualiza el pedido y se encola una notificación para la app del técnico (tabla <code style="font-size:.76rem">notificaciones_movil</code>).</p>
+      <p style="font-size:.85rem;color:var(--tm);margin-bottom:.75rem">Se actualiza el pedido y se notifica por <code style="font-size:.76rem">notificaciones_movil</code> a la app Android del técnico (asignación, reasignación o desasignación).</p>
       <div class="fg" style="padding:0"><label>Técnico / supervisor</label><select id="assign-tecnico-select"></select></div>
       <div class="fg" style="padding:0"><label>Mensaje (opcional)</label><input type="text" id="assign-tecnico-msg" placeholder="Ej: Urgente — revisar transformador"></div>
-      <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem;align-items:center">
         <button type="button" class="sec" onclick="document.getElementById('modal-asignar-tecnico').classList.remove('active')">Cancelar</button>
+        <button type="button" class="sec" id="btn-desasignar-tecnico" style="display:none;border-color:#f97316;color:#c2410c" onclick="confirmarDesasignarPedido()"><i class="fas fa-user-slash"></i> Desasignar</button>
         <button type="button" class="bp" id="btn-confirmar-asignar-tecnico" onclick="confirmarEnviarNotifPedido()"><i class="fas fa-paper-plane"></i> Asignar y notificar</button>
       </div>
     </div>
@@ -1029,22 +1050,77 @@ function proyectarCoordPedido(lat, lng) {
 }
 window.proyectarCoordPedido = proyectarCoordPedido;
 
-/** Una sola línea corta para el formulario de pedido (mapa / GPS): faja + planas, sin WGS84 largo. */
-function htmlLineaUbicacionFormulario(lat, lng, acc) {
+function tieneProyeccionEmpresaConfigurada() {
+    const fam = String((window.EMPRESA_CFG || {}).coord_proy_familia || 'none').trim();
+    return !!fam && fam !== 'none';
+}
+
+function leerPreferenciaCoordsDisplayNuevoPedido() {
+    if (!tieneProyeccionEmpresaConfigurada()) return 'wgs84';
+    try {
+        const s = localStorage.getItem('pmg_coords_display_pref');
+        if (s === 'wgs84' || s === 'proyectadas') return s;
+    } catch (_) {}
+    return 'wgs84';
+}
+
+/** Una sola línea para el formulario de pedido: WGS84 o planas según preferencia y empresa_config. */
+function htmlLineaUbicacionFormulario(lat, lng, acc, modoForzado) {
     registrarFajaInstalacionSiFalta(lng);
     const accStr = acc
         ? ` <span style="opacity:.85;font-size:.9em">(±${acc < 1000 ? acc + 'm' : (acc / 1000).toFixed(1) + 'km'})</span>`
         : '';
-    const pc = proyectarCoordPedido(lat, lng);
+    const modo = modoForzado != null && modoForzado !== '' ? modoForzado : leerPreferenciaCoordsDisplayNuevoPedido();
+    const usarWgs = modo === 'wgs84' || !tieneProyeccionEmpresaConfigurada();
     let compact;
-    if (pc) {
-        compact = `F${pc.z}: ${pc.vx} · ${pc.vy} m`;
+    if (usarWgs) {
+        compact = `${Number(lat).toFixed(6).replace('.', ',')}, ${Number(lng).toFixed(6).replace('.', ',')} (WGS84)`;
     } else {
-        const c = convertirAInchauspe(lat, lng);
-        const z = fajaArgentinaPorLongitud(lng);
-        compact = c.x !== 'Error' ? `F${z}: ${c.x} · ${c.y} m` : `${Number(lat).toFixed(4).replace('.', ',')}, ${Number(lng).toFixed(4).replace('.', ',')}`;
+        const pc = proyectarCoordPedido(lat, lng);
+        if (pc) {
+            compact = `F${pc.z}: ${pc.vx} · ${pc.vy} m`;
+        } else {
+            const c = convertirAInchauspe(lat, lng);
+            const z = fajaArgentinaPorLongitud(lng);
+            compact = c.x !== 'Error' ? `F${z}: ${c.x} · ${c.y} m` : `${Number(lat).toFixed(6).replace('.', ',')}, ${Number(lng).toFixed(6).replace('.', ',')} (WGS84)`;
+        }
     }
     return `<i class="fas fa-check-circle" style="color:#059669"></i> ${compact}${accStr}`;
+}
+
+function syncWrapCoordsDisplayNuevoPedido() {
+    const w = document.getElementById('wrap-sel-coords-display');
+    const sel = document.getElementById('sel-coords-display');
+    if (!w || !sel) return;
+    const ok = tieneProyeccionEmpresaConfigurada();
+    w.style.display = ok ? '' : 'none';
+    if (!ok) return;
+    sel.value = leerPreferenciaCoordsDisplayNuevoPedido();
+}
+
+function onCambioVisualizacionCoordsNuevoPedido() {
+    const sel = document.getElementById('sel-coords-display');
+    if (sel) {
+        try { localStorage.setItem('pmg_coords_display_pref', sel.value); } catch (_) {}
+    }
+    refrescarLineaUbicacionModalNuevoPedido();
+}
+window.onCambioVisualizacionCoordsNuevoPedido = onCambioVisualizacionCoordsNuevoPedido;
+
+function refrescarLineaUbicacionModalNuevoPedido() {
+    const pm = document.getElementById('pm');
+    if (!pm || !pm.classList.contains('active')) return;
+    const li = document.getElementById('li');
+    const gi = document.getElementById('gi');
+    const ui = document.getElementById('ui');
+    if (!li || !gi || !ui || !ui.classList.contains('sel')) return;
+    const lat = parseFloat(li.value);
+    const lng = parseFloat(gi.value);
+    if (!isFinite(lat) || !isFinite(lng)) return;
+    const acc = ultimaUbicacion && Math.abs(ultimaUbicacion.lat - lat) < 1e-7 && Math.abs(ultimaUbicacion.lon - lng) < 1e-7
+        ? ultimaUbicacion.acc
+        : null;
+    ui.innerHTML = htmlLineaUbicacionFormulario(lat, lng, acc);
 }
 
 function syncCoordModoVisibility() {
@@ -1573,8 +1649,10 @@ async function initNeon() {
         console.warn('[neon] APP_CONFIG no disponible — esperando config.json');
         return false;
     }
+    // WebView file://: fetch HEAD a Internet a veces falla aunque Neon sea alcanzable; intentamos conectar igual.
+    const esWebViewLocal = window.location.protocol === 'file:' && typeof window.AndroidConfig !== 'undefined';
     const tieneRed = await hayInternet();
-    if (!tieneRed) {
+    if (!tieneRed && !esWebViewLocal) {
         console.log('[neon] sin red real — modo offline');
         NEON_OK = false;
         return false;
@@ -2051,6 +2129,16 @@ function pedidosParaMarcadoresMapa() {
         } else if (asigF) {
             if (String(p.tai ?? '') !== asigF) return false;
         }
+        const prioOk = (() => {
+            const chkP = (id) => {
+                const el = document.getElementById(id);
+                return !el || el.checked;
+            };
+            if ((p.es || '') === 'Cerrado') return chkP('mapa-flt-prio-cerrado');
+            const mapPr = { 'Crítica': 'mapa-flt-prio-critica', 'Alta': 'mapa-flt-prio-alta', 'Media': 'mapa-flt-prio-media', 'Baja': 'mapa-flt-prio-baja' };
+            return chkP(mapPr[p.pr] || 'mapa-flt-prio-baja');
+        })();
+        if (!prioOk) return false;
         return true;
     });
 }
@@ -2102,10 +2190,39 @@ function onMapaFiltroChange() {
     try { renderMk(); } catch (_) {}
 }
 
+const MAPA_PRIO_CHK_IDS = ['mapa-flt-prio-critica', 'mapa-flt-prio-alta', 'mapa-flt-prio-media', 'mapa-flt-prio-baja', 'mapa-flt-prio-cerrado'];
+
+function onMapaFiltroPrioridadChange() {
+    MAPA_PRIO_CHK_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        try { localStorage.setItem('pmg_' + id, el.checked ? '1' : '0'); } catch (_) {}
+    });
+    try { onMapaFiltroChange(); } catch (_) {}
+}
+window.onMapaFiltroPrioridadChange = onMapaFiltroPrioridadChange;
+
+function syncMapaPrioFiltrosFromStorage() {
+    MAPA_PRIO_CHK_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        try {
+            const v = localStorage.getItem('pmg_' + id);
+            if (v === '0') el.checked = false;
+            else if (v === '1') el.checked = true;
+        } catch (_) {}
+    });
+}
+
 function resetMapaFiltros() {
     ['mapa-flt-pendiente', 'mapa-flt-asignado', 'mapa-flt-ejecucion', 'mapa-flt-cerrado'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.checked = true;
+    });
+    MAPA_PRIO_CHK_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = true;
+        try { localStorage.removeItem('pmg_' + id); } catch (_) {}
     });
     const u = document.getElementById('mapa-filtro-usuario');
     const a = document.getElementById('mapa-filtro-asignado');
@@ -2155,16 +2272,22 @@ function setBp2PanelHidden(hidden) {
     try { localStorage.setItem('pmg_bp2_hidden', hidden ? '1' : '0'); } catch (_) {}
 }
 
+function mapTabIdForCard(cardId) {
+    if (cardId === 'mapa-card-filtros') return 'map-tab-filtros';
+    if (cardId === 'mapa-card-colores') return 'map-tab-colores';
+    return 'map-tab-dash';
+}
+
 function toggleMapaCardSlideoff(cardId, hide) {
     const el = document.getElementById(cardId);
-    const tabId = cardId === 'mapa-card-filtros' ? 'map-tab-filtros' : 'map-tab-dash';
-    const tab = document.getElementById(tabId);
+    const tab = document.getElementById(mapTabIdForCard(cardId));
     if (!el) return;
     if (hide === undefined) hide = !el.classList.contains('moui-card-slideoff');
     el.classList.toggle('moui-card-slideoff', !!hide);
     if (tab) tab.classList.toggle('visible', !!hide);
     try {
         if (cardId === 'mapa-card-filtros') localStorage.setItem('pmg_slideoff_filtros', hide ? '1' : '0');
+        if (cardId === 'mapa-card-colores') localStorage.setItem('pmg_slideoff_colores', hide ? '1' : '0');
         if (cardId === 'mapa-card-dashboard') localStorage.setItem('pmg_slideoff_dash', hide ? '1' : '0');
     } catch (_) {}
 }
@@ -2172,14 +2295,18 @@ function toggleMapaCardSlideoff(cardId, hide) {
 function syncMapSlideTabsFromStorage() {
     const cf = document.getElementById('mapa-card-filtros');
     if (cf && localStorage.getItem('pmg_slideoff_filtros') === '1') toggleMapaCardSlideoff('mapa-card-filtros', true);
+    const cc = document.getElementById('mapa-card-colores');
+    if (cc && cc.style.display !== 'none' && localStorage.getItem('pmg_slideoff_colores') === '1') toggleMapaCardSlideoff('mapa-card-colores', true);
     const cd = document.getElementById('mapa-card-dashboard');
     if (cd && cd.style.display !== 'none' && localStorage.getItem('pmg_slideoff_dash') === '1') toggleMapaCardSlideoff('mapa-card-dashboard', true);
 }
 
 function aplicarUIMapaPlataforma() {
     syncMapaLabelsNpCheckbox();
+    syncMapaPrioFiltrosFromStorage();
     const strip = document.getElementById('mapa-android-strip');
     const card = document.getElementById('mapa-card-filtros');
+    const cardCol = document.getElementById('mapa-card-colores');
     if (!strip || !card) return;
     if (esAndroidWebViewMapa()) {
         strip.style.display = 'block';
@@ -2187,6 +2314,12 @@ function aplicarUIMapaPlataforma() {
         const chk = document.getElementById('chk-android-filtros-av');
         if (chk) chk.checked = adv;
         card.style.display = adv ? 'block' : 'none';
+        if (cardCol) cardCol.style.display = adv ? 'block' : 'none';
+        if (!adv) {
+            document.getElementById('map-tab-filtros')?.classList.remove('visible');
+            document.getElementById('map-tab-colores')?.classList.remove('visible');
+            document.getElementById('map-tab-dash')?.classList.remove('visible');
+        }
         const wrap = document.getElementById('wrap-android-scope');
         if (wrap) {
             wrap.style.display = esTecnicoOSupervisor() ? 'inline-flex' : 'none';
@@ -2196,6 +2329,7 @@ function aplicarUIMapaPlataforma() {
     } else {
         strip.style.display = 'none';
         card.style.display = 'block';
+        if (cardCol) cardCol.style.display = 'block';
     }
     try {
         setBp2PanelHidden(localStorage.getItem('pmg_bp2_hidden') === '1');
@@ -2220,6 +2354,15 @@ function toggleMapaDashBody() {
     b.classList.toggle('collapsed');
     if (ch) ch.textContent = b.classList.contains('collapsed') ? '▶' : '▼';
 }
+
+function toggleMapaColoresBody() {
+    const b = document.getElementById('mapa-colores-body');
+    const ch = document.getElementById('mapa-colores-chevron');
+    if (!b) return;
+    b.classList.toggle('collapsed');
+    if (ch) ch.textContent = b.classList.contains('collapsed') ? '▶' : '▼';
+}
+window.toggleMapaColoresBody = toggleMapaColoresBody;
 
 async function refrescarTecnicosMapaPrincipal() {
     if (!app.map || modoOffline || !NEON_OK || !_sql) {
@@ -2715,6 +2858,7 @@ function initMap() {
         limpiarFotosYPreviewNuevoPedido();
         document.getElementById('li').value = e.latlng.lat;
         document.getElementById('gi').value = e.latlng.lng;
+        syncWrapCoordsDisplayNuevoPedido();
         const ui = document.getElementById('ui');
         ui.innerHTML = htmlLineaUbicacionFormulario(e.latlng.lat, e.latlng.lng, null);
         ui.className = 'ud sel';
@@ -2995,6 +3139,7 @@ document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => 
         app.sel = { lat, lng: lon };
         document.getElementById('li').value = lat;
         document.getElementById('gi').value = lon;
+        syncWrapCoordsDisplayNuevoPedido();
         const ui = document.getElementById('ui');
         if (ui) {
             ui.innerHTML = htmlLineaUbicacionFormulario(lat, lon, acc);
@@ -3089,6 +3234,7 @@ function renderMk() {
                     <button style="flex:1;min-width:72px;padding:4px;background:#1e3a8a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_d('${p.id}')">Detalle</button>
                     <button style="flex:1;min-width:72px;padding:4px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:11px" onclick="_z('${p.id}')">Zoom</button>
                     ${esAdmin() && p.es !== 'Cerrado' && (p.tai == null) ? `<button style="flex:1;min-width:72px;padding:4px;background:#059669;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_assignMapa('${p.id}')">Asignar</button>` : ''}
+                    ${esAdmin() && p.es !== 'Cerrado' && (p.tai != null) ? `<button style="flex:1;min-width:72px;padding:4px;background:#ea580c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_assignMapa('${p.id}')">Reasignar</button><button style="flex:1;min-width:72px;padding:4px;background:#64748b;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11px" onclick="_desasignarMapa('${p.id}')">Desasignar</button>` : ''}
                 </div>
             </div>`, { maxWidth: 260 });
         
@@ -3116,6 +3262,11 @@ window._z = id => {
 window._assignMapa = id => {
     try { app.map?.closePopup(); } catch (_) {}
     abrirModalAsignarTecnico(id);
+};
+
+window._desasignarMapa = id => {
+    try { app.map?.closePopup(); } catch (_) {}
+    ejecutarDesasignarPedidoPorId(id, { confirmar: true });
 };
 
 window._a = (a, id) => {
@@ -3282,10 +3433,22 @@ window.abrirModalAsignarTecnico = function (pedidoId) {
     _assignPedidoId = pedidoId;
     llenarSelectAssignTecnico();
     const sel = document.getElementById('assign-tecnico-select');
-    if (!sel || !sel.value) {
+    const p = app.p.find(x => String(x.id) === String(pedidoId));
+    const tieneAsignado = p && p.tai != null;
+    const tit = document.getElementById('assign-modal-title');
+    if (tit) tit.innerHTML = tieneAsignado
+        ? '<i class="fas fa-user-hard-hat"></i> Reasignar técnico'
+        : '<i class="fas fa-user-hard-hat"></i> Asignar técnico';
+    const btnDes = document.getElementById('btn-desasignar-tecnico');
+    if (btnDes) btnDes.style.display = tieneAsignado ? 'inline-flex' : 'none';
+    const btnOk = document.getElementById('btn-confirmar-asignar-tecnico');
+    if (!sel) return;
+    if (!tieneAsignado && !sel.value) {
         toast('Cargá usuarios en el panel o creá técnicos', 'error');
         return;
     }
+    if (btnOk) btnOk.disabled = !sel.value;
+    sel.onchange = () => { if (btnOk) btnOk.disabled = !sel.value; };
     const msg = document.getElementById('assign-tecnico-msg');
     if (msg) msg.value = '';
     document.getElementById('modal-asignar-tecnico')?.classList.add('active');
@@ -3311,7 +3474,12 @@ async function confirmarEnviarNotifPedido() {
     }
     const msgExtra = (document.getElementById('assign-tecnico-msg')?.value || '').trim();
     const p = app.p.find(x => String(x.id) === String(_assignPedidoId));
-    const titulo = 'Pedido asignado';
+    const oldTai = p && p.tai != null ? parseInt(p.tai, 10) : null;
+    if (oldTai === uid) {
+        toast('Ese técnico ya está asignado al pedido', 'info');
+        return;
+    }
+    const titulo = oldTai && oldTai !== uid ? 'Pedido reasignado' : 'Pedido asignado';
     const cuerpo = msgExtra || ('Pedido ' + (p?.np || '#' + _assignPedidoId) + ' — revisá el mapa');
     const now = new Date().toISOString();
     const pidNum = parseInt(_assignPedidoId, 10);
@@ -3321,16 +3489,58 @@ async function confirmarEnviarNotifPedido() {
             fecha_asignacion: now,
             estado: 'Asignado'
         }, app.u?.id);
+        if (oldTai && oldTai !== uid) {
+            const tOld = 'Pedido reasignado';
+            const cOld = msgExtra || ('Ya no estás asignado a ' + (p?.np || '#' + _assignPedidoId));
+            await sqlSimple(`INSERT INTO notificaciones_movil (usuario_id, pedido_id, titulo, cuerpo) VALUES (${esc(oldTai)}, ${esc(pidNum)}, ${esc(tOld)}, ${esc(cOld)})`);
+        }
         await sqlSimple(`INSERT INTO notificaciones_movil (usuario_id, pedido_id, titulo, cuerpo) VALUES (${esc(uid)}, ${esc(pidNum)}, ${esc(titulo)}, ${esc(cuerpo)})`);
         document.getElementById('modal-asignar-tecnico')?.classList.remove('active');
         _assignPedidoId = null;
-        toast('Técnico asignado y notificación encolada', 'success');
+        toast(oldTai && oldTai !== uid ? 'Reasignado y notificaciones enviadas' : 'Técnico asignado y notificación encolada', 'success');
         await cargarPedidos();
         render();
     } catch (e) {
         toast('Error: ' + (e.message || e), 'error');
     }
 }
+
+async function ejecutarDesasignarPedidoPorId(pedidoId, opts) {
+    const id = pedidoId != null ? String(pedidoId) : (_assignPedidoId != null ? String(_assignPedidoId) : '');
+    if (!id) return;
+    const p = app.p.find(x => String(x.id) === String(id));
+    const oldUid = p && p.tai != null ? parseInt(p.tai, 10) : null;
+    if (!oldUid) {
+        toast('No hay técnico asignado', 'info');
+        return;
+    }
+    if (opts && opts.confirmar && !confirm('¿Desasignar al técnico de este pedido? El estado volverá a Pendiente.')) return;
+    const pidNum = parseInt(id, 10);
+    try {
+        await updPedido(id, {
+            tecnico_asignado_id: null,
+            fecha_asignacion: null,
+            estado: 'Pendiente'
+        }, app.u?.id);
+        const tOld = 'Pedido desasignado';
+        const cOld = 'Te quitaron la asignación de ' + (p?.np || '#' + id) + '. Revisá el mapa.';
+        await sqlSimple(`INSERT INTO notificaciones_movil (usuario_id, pedido_id, titulo, cuerpo) VALUES (${esc(oldUid)}, ${esc(pidNum)}, ${esc(tOld)}, ${esc(cOld)})`);
+        document.getElementById('modal-asignar-tecnico')?.classList.remove('active');
+        _assignPedidoId = null;
+        toast('Técnico desasignado; notificación enviada', 'success');
+        await cargarPedidos();
+        render();
+    } catch (e) {
+        toast('Error: ' + (e.message || e), 'error');
+    }
+}
+
+async function confirmarDesasignarPedido() {
+    if (!_assignPedidoId) return;
+    await ejecutarDesasignarPedidoPorId(_assignPedidoId, { confirmar: true });
+}
+window.confirmarDesasignarPedido = confirmarDesasignarPedido;
+window.ejecutarDesasignarPedidoPorId = ejecutarDesasignarPedidoPorId;
 
 window.pollNotificacionesMovil = async function () {
     if (!app.u || esAdmin() || modoOffline || !NEON_OK || !_sql) return;
@@ -4571,11 +4781,23 @@ window.eliminarMaterialPedido = async function (mid, pid) {
     } catch (e) { toast('Error: ' + e.message, 'error'); }
 };
 
+function pedidoTieneClienteCargado(p) {
+    return !!(p && String(p.cl || '').trim());
+}
+
 function abrirCierre(id) {
     const p = app.p.find(x => String(x.id) === String(id));
     if (!p) return;
     
     app.cid = id;
+    const lblFirma = document.getElementById('lbl-firma-cierre');
+    if (lblFirma) {
+        if (pedidoTieneClienteCargado(p)) {
+            lblFirma.innerHTML = '<i class="fas fa-signature"></i> Firma del cliente / socio <span style="font-weight:600;color:#b45309">(obligatoria)</span>';
+        } else {
+            lblFirma.innerHTML = '<i class="fas fa-signature"></i> Firma del cliente / socio <span style="font-weight:400;opacity:.88;font-size:.88em">(opcional — no hay cliente en el pedido)</span>';
+        }
+    }
     document.getElementById('ci').innerHTML = `
         <strong>#${p.np}</strong> - ${p.tt}<br>
         <span style="font-size:.85em">${p.de.substring(0,100)}${p.de.length > 100 ? '…' : ''}</span>
@@ -4603,16 +4825,14 @@ document.getElementById('cc2').addEventListener('click', async () => {
         toast('Describí el trabajo realizado', 'error');
         return;
     }
-    if (!document.getElementById('chk-epp')?.checked || !document.getElementById('chk-corte')?.checked || !document.getElementById('chk-senal')?.checked) {
-        toast('Completá el checklist de seguridad (tres ítems)', 'error');
-        return;
-    }
-    if (firmaCierreCanvasVacio()) {
-        toast('Firmá en el recuadro (firma del socio)', 'error');
+    const pCierre = app.p.find(x => String(x.id) === String(app.cid));
+    const firmaObligatoria = pedidoTieneClienteCargado(pCierre);
+    if (firmaObligatoria && firmaCierreCanvasVacio()) {
+        toast('Este pedido tiene cliente cargado: la firma es obligatoria', 'error');
         return;
     }
     const c = document.getElementById('firma-canvas-cierre');
-    const firmaData = c ? c.toDataURL('image/png') : null;
+    const firmaData = !firmaCierreCanvasVacio() && c ? c.toDataURL('image/png') : null;
     const checklistJson = JSON.stringify({
         epp: !!document.getElementById('chk-epp')?.checked,
         corte: !!document.getElementById('chk-corte')?.checked,
@@ -4706,8 +4926,8 @@ function detalle(p) {
     }
     
     
-    const latFormateada = p.la ? p.la.toFixed(4).replace('.', ',') : '';
-    const lngFormateada = p.ln ? p.ln.toFixed(4).replace('.', ',') : '';
+    const latFormateada = p.la ? p.la.toFixed(6).replace('.', ',') : '';
+    const lngFormateada = p.ln ? p.ln.toFixed(6).replace('.', ',') : '';
     const wgs84UnaLinea = (p.la != null && p.ln != null) ? `${latFormateada}, ${lngFormateada}` : '--';
     const pcDet = proyectarCoordPedido(p.la, p.ln);
     const cfgFam = ((window.EMPRESA_CFG || {}).coord_proy_familia || 'none').trim();
@@ -4785,6 +5005,7 @@ function detalle(p) {
         
         <div class="da">
             ${esAdmin() && p.es !== 'Cerrado' && (p.tai == null) ? `<button type="button" class="ba2" style="background:#059669;color:#fff;border-color:#059669" onclick="abrirModalAsignarTecnico('${p.id}')"><i class="fas fa-user-hard-hat"></i> Asignar técnico</button>` : ''}
+            ${esAdmin() && p.es !== 'Cerrado' && (p.tai != null) ? `<button type="button" class="ba2" style="background:#ea580c;color:#fff;border-color:#ea580c" onclick="abrirModalAsignarTecnico('${p.id}')"><i class="fas fa-exchange-alt"></i> Reasignar técnico</button><button type="button" class="ba2" style="background:#64748b;color:#fff;border-color:#64748b" onclick="ejecutarDesasignarPedidoPorId('${p.id}', {confirmar:true})"><i class="fas fa-user-slash"></i> Desasignar</button>` : ''}
             ${ed && (p.es === 'Pendiente' || p.es === 'Asignado') ? `<button class="ba2 p2" onclick="_a('i','${p.id}')"><i class="fas fa-play"></i> Iniciar en sitio</button><button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button>` : ''}
             ${ed && p.es === 'En ejecución' ? `<button class="ba2 s2" onclick="_a('c','${p.id}')"><i class="fas fa-check"></i> Cerrar Pedido</button><button class="ba2 p2" onclick="_a('av','${p.id}')"><i class="fas fa-percent"></i> Cargar Avance (${p.av}%)</button>` : ''}
             <button class="ba2 imprimir" onclick="imprimirPedidoPorId('${p.id}')"><i class="fas fa-print"></i> Imprimir</button>
@@ -5324,6 +5545,8 @@ async function cargarConfigEmpresa() {
         const cfg = {};
         (r.rows || []).forEach(row => { cfg[row.clave] = row.valor; });
         window.EMPRESA_CFG = cfg;
+        syncWrapCoordsDisplayNuevoPedido();
+        refrescarLineaUbicacionModalNuevoPedido();
         // Actualizar título y subtítulo
         const nombre = cfg.nombre || 'Pedidos de Mantenimiento';
         const sub    = cfg.subtitulo || '';
@@ -5338,6 +5561,8 @@ async function cargarConfigEmpresa() {
     } catch(e) {
         console.warn('Config empresa no cargada:', e.message);
         window.EMPRESA_CFG = {};
+        syncWrapCoordsDisplayNuevoPedido();
+        refrescarLineaUbicacionModalNuevoPedido();
     }
 }
 
@@ -5510,6 +5735,8 @@ async function guardarConfigEmpresa() {
         }
         toast('Configuración guardada', 'success');
         await cargarConfigEmpresa();
+        syncWrapCoordsDisplayNuevoPedido();
+        refrescarLineaUbicacionModalNuevoPedido();
     } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
@@ -6011,32 +6238,97 @@ async function generarInformeMensualENRE() {
         }
     });
     Chart.register({
-        id: 'gestornovaBarVPctLabels',
+        id: 'gestornovaStatsBarLabels',
         afterDatasetsDraw(chart) {
             const cid = chart.canvas?.id;
-            const ok = { 'chart-prioridades': true, 'chart-usuarios': true, 'chart-tecnicos': true };
-            if (!cid || !ok[cid] || chart.config.type !== 'bar' || chart.options.indexAxis === 'y') return;
-            const data = chart.data.datasets[0]?.data;
-            if (!data) return;
-            const total = data.reduce((s, v) => s + Number(v || 0), 0);
-            if (!total) return;
-            const meta = chart.getDatasetMeta(0);
             const ctx = chart.ctx;
+            const area = chart.chartArea;
+            if (!ctx || !area) return;
             ctx.save();
-            ctx.font = '600 10px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#0f172a';
-            meta.data.forEach((bar, i) => {
-                const v = Number(data[i] || 0);
-                if (!v) return;
-                const pct = Math.round(1000 * v / total) / 10;
-                const { x, y } = bar.tooltipPosition();
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = 'rgba(255,255,255,.92)';
-                const t = pct + '%';
-                ctx.strokeText(t, x, y - 6);
-                ctx.fillText(t, x, y - 6);
-            });
+            const drawPctVertical = (data, meta0) => {
+                if (!data?.length || !meta0?.data?.length || meta0.hidden) return;
+                const total = data.reduce((s, v) => s + Number(v || 0), 0);
+                if (!total) return;
+                ctx.font = '600 10px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+                ctx.textAlign = 'center';
+                meta0.data.forEach((bar, i) => {
+                    const v = Number(data[i] || 0);
+                    if (!v) return;
+                    const pct = Math.round(1000 * v / total) / 10;
+                    const p = typeof bar.getProps === 'function' ? bar.getProps(['x', 'y', 'base'], true) : null;
+                    const x = p?.x ?? bar.x;
+                    const yv = p?.y ?? bar.y;
+                    const bs = p?.base ?? bar.base;
+                    if (x == null || yv == null || bs == null) return;
+                    const top = Math.min(yv, bs);
+                    const bot = Math.max(yv, bs);
+                    const h = bot - top;
+                    let ty = top - 5;
+                    ctx.textBaseline = 'bottom';
+                    if (ty < area.top + 14) {
+                        ty = top + h / 2;
+                        ctx.textBaseline = 'middle';
+                    }
+                    const t = pct + '%';
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'rgba(255,255,255,.95)';
+                    ctx.fillStyle = '#0f172a';
+                    ctx.strokeText(t, x, ty);
+                    ctx.fillText(t, x, ty);
+                });
+            };
+            if (cid === 'chart-mensual' && chart.config.type === 'bar' && chart.options.indexAxis !== 'y') {
+                chart.data.datasets.forEach((ds, di) => {
+                    const meta = chart.getDatasetMeta(di);
+                    if (meta.hidden || !meta?.data?.length) return;
+                    meta.data.forEach((bar, i) => {
+                        const v = Number(ds.data[i] || 0);
+                        if (!v) return;
+                        const cp = typeof bar.getCenterPoint === 'function' ? bar.getCenterPoint() : null;
+                        const x = cp?.x ?? bar.x;
+                        const y = cp?.y ?? bar.y;
+                        if (x == null || y == null) return;
+                        ctx.font = '600 11px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.lineWidth = 3;
+                        ctx.strokeStyle = 'rgba(255,255,255,.92)';
+                        ctx.fillStyle = '#0f172a';
+                        const t = String(v);
+                        ctx.strokeText(t, x, y);
+                        ctx.fillText(t, x, y);
+                    });
+                });
+                ctx.restore();
+                return;
+            }
+            if (cid === 'chart-tipos' && chart.config.type === 'bar' && chart.options.indexAxis === 'y') {
+                const data = chart.data.datasets[0]?.data;
+                const meta0 = chart.getDatasetMeta(0);
+                if (!data || meta0.hidden || !meta0?.data?.length) { ctx.restore(); return; }
+                ctx.font = '600 10px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                meta0.data.forEach((bar, i) => {
+                    const v = Number(data[i] || 0);
+                    if (!v) return;
+                    const p = typeof bar.getProps === 'function' ? bar.getProps(['x', 'y', 'base'], true) : null;
+                    const xv = p?.x ?? bar.x;
+                    const yv = p?.y ?? bar.y;
+                    const bs = p?.base ?? bar.base;
+                    if (xv == null || yv == null || bs == null) return;
+                    const right = Math.max(xv, bs);
+                    const tx = Math.min(right + 6, area.right - 4);
+                    ctx.fillText(String(v), tx, yv);
+                });
+                ctx.restore();
+                return;
+            }
+            const pctCharts = { 'chart-prioridades': true, 'chart-usuarios': true, 'chart-tecnicos': true };
+            if (pctCharts[cid] && chart.config.type === 'bar' && chart.options.indexAxis !== 'y') {
+                drawPctVertical(chart.data.datasets[0]?.data, chart.getDatasetMeta(0));
+            }
             ctx.restore();
         }
     });
@@ -6192,7 +6484,8 @@ async function cargarEstadisticas() {
                 { label: 'Creados',  data: rMensual.rows.map(r => parseInt(r.total   || 0)), backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 2 },
                 { label: 'Cerrados', data: rMensual.rows.map(r => parseInt(r.cerrados|| 0)), backgroundColor: '#10b98188', borderColor: '#10b981', borderWidth: 2 }
             ],
-            { plugins: { legend: { display: true, position: 'top' },
+            { layout: { padding: { top: 10, bottom: 6, left: 4, right: 8 } },
+                plugins: { legend: { display: true, position: 'top' },
                 tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y }}}}
         );
 
@@ -6212,7 +6505,8 @@ async function cargarEstadisticas() {
             rPrior.rows.map(r => r.prioridad),
             [{ label: 'Pedidos', data: rPrior.rows.map(r => parseInt(r.n)),
                backgroundColor: rPrior.rows.map(r => priorColor[r.prioridad] || '#94a3b8') }],
-            { plugins: { legend: { display: false },
+            { layout: { padding: { top: 32, bottom: 4, left: 4, right: 8 } },
+                plugins: { legend: { display: false },
                 tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}}}
         );
 
@@ -6223,6 +6517,7 @@ async function cargarEstadisticas() {
             [{ label: 'Pedidos', data: rTipos.rows.map(r => parseInt(r.n)),
                backgroundColor: '#1e3a8a88', borderColor: '#1e3a8a', borderWidth: 1 }],
             { indexAxis: 'y',
+              layout: { padding: { top: 4, bottom: 4, left: 4, right: 36 } },
               plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.parsed.x + ' pedidos' }}},
               scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
         );
@@ -6246,7 +6541,8 @@ async function cargarEstadisticas() {
                 rUsuarios.rows.map(r => r.usuario.length > 14 ? r.usuario.substring(0,14)+'…' : r.usuario),
                 [{ label: 'Pedidos', data: rUsuarios.rows.map(r => parseInt(r.n)),
                    backgroundColor: COLORES.slice(0,10) }],
-                { plugins: { legend: { display: false },
+                { layout: { padding: { top: 32, bottom: 4, left: 4, right: 8 } },
+                    plugins: { legend: { display: false },
                     tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}},
                   scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             );
@@ -6260,7 +6556,9 @@ async function cargarEstadisticas() {
                 rTecnicos.rows.map(r => r.tecnico.length > 15 ? r.tecnico.substring(0,15)+'…' : r.tecnico),
                 [{ label: 'Pedidos cerrados', data: rTecnicos.rows.map(r => parseInt(r.n)),
                    backgroundColor: COLORES }],
-                { plugins: { legend: { display: false } } }
+                { layout: { padding: { top: 32, bottom: 4, left: 4, right: 8 } },
+                    plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}} }
             );
         } else {
             const wrapTec1 = document.getElementById('chart-wrap-tecnicos');
