@@ -462,6 +462,7 @@ textarea{resize:vertical;min-height:80px}
     <div class="pc">
       <div class="pt">
         <button class="tb active" data-tab="p"><i class="fas fa-clock"></i> Pendientes <span id="pc" class="bge">0</span></button>
+        <button class="tb" data-tab="a"><i class="fas fa-user-check"></i> Asignados <span id="ac" class="bge">0</span></button>
         <button class="tb" data-tab="c"><i class="fas fa-check-circle"></i> Cerrados <span id="cc" class="bge">0</span></button>
         <label id="wrap-toggle-ver-todos" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
           <input type="checkbox" id="toggle-ver-todos-pedidos" title="Ver todos los reclamos del sistema"> Todos
@@ -5180,10 +5181,16 @@ window._xl = id => {
 
 function render() {
     const cer = app.p.filter(p => p.es === 'Cerrado').length;
-    document.getElementById('pc').textContent = app.p.length - cer;
+    const asg = app.p.filter(p => p.es === 'Asignado').length;
+    document.getElementById('pc').textContent = app.p.length - cer - asg;
+    document.getElementById('ac').textContent = asg;
     document.getElementById('cc').textContent = cer;
     
-    const fl = app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado');
+    const fl = app.p.filter(p => {
+        if (app.tab === 'a') return p.es === 'Asignado';
+        if (app.tab === 'c') return p.es === 'Cerrado';
+        return p.es !== 'Cerrado' && p.es !== 'Asignado';
+    });
     const c = document.getElementById('pl');
     c.innerHTML = '';
     
@@ -5341,7 +5348,11 @@ document.getElementById('toggle-ver-todos-pedidos')?.addEventListener('change', 
 
 document.getElementById('eb').addEventListener('click', () => {
     exportPedido(
-        app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado'),
+        app.p.filter(p => {
+            if (app.tab === 'a') return p.es === 'Asignado';
+            if (app.tab === 'c') return p.es === 'Cerrado';
+            return p.es !== 'Cerrado' && p.es !== 'Asignado';
+        }),
         'pedidos_' + app.tab + '_' + new Date().toISOString().slice(0,10)
     );
 });
