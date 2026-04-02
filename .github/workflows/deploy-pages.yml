@@ -30,6 +30,7 @@ jobs:
       - name: Generar config.json desde secretos
         env:
           NEON_CS: ${{ secrets.NEON_CONNECTION_STRING }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
           EJS_PK: ${{ secrets.EMAILJS_PUBLIC_KEY }}
           EJS_SV: ${{ secrets.EMAILJS_SERVICE_ID }}
           EJS_TPL: ${{ secrets.EMAILJS_TEMPLATE_ID }}
@@ -41,11 +42,12 @@ jobs:
           fi
           jq -n \
             --arg cs "$NEON_CS" \
+            --arg api "${API_BASE_URL:-}" \
             --arg pk "${EJS_PK:-}" \
             --arg sv "${EJS_SV:-}" \
             --arg tpl "${EJS_TPL:-}" \
             --arg ark "${ADMIN_RECOVERY_KEY:-}" \
-            '{neon:{connectionString:$cs},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},admin:{recoveryKey:$ark},app:{version:"2.0.0"}}' \
+            '{neon:{connectionString:$cs},api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},admin:{recoveryKey:$ark},app:{version:"2.0.0"}}' \
             > config.json
           echo "OK: config.json generado."
 

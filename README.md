@@ -25,6 +25,7 @@ cp config.example.json config.json
    | Secret | Descripción |
    |--------|-------------|
    | `NEON_CONNECTION_STRING` | URI completa `postgresql://...` (obligatorio) |
+   | `API_BASE_URL` | URL pública de la API Node/Render (obligatorio para setup wizard SaaS) |
    | `EMAILJS_PUBLIC_KEY` | Opcional |
    | `EMAILJS_SERVICE_ID` | Opcional |
    | `EMAILJS_TEMPLATE_ID` | Opcional |
@@ -40,3 +41,12 @@ Si alguna vez subiste credenciales al repo público, leé [SECURITY.md](./SECURI
 ## Paridad con la app Android
 
 La fuente de verdad del front suele ser `PedidosMG/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
+
+## API y consumo Neon (Android + Web/PWA)
+
+La app Android y esta Web/PWA consumen la misma API. Para evitar consumo innecesario de `network transfer` en Neon:
+
+- Usar `GET /health` para monitoreo liviano (no consulta base de datos).
+- Usar `GET /health/db` solo para diagnóstico manual (sí consulta Neon).
+- No usar `/api/app-version` como endpoint de uptime.
+- Si necesitás el mínimo consumo posible, pausar cron/monitores y despertar solo con tráfico real de usuarios.
