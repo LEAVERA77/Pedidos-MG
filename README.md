@@ -34,6 +34,14 @@ cp config.example.json config.json
 
 3. Cada push a `main` ejecuta el workflow que genera `config.json` en el artefacto y publica el sitio.
 
+### Cómo publicar los cambios del front (implementación en GitHub)
+
+1. Subí `index.html` / `sw.js` a `main` (commit + `git push origin main`).
+2. Esperá a que termine el workflow **Deploy GitHub Pages** en la pestaña **Actions**, o disparalo a mano: **Actions → Deploy GitHub Pages → Run workflow** en la rama `main`.
+3. La API en Render debe estar actualizada si cambió el backend (repo Android/Nexxo): ahí hace falta **Manual Deploy** en Render o push a ese repo.
+4. **Setup inicial (admin):** la primera vez, el administrador debe completar el asistente en la app; el estado queda guardado en Neon (`clientes.configuracion.setup_wizard_completado`). Para saltearlo en un tenant ya existente (solo BD):  
+   `UPDATE clientes SET configuracion = COALESCE(configuracion,'{}'::jsonb) || '{"setup_wizard_completado": true}'::jsonb WHERE id = <tenant_id>;`
+
 ## Seguridad
 
 Si alguna vez subiste credenciales al repo público, leé [SECURITY.md](./SECURITY.md).
