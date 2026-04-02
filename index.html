@@ -462,7 +462,6 @@ textarea{resize:vertical;min-height:80px}
     <div class="pc">
       <div class="pt">
         <button class="tb active" data-tab="p"><i class="fas fa-clock"></i> Pendientes <span id="pc" class="bge">0</span></button>
-        <button class="tb" data-tab="a"><i class="fas fa-user-check"></i> Asignados <span id="ac" class="bge">0</span></button>
         <button class="tb" data-tab="c"><i class="fas fa-check-circle"></i> Cerrados <span id="cc" class="bge">0</span></button>
         <label id="wrap-toggle-ver-todos" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
           <input type="checkbox" id="toggle-ver-todos-pedidos" title="Ver todos los reclamos del sistema"> Todos
@@ -1193,7 +1192,7 @@ function actualizarBadgeOffline() {
 
 
 async function notificarNeonConectadoParaUpdateCheck() {
-    const esApp = window.location.protocol === 'file:' && window.AndroidConfig;
+    const esApp = window.AndroidConfig && (/GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent) || window.location.protocol === 'file:');
     if (!esApp) return;
     if (NEON_OK && _sql && typeof window.AndroidConfig.applyUpdateCheckFromNeon === 'function') {
         try {
@@ -1650,8 +1649,8 @@ async function initNeon() {
         console.warn('[neon] APP_CONFIG no disponible — esperando config.json');
         return false;
     }
-    // WebView file://: fetch HEAD a Internet a veces falla aunque Neon sea alcanzable; intentamos conectar igual.
-    const esWebViewLocal = window.location.protocol === 'file:' && typeof window.AndroidConfig !== 'undefined';
+    // WebView Android: a veces hayInternet() falla con HTML remoto o file:// aunque Neon sea alcanzable.
+    const esWebViewLocal = typeof window.AndroidConfig !== 'undefined';
     const tieneRed = await hayInternet();
     if (!tieneRed && !esWebViewLocal) {
         console.log('[neon] sin red real — modo offline');
@@ -2897,11 +2896,6 @@ function initMap() {
 let _watchId         = null;  
 let _circuloAcc      = null;  
 let _mejorPrecision  = Infinity; 
-let _manualCenterUntil = 0;
-
-function habilitarCentradoManual(ms = 15000) {
-    _manualCenterUntil = Date.now() + ms;
-}
 
 
 function mostrarMarcadorUbicacion(lat, lon, acc) {
@@ -3015,10 +3009,9 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         ultimaUbicacion = { lat: latitude, lon: longitude, acc };
         try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
 
-        const puedeCentrarAhora = !centrarMapa ? false : (Date.now() <= _manualCenterUntil || !modoSilencioso);
         if (app.map) {
             const zoomSugerido = mostrarMarcadorUbicacion(latitude, longitude, acc);
-            if (puedeCentrarAhora && !centroInicialAplicado) {
+            if (centrarMapa && !centroInicialAplicado) {
                 app.map.invalidateSize({ animate: false });
                 
                 const actualCenter = app.map.getCenter();
@@ -3028,7 +3021,6 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
                 if (estaLejos || !esWatchUpdate) {
                     app.map.setView([latitude, longitude], zoomSugerido, { animate: true });
                 }
-                if (modoSilencioso) _manualCenterUntil = 0;
                 centroInicialAplicado = true;
                 setTimeout(() => {
                     document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
@@ -3060,12 +3052,10 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
             toast(msgs[error.code] || 'Error de GPS', 'error');
         }
         
-        const puedeCentrarAhora = !centrarMapa ? false : (Date.now() <= _manualCenterUntil || !modoSilencioso);
-        if (ultimaUbicacion && app.map && puedeCentrarAhora) {
+        if (ultimaUbicacion && app.map && centrarMapa) {
             app.map.invalidateSize({ animate: false });
             mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
             app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], 14, { animate: true });
-            if (modoSilencioso) _manualCenterUntil = 0;
             if (!modoSilencioso) toast('📍 Mostrando última ubicación conocida', 'info');
         }
     }
@@ -3123,7 +3113,6 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
 
 document.getElementById('btn-ubicacion').addEventListener('click', () => {
     if (!app.map) return;
-    habilitarCentradoManual();
     if (ultimaUbicacion) {
         
         app.map.invalidateSize({ animate: false });
@@ -5191,16 +5180,10 @@ window._xl = id => {
 
 function render() {
     const cer = app.p.filter(p => p.es === 'Cerrado').length;
-    const asg = app.p.filter(p => p.es === 'Asignado').length;
-    document.getElementById('pc').textContent = app.p.length - cer - asg;
-    document.getElementById('ac').textContent = asg;
+    document.getElementById('pc').textContent = app.p.length - cer;
     document.getElementById('cc').textContent = cer;
     
-    const fl = app.p.filter(p => {
-        if (app.tab === 'a') return p.es === 'Asignado';
-        if (app.tab === 'c') return p.es === 'Cerrado';
-        return p.es !== 'Cerrado' && p.es !== 'Asignado';
-    });
+    const fl = app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado');
     const c = document.getElementById('pl');
     c.innerHTML = '';
     
@@ -5358,11 +5341,7 @@ document.getElementById('toggle-ver-todos-pedidos')?.addEventListener('change', 
 
 document.getElementById('eb').addEventListener('click', () => {
     exportPedido(
-        app.p.filter(p => {
-            if (app.tab === 'a') return p.es === 'Asignado';
-            if (app.tab === 'c') return p.es === 'Cerrado';
-            return p.es !== 'Cerrado' && p.es !== 'Asignado';
-        }),
+        app.p.filter(p => app.tab === 'p' ? p.es !== 'Cerrado' : p.es === 'Cerrado'),
         'pedidos_' + app.tab + '_' + new Date().toISOString().slice(0,10)
     );
 });
@@ -6900,10 +6879,10 @@ async function pasoResetPw() {
             const expiry = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
             await sqlSimple(`UPDATE usuarios SET reset_token = ${esc(token)}, reset_expiry = ${esc(expiry)} WHERE id = ${esc(usuario.id)}`);
 
-            const esAndroidLocal = window.location.protocol === 'file:' && !!window.AndroidDevice;
+            const esAndroidLocal = !!window.AndroidDevice && (/GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent) || window.location.protocol === 'file:');
             if (esAndroidLocal) {
                 // EmailJS no funciona en WebView Android (403 non-browser).
-                // En app local mostramos el código temporal para continuar el reset.
+                // En la app mostramos el código temporal para continuar el reset.
                 msg.style.color = '#854d0e';
                 msg.innerHTML =
                     `Android no puede enviar correo desde esta pantalla.<br>` +
@@ -6934,8 +6913,8 @@ async function pasoResetPw() {
             }
         } catch(e) {
             const em = _errMsg(e);
-            const esAndroidLocal = window.location.protocol === 'file:' && !!window.AndroidDevice;
-            // Fallback explícito para recuperar admin en la app local si falla correo.
+            const esAndroidLocal = !!window.AndroidDevice && (/GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent) || window.location.protocol === 'file:');
+            // Fallback explícito para recuperar admin en la app si falla correo.
             if (esAndroidLocal && _resetTokenActual && _resetUsuarioAdmin) {
                 msg.style.color = '#854d0e';
                 msg.innerHTML =
