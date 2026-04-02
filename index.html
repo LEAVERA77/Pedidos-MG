@@ -1770,7 +1770,41 @@ async function initNeon() {
 
 let DIST = []; // Se carga desde Neon: tabla distribuidores
 
-const TIPOS = [
+const TIPOS_RECLAMO_POR_RUBRO = {
+    municipio: [
+        'Alumbrado Público (Foco quemado/Poste)',
+        'Bacheo y Pavimento',
+        'Recolección de Residuos / Poda',
+        'Mantenimiento de Espacios Verdes',
+        'Señalización y Semáforos',
+        'Limpieza de Pluviales / Zanjas',
+        'Recolección (otros)',
+        'Cloacas',
+        'Otros'
+    ],
+    cooperativa_agua: [
+        'Pérdida en Vereda / Calzada',
+        'Falta de Presión / Sin Servicio',
+        'Calidad del Agua (Turbiedad)',
+        'Obstrucción',
+        'Cambio de Medidor',
+        'Conexión Nueva',
+        'Otros'
+    ],
+    cooperativa_electrica: [
+        'Corte de Energía (Falta de Fase/Total)',
+        'Cables Caídos / Peligro en Vía Pública',
+        'Problemas de Tensión (Alta/Baja)',
+        'Poste Inclinado / Dañado',
+        'Cambio de Medidor / Conexión',
+        'Riesgo en la vía pública',
+        'Corrimiento de poste/columna',
+        'Pedido de factibilidad (nuevo servicio)',
+        'Otros'
+    ]
+};
+
+const TIPOS_RECLAMO_LEGACY = [
     'Riesgo vía pública',
     'Mantenimiento preventivo',
     'Material averiado',
@@ -1785,6 +1819,39 @@ const TIPOS = [
     'Emergencia',
     'Otros'
 ];
+
+function normalizarRubroEmpresa(tipo) {
+    const t = String(tipo || '').trim().toLowerCase();
+    if (t === 'municipio') return 'municipio';
+    if (t === 'cooperativa_agua' || t === 'cooperativa de agua') return 'cooperativa_agua';
+    if (t === 'cooperativa_electrica' || t === 'cooperativa eléctrica' || t === 'cooperativa electrica') return 'cooperativa_electrica';
+    return null;
+}
+
+function tiposReclamoSeleccionables() {
+    const rubro = normalizarRubroEmpresa(window.EMPRESA_CFG?.tipo);
+    if (rubro && TIPOS_RECLAMO_POR_RUBRO[rubro]) return [...TIPOS_RECLAMO_POR_RUBRO[rubro]];
+    const u = new Set();
+    Object.values(TIPOS_RECLAMO_POR_RUBRO).forEach(arr => arr.forEach(x => u.add(x)));
+    return [...u];
+}
+
+function poblarSelectTiposReclamo() {
+    const st = document.getElementById('tt');
+    if (!st) return;
+    const prev = st.value;
+    const lista = tiposReclamoSeleccionables();
+    st.innerHTML = '';
+    lista.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t;
+        o.textContent = t;
+        st.appendChild(o);
+    });
+    if (prev && lista.includes(prev)) st.value = prev;
+    else if (lista.length) st.selectedIndex = 0;
+    syncNisClienteReclamoConexionUI();
+}
 
 const MATERIAL_UNIDADES = ['PZA','MTR','LTR','KG','M3','M2','ML','JGO','UN','BOL','TN','BOB','TR','CJ','PAR','KIT','TAM'];
 
@@ -2115,6 +2182,9 @@ document.getElementById('lf').addEventListener('submit', async e => {
             const u = { id: usuario.id, email: usuario.email, nombre: usuario.nombre || 'Administrador', rol: normalizarRolStr(usuario.rol || 'tecnico') };
             guardarUsuarioOffline(u, pw);
             await loginApiJwt(em, pw);
+            if (!getApiToken()) {
+                toast('La API (JWT) no respondió: el setup SaaS y datos del tenant pueden no cargar hasta que revises API_BASE_URL o la red.', 'warning');
+            }
             entrarConUsuario(u, false);
             toast('Bienvenido ' + u.nombre, 'success');
         } else {
@@ -2978,7 +3048,7 @@ function initMap() {
         const ui = document.getElementById('ui');
         ui.innerHTML = htmlLineaUbicacionFormulario(e.latlng.lat, e.latlng.lng, null);
         ui.className = 'ud sel';
-        try { syncNisClienteReclamoConexionUI(); } catch (_) {}
+        try { poblarSelectTiposReclamo(); syncNisClienteReclamoConexionUI(); } catch (_) {}
         document.getElementById('pm').classList.add('active');
     });
     
@@ -3266,6 +3336,7 @@ document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => 
 
     if (ultimaUbicacion) {
         aplicarUbicacionAlFormulario(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
+        try { poblarSelectTiposReclamo(); } catch (_) {}
         document.getElementById('pm').classList.add('active');
         
         if (navigator.geolocation) {
@@ -3281,6 +3352,7 @@ document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => 
             );
         }
     } else {
+        try { poblarSelectTiposReclamo(); } catch (_) {}
         document.getElementById('pm').classList.add('active');
         toast('Obteniendo ubicación GPS...', 'info');
         if (navigator.geolocation) {
@@ -4556,16 +4628,22 @@ document.getElementById('pf').addEventListener('submit', async e => {
         } catch (_) {}
 
         const tipoTr = document.getElementById('tt')?.value || '';
-        const reqReclamoOConexion = tipoTr === 'Reclamo de Cliente' || tipoTr === 'Conexión Nueva';
+        const permitidos = tiposReclamoSeleccionables();
+        if (!permitidos.includes(tipoTr)) {
+            toast('Elegí un tipo de reclamo válido para el rubro de tu organización.', 'error');
+            btn.disabled = false;
+            return;
+        }
+        const reqReclamoOConexion = tipoReclamoRequiereNisYCliente(tipoTr);
         const nisVal = (document.getElementById('nis').value || '').trim();
         const clVal = (document.getElementById('cl').value || '').trim();
         if (reqReclamoOConexion && !nisVal) {
-            toast('En «Reclamo de Cliente» y «Conexión Nueva» el NIS / medidor es obligatorio', 'error');
+            toast('Para este tipo de reclamo el NIS / medidor es obligatorio', 'error');
             btn.disabled = false;
             return;
         }
         if (reqReclamoOConexion && !clVal) {
-            toast('En «Reclamo de Cliente» y «Conexión Nueva» el cliente es obligatorio', 'error');
+            toast('Para este tipo de reclamo el nombre de cliente es obligatorio', 'error');
             btn.disabled = false;
             return;
         }
@@ -5525,17 +5603,20 @@ const sd = document.getElementById('di2');
     sd.appendChild(og);
 });
 
-const st = document.getElementById('tt');
-TIPOS.forEach(t => {
-    const o = document.createElement('option');
-    o.value = t;
-    o.textContent = t;
-    st.appendChild(o);
-});
+poblarSelectTiposReclamo();
 
 function tipoTrabajoRequiereNisYCliente() {
-    const v = document.getElementById('tt')?.value || '';
-    return v === 'Reclamo de Cliente' || v === 'Conexión Nueva';
+    return tipoReclamoRequiereNisYCliente(document.getElementById('tt')?.value || '');
+}
+
+function tipoReclamoRequiereNisYCliente(tipoTrabajo) {
+    const v = String(tipoTrabajo || '').trim();
+    if (!v) return false;
+    if (v === 'Reclamo de Cliente' || v === 'Conexión Nueva') return true;
+    if (v.includes('Conexión Nueva')) return true;
+    if (v.includes('Cambio de Medidor')) return true;
+    if (v.toLowerCase().includes('factibilidad')) return true;
+    return false;
 }
 function syncNisClienteReclamoConexionUI() {
     const req = tipoTrabajoRequiereNisYCliente();
@@ -5548,7 +5629,7 @@ function syncNisClienteReclamoConexionUI() {
             inpN.placeholder = 'Obligatorio — NIS o número de medidor del socio';
         } else {
             inpN.removeAttribute('required');
-            inpN.placeholder = 'Opcional (obligatorio solo en Reclamo de Cliente / Conexión Nueva)';
+            inpN.placeholder = 'Opcional (obligatorio en conexión / medidor / factibilidad según tipo)';
         }
     }
     const lb = document.getElementById('lbl-cl');
@@ -5559,7 +5640,8 @@ function syncNisClienteReclamoConexionUI() {
         else inp.removeAttribute('required');
     }
 }
-st.addEventListener('change', syncNisClienteReclamoConexionUI);
+const st = document.getElementById('tt');
+if (st) st.addEventListener('change', syncNisClienteReclamoConexionUI);
 syncNisClienteReclamoConexionUI();
 
 // ── TRACKING DE UBICACIÓN (cada 15 min) — debe declararse antes del restore de sesión ──
@@ -5710,11 +5792,13 @@ async function cargarConfigEmpresa() {
         if (h2) h2.innerHTML = '<i class="fas fa-bolt"></i> ' + nombre;
         aplicarBrandingDesdeConfig();
         aplicarEtiquetasPorTipo(cfg.tipo || '');
+        poblarSelectTiposReclamo();
     } catch(e) {
         console.warn('Config empresa no cargada:', e.message);
         window.EMPRESA_CFG = {};
         syncWrapCoordsDisplayNuevoPedido();
         refrescarLineaUbicacionModalNuevoPedido();
+        poblarSelectTiposReclamo();
     }
 }
 
@@ -5732,10 +5816,12 @@ function tenantIdActual() {
 function configInicialIncompleta(cfg) {
     const nombre = String(cfg?.nombre || '').trim();
     const tipo = String(cfg?.tipo || '').trim();
-    const logo = String(cfg?.logo_url || '').trim();
-    const lat = String(cfg?.lat_base || '').trim();
-    const lng = String(cfg?.lng_base || '').trim();
-    return !nombre || !tipo || !logo || !lat || !lng;
+    const lat = cfg?.lat_base ?? cfg?.latitud;
+    const lng = cfg?.lng_base ?? cfg?.longitud;
+    const latOk = lat != null && String(lat).trim() !== '' && Number.isFinite(Number(lat));
+    const lngOk = lng != null && String(lng).trim() !== '' && Number.isFinite(Number(lng));
+    // Logo es opcional en el formulario; exigirlo dejaba el wizard en bucle al pulsar Finalizar.
+    return !nombre || !tipo || !latOk || !lngOk;
 }
 function actualizarStepWizard() {
     const lbl = document.getElementById('sw-step-label');
@@ -5753,10 +5839,16 @@ function actualizarStepWizard() {
 }
 function inicializarMapaSetupWizard() {
     const el = document.getElementById('setup-map');
-    if (!el || typeof L === 'undefined') return;
     const cfg = window.EMPRESA_CFG || {};
     if (_setupLat == null) _setupLat = parseFloat(cfg.lat_base || cfg.latitud || '-31.783');
     if (_setupLng == null) _setupLng = parseFloat(cfg.lng_base || cfg.longitud || '-60.483');
+    if (!el || typeof L === 'undefined') {
+        const la = document.getElementById('cfgi-lat');
+        const ln = document.getElementById('cfgi-lng');
+        if (la) la.textContent = Number(_setupLat).toFixed(6);
+        if (ln) ln.textContent = Number(_setupLng).toFixed(6);
+        return;
+    }
     if (!_setupMap) {
         _setupMap = L.map('setup-map', { zoomControl: true }).setView([_setupLat, _setupLng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -5838,7 +5930,6 @@ function mostrarModalConfigInicial() {
     });
     document.getElementById('sw-prev').style.display = 'none';
     document.getElementById('sw-next').style.display = esAdm ? '' : 'none';
-    document.getElementById('cfgi-guardar').style.display = esAdm ? 'none' : 'none';
     document.getElementById('cfgi-logout').style.display = esAdm ? 'none' : '';
     _setupWizardStep = 1;
     _setupGeoIntentado = false;
@@ -5862,7 +5953,14 @@ async function verificarConfiguracionInicialObligatoria() {
             if (resp.ok) {
                 const data = await resp.json();
                 const cli = data?.cliente || {};
-                const extra = cli?.configuracion || {};
+                let extra = cli?.configuracion || {};
+                if (typeof extra === 'string') {
+                    try {
+                        extra = JSON.parse(extra);
+                    } catch (_) {
+                        extra = {};
+                    }
+                }
                 cfg = {
                     ...cfg,
                     ...(cli.nombre ? { nombre: cli.nombre } : {}),
@@ -5872,6 +5970,7 @@ async function verificarConfiguracionInicialObligatoria() {
                     ...(extra.lng_base != null ? { lng_base: String(extra.lng_base) } : {})
                 };
                 window.EMPRESA_CFG = cfg;
+                poblarSelectTiposReclamo();
             }
         } catch (_) {}
     }
@@ -5882,6 +5981,7 @@ async function verificarConfiguracionInicialObligatoria() {
     ocultarModalConfigInicial();
     aplicarBrandingDesdeConfig();
     aplicarEtiquetasPorTipo(cfg.tipo || '');
+    poblarSelectTiposReclamo();
     return true;
 }
 function setupWizardNext() {
@@ -5936,7 +6036,10 @@ function initSetupWizardBindings() {
     }
 }
 async function guardarConfiguracionInicialObligatoria() {
-    if (!esAdmin()) return;
+    if (!esAdmin()) {
+        toast('Solo un administrador puede completar el setup.', 'error');
+        return;
+    }
     const nombre = (document.getElementById('cfgi-nombre')?.value || '').trim();
     const tipo = (document.getElementById('cfgi-tipo')?.value || '').trim();
     const logoUrlInput = (document.getElementById('cfgi-logo-url')?.value || '').trim();
@@ -5976,6 +6079,7 @@ async function guardarConfiguracionInicialObligatoria() {
             lat_base: String(_setupLat),
             lng_base: String(_setupLng)
         };
+        poblarSelectTiposReclamo();
         await cargarConfigEmpresa();
         const ok = await verificarConfiguracionInicialObligatoria();
         if (ok) toast('Setup inicial completado', 'success');
