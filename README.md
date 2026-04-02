@@ -25,7 +25,7 @@ cp config.example.json config.json
    | Secret | Descripción |
    |--------|-------------|
    | `NEON_CONNECTION_STRING` | URI completa `postgresql://...` (obligatorio) |
-   | `API_BASE_URL` | URL pública de la API Node/Render (obligatorio para setup wizard SaaS) |
+   | `API_BASE_URL` | URL pública de la API Node/Render (obligatorio para setup wizard SaaS), p. ej. `https://tu-servicio.onrender.com` |
    | `EMAILJS_PUBLIC_KEY` | Opcional |
    | `EMAILJS_SERVICE_ID` | Opcional |
    | `EMAILJS_TEMPLATE_ID` | Opcional |
@@ -41,6 +41,14 @@ Si alguna vez subiste credenciales al repo público, leé [SECURITY.md](./SECURI
 ## Paridad con la app Android
 
 La fuente de verdad del front suele ser `PedidosMG/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
+
+## WhatsApp Cloud API (Meta)
+
+El bot y el webhook de Meta se configuran **solo en el servidor de la API** (variables de entorno), no en este repo ni en `config.json`. En el panel de Meta, la URL del webhook debe ser:
+
+`https://<tu-API>/api/webhooks/whatsapp/meta`
+
+(con el mismo *Verify token* que definas en el backend). Detalle de variables: repositorio Android/Nexxo, archivo `api/.env.example`.
 
 ## API y consumo Neon (Android + Web/PWA)
 
