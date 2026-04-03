@@ -56,6 +56,7 @@ jobs:
           rm -rf dist
           mkdir -p dist
           cp index.html sw.js config.example.json config.json dist/
+          if [ -d privacy ]; then mkdir -p dist/privacy && cp -r privacy/* dist/privacy/; fi
           [ -f README.md ] && cp README.md dist/ || true
           [ -f SECURITY.md ] && cp SECURITY.md dist/ || true
           [ -f COPYRIGHT.md ] && cp COPYRIGHT.md dist/ || true

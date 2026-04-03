@@ -3,6 +3,13 @@
 Aplicación web para gestión de pedidos de mantenimiento.  
 **Sitio:** [leavera77.github.io/Pedidos-MG](https://leavera77.github.io/Pedidos-MG/)
 
+### Política de privacidad (Meta / WhatsApp / tiendas)
+
+El texto en **español (Argentina)** está en `privacy/index.html` y se publica con el mismo workflow de Pages.
+
+- **URL tras deploy (este repo):** [leavera77.github.io/Pedidos-MG/privacy/](https://leavera77.github.io/Pedidos-MG/privacy/) — podés usarla en Meta Developers y en Google Play como política de privacidad.
+- Si necesitás la ruta **sin** el nombre del proyecto (`https://leavera77.github.io/privacy/`), creá un repositorio público GitHub llamado **`privacy`**, subí el mismo `index.html` a la **raíz** del repo (como `index.html`), en **Settings → Pages** elegí **Deploy from branch** `main` y `/ (root)`. El sitio quedará en `https://leavera77.github.io/privacy/`.
+
 ## Derechos de autor
 
 Ver [COPYRIGHT.md](./COPYRIGHT.md).
