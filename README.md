@@ -38,7 +38,7 @@ cp config.example.json config.json
 
 1. Subí `index.html` / `sw.js` a `main` (commit + `git push origin main`).
 2. Esperá a que termine el workflow **Deploy GitHub Pages** en la pestaña **Actions**, o disparalo a mano: **Actions → Deploy GitHub Pages → Run workflow** en la rama `main`.
-3. La API en Render debe estar actualizada si cambió el backend (repo Android/Nexxo): ahí hace falta **Manual Deploy** en Render o push a ese repo.
+3. La API en Render debe estar actualizada si cambió el backend: commit/push en **`api/`** de este repo y **Manual Deploy** en Render (o el auto-deploy que tengas configurado).
 4. **Setup inicial (admin):** la primera vez, el administrador debe completar el asistente en la app; el estado queda guardado en Neon (`clientes.configuracion.setup_wizard_completado`). Para saltearlo en un tenant ya existente (solo BD):  
    `UPDATE clientes SET configuracion = COALESCE(configuracion,'{}'::jsonb) || '{"setup_wizard_completado": true}'::jsonb WHERE id = <tenant_id>;`
 
@@ -48,17 +48,30 @@ Si alguna vez subiste credenciales al repo público, leé [SECURITY.md](./SECURI
 
 ## Paridad con la app Android
 
-La fuente de verdad del front suele ser `PedidosMG/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
+La fuente de verdad del front suele ser `Nexxo/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
+
+## API Node (carpeta `api/` en este repo)
+
+El **código fuente del backend** (Express, webhooks Meta/WhatsApp, Neon) está en **`/api`** de este mismo repositorio [LEAVERA77/Pedidos-MG](https://github.com/LEAVERA77/Pedidos-MG). Desarrollo local:
+
+```bash
+cd api
+npm ci
+cp .env.example .env
+# Completá .env (DATABASE_URL, META_*, etc.) y: npm run dev
+```
+
+En Render (u otro host), el *Root Directory* puede apuntar a `api` o desplegás desde la raíz según tu `package.json` de servicio. Mantener **paridad**: tras cambios en `Nexxo/api`, sincronizá archivos hacia `Pedidos-MG/api` y subí commit + push a `main`.
 
 ## WhatsApp Cloud API (Meta)
 
-El bot y el webhook de Meta se configuran **solo en el servidor de la API** (variables de entorno), no en este repo ni en `config.json`. En el panel de Meta, la URL del webhook debe ser:
+El bot y el webhook de Meta se configuran en el **servidor** (variables de entorno), no en `config.json` de Pages. En el panel de Meta, la URL del webhook debe ser:
 
 `https://<tu-API>/api/webhooks/whatsapp/meta`
 
-(con el mismo *Verify token* que definas en el backend). Detalle de variables: repositorio Android/Nexxo, archivo `api/.env.example`.
+(con el mismo *Verify token* que definas en el backend). Variables de ejemplo: **`api/.env.example`** en este repo.
 
-**Varios municipios / números de WhatsApp:** en Neon, cada fila de `clientes` puede llevar en `configuracion` la clave `meta_phone_id` (Phone number ID de Meta) para que el mismo servidor en Render enrute el pedido al tenant correcto. Script de ejemplo en el repo Nexxo: `docs/NEON_meta_whatsapp_phone_id.sql`.
+**Varios municipios / números de WhatsApp:** en Neon, cada fila de `clientes` puede llevar en `configuracion` la clave `meta_phone_id` o `meta_phone_number_id` (Phone number ID de Meta) y `meta_access_token`, para que el mismo servidor en Render enrute y responda con el tenant correcto.
 
 ## API y consumo Neon (Android + Web/PWA)
 

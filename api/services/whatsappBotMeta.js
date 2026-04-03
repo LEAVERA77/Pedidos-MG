@@ -1,0 +1,544 @@
+import { query } from "../db/neon.js";
+import {
+  sendWhatsAppInteractiveListWithCredentials,
+  decodeWhatsAppListRowId,
+} from "./metaWhatsapp.js";
+import { logWhatsappMensajeEnviado } from "./whatsappNotificacionesLog.js";
+import {
+  getWhatsAppCredentialsByMetaPhoneNumberId,
+  getWhatsAppCredentialsForTenant,
+  sendBotWhatsAppText,
+  sendTenantWhatsAppText,
+} from "./whatsappService.js";
+import { crearPedidoDesdeWhatsappBot } from "./pedidoWhatsappBot.js";
+import { tiposReclamoParaClienteTipo } from "./tiposReclamo.js";
+import { resolveTenantIdByMetaPhoneNumberId } from "./metaTenantWhatsapp.js";
+
+const sessions = new Map();
+
+/** Tras la descripción: pedir pin GPS o texto de dirección (flujo bot). */
+const MSG_SOLICITAR_UBICACION =
+  "Por favor, enviá tu *ubicación actual* usando el botón *Adjuntar* (📎) → *Ubicación* en WhatsApp.\n\n" +
+  "Si no podés compartir GPS, escribí la *dirección o referencia* del lugar (calle, ciudad, barrio).";
+
+function botTenantId() {
+  return Number(process.env.WHATSAPP_BOT_TENANT_ID || 1);
+}
+
+function sessionKey(phoneDigits, tenantId) {
+  return `${String(phoneDigits || "").replace(/\D/g, "")}:${Number(tenantId)}`;
+}
+
+function normCfg(cfg) {
+  if (!cfg || typeof cfg !== "object") return {};
+  return cfg;
+}
+
+async function loadTenantBotContext(tenantId) {
+  const r = await query(
+    `SELECT id, nombre, tipo, configuracion FROM clientes WHERE id = $1 AND activo = TRUE LIMIT 1`,
+    [tenantId]
+  );
+  const row = r.rows?.[0];
+  if (!row) return null;
+  let cfg = row.configuracion;
+  if (typeof cfg === "string") {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = {};
+    }
+  }
+  const c = normCfg(cfg);
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    tipo: row.tipo,
+    lat: c.lat_base != null ? Number(c.lat_base) : null,
+    lng: c.lng_base != null ? Number(c.lng_base) : null,
+    tipos: tiposReclamoParaClienteTipo(row.tipo),
+  };
+}
+
+function textoBienvenidaYAyuda(ctx) {
+  const n = ctx.nombre || "nuestro servicio";
+  const max = ctx.tipos?.length || 0;
+  return (
+    `Bienvenido al centro de atención de *${n}*.\n\n` +
+    `Para ver los tipos de reclamo, escribí *Cargar reclamo* (te enviaremos una lista en el chat).\n\n` +
+    (max
+      ? `Si preferís, escribí solo el *número* del *1* al *${max}* según esta guía:\n\n${ctx.tipos.map((t, i) => `${i + 1}) ${t}`).join("\n")}\n\n`
+      : "") +
+    `Enviá *menú* o *0* para repetir este mensaje.`
+  );
+}
+
+/** Menú solo texto (respaldo si la lista interactiva falla o clientes antiguos). */
+function menuTextoNumerado(ctx) {
+  const lineas = [
+    `📋 *${ctx.nombre || "Pedidos"}*`,
+    "",
+    "Escribí el *número* de tu reclamo:",
+    "",
+  ];
+  ctx.tipos.forEach((t, i) => {
+    lineas.push(`${i + 1}) ${t}`);
+  });
+  lineas.push("");
+  lineas.push("O escribí *Cargar reclamo* para abrir la lista.");
+  return lineas.join("\n");
+}
+
+function esPedidoCargarReclamo(text) {
+  const n = String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  if (/\bcargar\s+reclamo\b/.test(n)) return true;
+  if (/\bnuevo\s+reclamo\b/.test(n)) return true;
+  if (/\bquiero\s+(hacer\s+)?(un\s+)?reclamo\b/.test(n)) return true;
+  if (n === "reclamo" || n === "lista" || n === "tipos") return true;
+  return false;
+}
+
+/** Resuelve tenant para enviar con el mismo número/token que recibió el webhook (multitenant). */
+async function tenantIdForWebhook(phoneNumberId) {
+  const resolved = await resolveTenantIdByMetaPhoneNumberId(phoneNumberId);
+  return resolved != null && Number.isFinite(Number(resolved)) ? Number(resolved) : botTenantId();
+}
+
+async function reply(phoneDigits, text, tenantId, webhookPhoneNumberId = null) {
+  const tid =
+    tenantId != null && Number.isFinite(Number(tenantId)) && Number(tenantId) >= 1
+      ? Number(tenantId)
+      : botTenantId();
+  const wpid = webhookPhoneNumberId != null ? String(webhookPhoneNumberId).trim() : "";
+  const r = wpid
+    ? await sendBotWhatsAppText({
+        tenantId: tid,
+        webhookPhoneNumberId: wpid,
+        toDigits: phoneDigits,
+        bodyText: text,
+        logContext: "whatsapp_bot_meta",
+      })
+    : await sendTenantWhatsAppText({
+        tenantId: tid,
+        toDigits: phoneDigits,
+        bodyText: text,
+        logContext: "whatsapp_bot_meta",
+      });
+  if (!r.ok) {
+    console.error("[whatsapp-bot-meta] send failed", {
+      tenantId: tid,
+      error: r.error,
+      graph: r.graph?.error || r.graph,
+    });
+  } else {
+    console.log("[webhook-meta-whatsapp] outbound_sent", {
+      to: String(phoneDigits || "").replace(/\D/g, "").slice(0, 4) + "…",
+      ok: true,
+      tenantId: tid,
+    });
+  }
+  return r;
+}
+
+/**
+ * Extrae lat/lng del mensaje Cloud API tipo `location` (msg.location).
+ * @returns {{ lat: number, lng: number } | null}
+ */
+export function extractLocationFromMetaMessage(msg) {
+  if (!msg || String(msg.type || "") !== "location") return null;
+  const loc = msg.location || {};
+  const la = Number(loc.latitude);
+  const lo = Number(loc.longitude);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+  if (Math.abs(la) > 90 || Math.abs(lo) > 180) return null;
+  return { lat: la, lng: lo };
+}
+
+async function finalizePedidoFromSession(phone, sess, contactName) {
+  const sk = sessionKey(phone, sess.tenantId);
+  let descripcionFinal = String(sess.descripcion || "").trim();
+  if (!descripcionFinal) {
+    sessions.delete(sk);
+    await reply(
+      phone,
+      "Faltan datos del pedido. Escribí *menú* para empezar de nuevo.",
+      sess.tenantId,
+      sess.phoneNumberId
+    );
+    return;
+  }
+  if (sess.direccionTexto && String(sess.direccionTexto).trim()) {
+    descripcionFinal += `\n\nUbicación indicada por el usuario: ${String(sess.direccionTexto).trim()}`;
+  }
+  const latN = sess.lat != null && Number.isFinite(Number(sess.lat)) ? Number(sess.lat) : null;
+  const lngN = sess.lng != null && Number.isFinite(Number(sess.lng)) ? Number(sess.lng) : null;
+  try {
+    const pedido = await crearPedidoDesdeWhatsappBot({
+      tenantId: sess.tenantId,
+      tipoCliente: sess.tipoCliente,
+      tipoTrabajo: sess.tipo,
+      descripcion: descripcionFinal,
+      telefonoContacto: phone,
+      lat: latN,
+      lng: lngN,
+      contactName: sess.contactName || contactName || null,
+    });
+    sessions.delete(sk);
+    await reply(
+      phone,
+      `Su reclamo N° *${pedido.numero_pedido}* ha sido cargado con éxito.\n\nTipo: *${sess.tipo}*\n\nGracias por contactarnos.`,
+      sess.tenantId,
+      sess.phoneNumberId
+    );
+  } catch (e) {
+    const m = String(e?.message || "");
+    sessions.delete(sk);
+    if (m === "sin_usuario_admin_tenant") {
+      await reply(
+        phone,
+        "No hay un usuario administrador asignado al servicio. Avisá a la cooperativa/municipio.",
+        sess.tenantId,
+        sess.phoneNumberId
+      );
+    } else {
+      await reply(
+        phone,
+        "No pudimos registrar el pedido. Intentá de nuevo o llamá a la oficina.",
+        sess.tenantId,
+        sess.phoneNumberId
+      );
+    }
+  }
+}
+
+async function replyListaTiposReclamo(phoneDigits, ctx, phoneNumberIdWebhook) {
+  const bodyText = `Elegí el tipo que mejor describe tu reclamo:`;
+  const pid = String(phoneNumberIdWebhook || "").trim();
+  let accessToken = "";
+  let graphPid = pid;
+  if (pid) {
+    const byPid = await getWhatsAppCredentialsByMetaPhoneNumberId(pid);
+    accessToken = String(byPid.accessToken || "").trim();
+  }
+  if (!accessToken || !graphPid) {
+    const creds = await getWhatsAppCredentialsForTenant(ctx.id);
+    accessToken = String(creds.accessToken || "").trim();
+    graphPid = pid || String(creds.phoneNumberId || "").trim();
+  }
+  if (!accessToken || !graphPid) {
+    console.error("[whatsapp-bot-meta] lista interactiva: sin credenciales Meta");
+    await reply(phoneDigits, menuTextoNumerado(ctx), ctx.id, pid || null);
+    return { ok: false, error: "missing_meta_credentials" };
+  }
+  const r = await sendWhatsAppInteractiveListWithCredentials(
+    phoneDigits,
+    {
+      bodyText,
+      buttonText: "Ver tipos",
+      sectionTitle: "Tipos de reclamo",
+      tipos: ctx.tipos,
+    },
+    { accessToken, phoneNumberId: graphPid }
+  );
+  const logTxt = r.ok ? `[lista interactiva] ${ctx.tipos.length} tipos (${ctx.nombre || "tenant"})` : `[lista interactiva] error`;
+  try {
+    await logWhatsappMensajeEnviado(phoneDigits, logTxt, r.ok);
+  } catch (e) {
+    console.error("[whatsapp-bot-meta] log enviado", e.message);
+  }
+  if (!r.ok) {
+    console.error("[whatsapp-bot-meta] lista interactiva falló, menú texto", r.graph || r.error);
+    await reply(phoneDigits, menuTextoNumerado(ctx), ctx.id, pid || null);
+  } else {
+    console.log("[webhook-meta-whatsapp] outbound_list", { to: String(phoneDigits || "").replace(/\D/g, "").slice(0, 4) + "…", ok: true });
+  }
+  return r;
+}
+
+export async function handleInboundMetaWhatsAppPayload(body) {
+  const entries = Array.isArray(body?.entry) ? body.entry : [];
+  for (const entry of entries) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+    for (const change of changes) {
+      const value = change?.value || {};
+      const messages = Array.isArray(value?.messages) ? value.messages : [];
+      const phoneNumberId = value?.metadata?.phone_number_id ?? null;
+      const contacts = Array.isArray(value?.contacts) ? value.contacts : [];
+      for (const msg of messages) {
+        const from = String(msg?.from || "");
+        if (!from) continue;
+        const fromNorm = from.replace(/\D/g, "");
+        const cMatch = contacts.find((c) => String(c?.wa_id || "").replace(/\D/g, "") === fromNorm);
+        const contactName = cMatch?.profile?.name || contacts[0]?.profile?.name || null;
+
+        if (msg?.type === "interactive") {
+          const ir = msg.interactive;
+          if (ir?.type === "list_reply") {
+            const rowId = ir?.list_reply?.id;
+            try {
+              await processListReplySelection({
+                fromRaw: from,
+                listRowId: rowId,
+                phoneNumberId,
+                contactName,
+              });
+            } catch (e) {
+              console.error("[whatsapp-bot-meta] list_reply error", e);
+              await reply(
+                fromNorm,
+                "No pudimos leer tu elección. Escribí *menú* para empezar de nuevo.",
+                await tenantIdForWebhook(phoneNumberId),
+                phoneNumberId
+              );
+            }
+          }
+          continue;
+        }
+
+        if (msg?.type === "location") {
+          const coords = extractLocationFromMetaMessage(msg);
+          try {
+            if (coords) {
+              await processInboundLocation({
+                fromRaw: from,
+                lat: coords.lat,
+                lng: coords.lng,
+                phoneNumberId,
+                contactName,
+              });
+            } else {
+              await reply(
+                fromNorm,
+                "No pudimos leer las coordenadas. Enviá de nuevo con *Adjuntar* → *Ubicación*, o escribí una dirección.",
+                await tenantIdForWebhook(phoneNumberId),
+                phoneNumberId
+              );
+            }
+          } catch (e) {
+            console.error("[whatsapp-bot-meta] location error", e);
+            await reply(
+              fromNorm,
+              "Error al procesar la ubicación. Intentá de nuevo o escribí *menú*.",
+              await tenantIdForWebhook(phoneNumberId),
+              phoneNumberId
+            );
+          }
+          continue;
+        }
+
+        if (msg?.type !== "text") continue;
+        const text = String(msg?.text?.body || "").trim();
+        if (!text) continue;
+        try {
+          await processInboundText({
+            fromRaw: from,
+            text,
+            phoneNumberId,
+            contactName,
+          });
+        } catch (e) {
+          console.error("[whatsapp-bot-meta] process error", e);
+          await reply(
+            fromNorm,
+            "Ocurrió un error. Intentá más tarde o contactá a la oficina.",
+            await tenantIdForWebhook(phoneNumberId),
+            phoneNumberId
+          );
+        }
+      }
+    }
+  }
+}
+
+async function processInboundLocation({ fromRaw, lat, lng, phoneNumberId, contactName }) {
+  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
+  if (botOff) return;
+
+  const resolvedTid = await resolveTenantIdByMetaPhoneNumberId(phoneNumberId);
+  const tid = resolvedTid ?? botTenantId();
+  const sk = sessionKey(phone, tid);
+  const sess = sessions.get(sk);
+
+  if (!sess || sess.step !== "awaiting_location") {
+    await reply(phone, "Ahora no estamos esperando una ubicación. Escribí *menú* para ver las opciones.", tid, phoneNumberId);
+    return;
+  }
+
+  const ctxOk = await loadTenantBotContext(tid);
+  if (!ctxOk) {
+    sessions.delete(sk);
+    await reply(phone, "Servicio no configurado. Contactá al administrador.", tid, phoneNumberId);
+    return;
+  }
+
+  sess.lat = lat;
+  sess.lng = lng;
+  sess.direccionTexto = null;
+  if (phoneNumberId) sess.phoneNumberId = String(phoneNumberId).trim();
+  sessions.set(sk, sess);
+  await finalizePedidoFromSession(phone, sess, contactName);
+}
+
+async function processListReplySelection({ fromRaw, listRowId, phoneNumberId, contactName }) {
+  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
+  if (botOff) return;
+
+  const resolvedTid = await resolveTenantIdByMetaPhoneNumberId(phoneNumberId);
+  const tid = resolvedTid ?? botTenantId();
+  const sk = sessionKey(phone, tid);
+  const ctx = await loadTenantBotContext(tid);
+  if (!ctx) {
+    await reply(phone, "Servicio no configurado. Contactá al administrador.", tid, phoneNumberId);
+    return;
+  }
+  const tipo = decodeWhatsAppListRowId(listRowId);
+  if (!tipo || !ctx.tipos.includes(tipo)) {
+    await reply(phone, "Opción no válida. Escribí *menú* para ver las opciones.", tid, phoneNumberId);
+    return;
+  }
+  const wpid = phoneNumberId ? String(phoneNumberId).trim() : null;
+  sessions.set(sk, {
+    step: "awaiting_desc",
+    tipo,
+    tenantId: tid,
+    tipoCliente: ctx.tipo,
+    contactName: contactName || null,
+    phoneNumberId: wpid,
+  });
+  await reply(
+    phone,
+    `Elegiste: *${tipo}*.\n\nAhora escribí una *breve descripción* del problema (una o varias líneas).`,
+    tid,
+    phoneNumberId
+  );
+}
+
+async function processInboundText({ fromRaw, text, phoneNumberId, contactName }) {
+  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
+
+  const resolvedTid = await resolveTenantIdByMetaPhoneNumberId(phoneNumberId);
+  const tid = resolvedTid ?? botTenantId();
+  const sk = sessionKey(phone, tid);
+
+  if (/\bhola\b/i.test(String(text || "").trim())) {
+    console.log("[whatsapp-bot-meta] hola detectado", { phone, text: String(text || "").slice(0, 120), tenant: tid });
+    sessions.delete(sk);
+    const ctx = await loadTenantBotContext(tid);
+    const nombre = ctx?.nombre || "GestorNova";
+    if (botOff) {
+      await reply(
+        phone,
+        `Bienvenido al centro de atención de *${nombre}*. El asistente automático está desactivado.`,
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    if (!ctx) {
+      await reply(
+        phone,
+        `Bienvenido al centro de atención de *${nombre}*. Estamos completando la configuración del servicio.`,
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+    return;
+  }
+
+  if (botOff) return;
+
+  const ctx = await loadTenantBotContext(tid);
+  if (!ctx) {
+    await reply(phone, "Servicio no configurado. Contactá al administrador.", tid, phoneNumberId);
+    return;
+  }
+
+  const lower = text.toLowerCase().trim();
+  if (lower === "menú" || lower === "menu" || lower === "0") {
+    sessions.delete(sk);
+    await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+    return;
+  }
+
+  let sess = sessions.get(sk);
+
+  if (sess && sess.step === "awaiting_location") {
+    const t = String(text || "").trim();
+    if (t.length < 3) {
+      await reply(
+        phone,
+        "Escribí una dirección o referencia más completa, o enviá la *ubicación* con *Adjuntar* → *Ubicación* en WhatsApp.",
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    sess.direccionTexto = t;
+    sess.lat = Number.isFinite(ctx.lat) ? ctx.lat : null;
+    sess.lng = Number.isFinite(ctx.lng) ? ctx.lng : null;
+    if (phoneNumberId) sess.phoneNumberId = String(phoneNumberId).trim();
+    sessions.set(sk, sess);
+    await finalizePedidoFromSession(phone, sess, contactName);
+    return;
+  }
+
+  const wpid = phoneNumberId ? String(phoneNumberId).trim() : null;
+
+  if (!sess || sess.step === "idle") {
+    if (esPedidoCargarReclamo(text)) {
+      await replyListaTiposReclamo(phone, ctx, phoneNumberId);
+      return;
+    }
+    const n = parseInt(text, 10);
+    if (Number.isFinite(n) && n >= 1 && n <= ctx.tipos.length) {
+      const tipoSel = ctx.tipos[n - 1];
+      sessions.set(sk, {
+        step: "awaiting_desc",
+        tipo: tipoSel,
+        tenantId: tid,
+        tipoCliente: ctx.tipo,
+        contactName: contactName || null,
+        phoneNumberId: wpid,
+      });
+      await reply(
+        phone,
+        `Elegiste: *${tipoSel}*.\n\nAhora escribí una *breve descripción* del problema (una o varias líneas).`,
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+    return;
+  }
+
+  if (sess.step === "awaiting_desc") {
+    if (/^\d+$/.test(text) && parseInt(text, 10) >= 0 && parseInt(text, 10) <= ctx.tipos.length) {
+      sessions.delete(sk);
+      await reply(phone, "Reiniciamos.\n\n" + textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+      return;
+    }
+    const desc = text;
+    if (desc.length < 4) {
+      await reply(phone, "La descripción es muy corta. Contanos un poco más del problema.", tid, phoneNumberId);
+      return;
+    }
+    sessions.set(sk, {
+      ...sess,
+      step: "awaiting_location",
+      descripcion: desc,
+      phoneNumberId: sess.phoneNumberId || wpid,
+    });
+    await reply(phone, MSG_SOLICITAR_UBICACION, tid, phoneNumberId);
+    return;
+  }
+}

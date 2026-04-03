@@ -1,2 +1,6 @@
 # Credenciales locales — no subir a GitHub (ver README y GitHub Actions)
 config.json
+
+# API Node: dependencias y secretos solo locales (ver api/.gitignore)
+api/node_modules/
+api/.env
