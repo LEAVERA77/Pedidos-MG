@@ -58,6 +58,8 @@ El bot y el webhook de Meta se configuran **solo en el servidor de la API** (var
 
 (con el mismo *Verify token* que definas en el backend). Detalle de variables: repositorio Android/Nexxo, archivo `api/.env.example`.
 
+**Varios municipios / números de WhatsApp:** en Neon, cada fila de `clientes` puede llevar en `configuracion` la clave `meta_phone_id` (Phone number ID de Meta) para que el mismo servidor en Render enrute el pedido al tenant correcto. Script de ejemplo en el repo Nexxo: `docs/NEON_meta_whatsapp_phone_id.sql`.
+
 ## API y consumo Neon (Android + Web/PWA)
 
 La app Android y esta Web/PWA consumen la misma API. Para evitar consumo innecesario de `network transfer` en Neon:
