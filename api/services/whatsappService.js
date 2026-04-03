@@ -258,3 +258,62 @@ export async function notifyPedidoCierreWhatsAppSafe({
   }
 }
 
+/**
+ * Aviso al vecino/cliente cuando un técnico (app o web) actualiza el pedido originado por WhatsApp.
+ * Solo debe llamarse si el pedido tiene origen WhatsApp y teléfono válido (lo decide el caller).
+ */
+export async function notifyPedidoClienteActualizacionWhatsAppSafe({
+  tenantId,
+  numeroPedido,
+  nombreEntidad,
+  telefonoContactoRaw,
+  pedidoId,
+  tipo,
+  avancePct = null,
+  trabajoRealizadoSnippet = null,
+}) {
+  const phone = String(telefonoContactoRaw || "").replace(/\D/g, "");
+  if (!phone || phone.length < 8) {
+    return { sent: false, skipped: true, reason: "no_phone" };
+  }
+
+  const np = String(numeroPedido || "").trim() || `#${pedidoId}`;
+  const ent = String(nombreEntidad || "nuestro equipo").trim();
+  let body;
+  if (tipo === "en_ejecucion") {
+    body =
+      `*${ent}* informa: su reclamo *#${np}* está ahora *en ejecución*. El equipo técnico está trabajando en su pedido.`;
+  } else if (tipo === "avance") {
+    const pct =
+      avancePct != null && Number.isFinite(Number(avancePct)) ? ` Avance: *${Math.round(Number(avancePct))}%*.` : "";
+    const extra = trabajoRealizadoSnippet
+      ? `\n\n${String(trabajoRealizadoSnippet).trim().slice(0, 280)}`
+      : "";
+    body = `*${ent}* — Actualización de su reclamo *#${np}*:${pct}${extra}`;
+  } else {
+    return { sent: false, skipped: true, reason: "unknown_tipo" };
+  }
+
+  try {
+    const r = await sendTenantWhatsAppText({
+      tenantId,
+      toDigits: phone,
+      bodyText: body,
+      pedidoId,
+      logContext: `cliente_pedido_${tipo}`,
+    });
+    if (!r.ok) {
+      console.error("[whatsapp-service] aviso cliente pedido: envío falló", {
+        pedidoId,
+        tenantId,
+        tipo,
+        detail: r.error || r.graph,
+      });
+    }
+    return { sent: !!r.ok, skipped: false, ok: r.ok };
+  } catch (e) {
+    console.error("[whatsapp-service] aviso cliente pedido: excepción", e.message);
+    return { sent: false, skipped: false, error: e.message };
+  }
+}
+
