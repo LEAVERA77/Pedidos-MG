@@ -2,6 +2,7 @@ import { query } from "../db/neon.js";
 import {
   sendWhatsAppInteractiveListWithCredentials,
   decodeWhatsAppListRowId,
+  normalizeWhatsAppRecipientForMeta,
 } from "./metaWhatsapp.js";
 import { logWhatsappMensajeEnviado } from "./whatsappNotificacionesLog.js";
 import {
@@ -215,6 +216,9 @@ async function finalizePedidoFromSession(phone, sess, contactName) {
   }
 }
 
+/** Cloud API: máximo 10 filas en una lista interactiva. */
+const MAX_WHATSAPP_LIST_ROWS = 10;
+
 async function replyListaTiposReclamo(phoneDigits, ctx, phoneNumberIdWebhook) {
   const bodyText = `Elegí el tipo que mejor describe tu reclamo:`;
   const pid = String(phoneNumberIdWebhook || "").trim();
@@ -233,6 +237,19 @@ async function replyListaTiposReclamo(phoneDigits, ctx, phoneNumberIdWebhook) {
     console.error("[whatsapp-bot-meta] lista interactiva: sin credenciales Meta");
     await reply(phoneDigits, menuTextoNumerado(ctx), ctx.id, pid || null);
     return { ok: false, error: "missing_meta_credentials" };
+  }
+  if (ctx.tipos.length > MAX_WHATSAPP_LIST_ROWS) {
+    console.warn("[whatsapp-bot-meta] demasiados tipos para lista WA, usando menú numerado", {
+      n: ctx.tipos.length,
+      tenantId: ctx.id,
+    });
+    await reply(
+      phoneDigits,
+      menuTextoNumerado(ctx) + "\n\n_(Hay muchas opciones: escribí el número del 1 al " + ctx.tipos.length + ".)_",
+      ctx.id,
+      pid || null
+    );
+    return { ok: true, skippedInteractive: true };
   }
   const r = await sendWhatsAppInteractiveListWithCredentials(
     phoneDigits,
@@ -271,8 +288,11 @@ export async function handleInboundMetaWhatsAppPayload(body) {
       for (const msg of messages) {
         const from = String(msg?.from || "");
         if (!from) continue;
-        const fromNorm = from.replace(/\D/g, "");
-        const cMatch = contacts.find((c) => String(c?.wa_id || "").replace(/\D/g, "") === fromNorm);
+        const fromNorm = normalizeWhatsAppRecipientForMeta(from.replace(/\D/g, ""));
+        const cMatch = contacts.find(
+          (c) =>
+            normalizeWhatsAppRecipientForMeta(String(c?.wa_id || "").replace(/\D/g, "")) === fromNorm
+        );
         const contactName = cMatch?.profile?.name || contacts[0]?.profile?.name || null;
 
         if (msg?.type === "interactive") {
@@ -294,6 +314,18 @@ export async function handleInboundMetaWhatsAppPayload(body) {
                 await tenantIdForWebhook(phoneNumberId),
                 phoneNumberId
               );
+            }
+          } else if (ir?.type === "button_reply") {
+            const title = String(ir?.button_reply?.title || "").trim();
+            try {
+              await processInboundText({
+                fromRaw: from,
+                text: title || "menú",
+                phoneNumberId,
+                contactName,
+              });
+            } catch (e) {
+              console.error("[whatsapp-bot-meta] button_reply error", e);
             }
           }
           continue;
@@ -355,7 +387,7 @@ export async function handleInboundMetaWhatsAppPayload(body) {
 }
 
 async function processInboundLocation({ fromRaw, lat, lng, phoneNumberId, contactName }) {
-  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const phone = normalizeWhatsAppRecipientForMeta(String(fromRaw || "").replace(/\D/g, ""));
   const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
   if (botOff) return;
 
@@ -385,7 +417,7 @@ async function processInboundLocation({ fromRaw, lat, lng, phoneNumberId, contac
 }
 
 async function processListReplySelection({ fromRaw, listRowId, phoneNumberId, contactName }) {
-  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const phone = normalizeWhatsAppRecipientForMeta(String(fromRaw || "").replace(/\D/g, ""));
   const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
   if (botOff) return;
 
@@ -420,7 +452,7 @@ async function processListReplySelection({ fromRaw, listRowId, phoneNumberId, co
 }
 
 async function processInboundText({ fromRaw, text, phoneNumberId, contactName }) {
-  const phone = String(fromRaw || "").replace(/\D/g, "");
+  const phone = normalizeWhatsAppRecipientForMeta(String(fromRaw || "").replace(/\D/g, ""));
   const botOff = process.env.WHATSAPP_BOT_ENABLED === "0" || process.env.WHATSAPP_BOT_ENABLED === "false";
 
   const resolvedTid = await resolveTenantIdByMetaPhoneNumberId(phoneNumberId);
@@ -462,8 +494,19 @@ async function processInboundText({ fromRaw, text, phoneNumberId, contactName })
     return;
   }
 
-  const lower = text.toLowerCase().trim();
-  if (lower === "menú" || lower === "menu" || lower === "0") {
+  const lower = text
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (
+    lower === "menú" ||
+    lower === "menu" ||
+    lower === "0" ||
+    lower === "inicio" ||
+    lower === "volver" ||
+    lower === "ayuda"
+  ) {
     sessions.delete(sk);
     await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
     return;
@@ -517,7 +560,12 @@ async function processInboundText({ fromRaw, text, phoneNumberId, contactName })
       );
       return;
     }
-    await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+    await reply(
+      phone,
+      `No reconocí el mensaje.\n\n` + textoBienvenidaYAyuda(ctx),
+      tid,
+      phoneNumberId
+    );
     return;
   }
 
