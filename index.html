@@ -74,7 +74,10 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 .print-content.print-a4-tight td{padding:.25rem}
 .print-content.print-a4-tight .firma-print{max-height:70px;object-fit:contain}
 #mapa-android-strip{display:none;position:absolute;top:58px;left:0;right:0;z-index:852;pointer-events:none}
-#mapa-android-strip .mas-inner{pointer-events:auto;margin:.3rem .45rem;padding:.4rem .55rem;background:#fff;border:1px solid var(--bo);border-radius:.5rem;display:flex;flex-wrap:wrap;gap:.45rem .65rem;align-items:center;font-size:.72rem;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+#mapa-android-strip .mas-inner{pointer-events:auto;margin:.3rem .45rem;padding:.4rem .55rem;background:#fff;border:1px solid var(--bo);border-radius:.5rem;display:flex;flex-direction:column;gap:.35rem;align-items:stretch;font-size:.72rem;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+#mapa-android-strip .mas-line-top{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;justify-content:space-between;width:100%}
+#mapa-android-strip .mas-line-top .mas-actions{display:flex;gap:.25rem;align-items:center;flex-shrink:0}
+.map-slide-tab.map-tab-android-bar{top:72px}
 #mapa-card-colores{bottom:4.35rem;left:.45rem;top:auto;z-index:851;max-width:min(12rem,calc(100vw - 1rem));font-size:.58rem}
 #mapa-card-colores .moui-bd{padding:.25rem .35rem .3rem}
 #mapa-card-colores .ll-hd{font-weight:700;color:var(--bd);font-size:.6rem;margin:0 0 .12rem;line-height:1.15}
@@ -148,10 +151,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
 .pav{margin-top:.45rem;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden}
 .ab{height:100%;background:linear-gradient(90deg,var(--bd),var(--bl));border-radius:2px;transition:width .4s}
 
-/* Botón de ubicación actual y nuevo botón */
-.fab-ubicacion{position:absolute;bottom:6rem;right:1rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#10b981;color:white;border:none;box-shadow:0 4px 18px rgba(16,185,129,.45);font-size:1.4rem;cursor:pointer;z-index:1002;display:flex;align-items:center;justify-content:center;transition:transform .2s}
-.fab-ubicacion:hover{transform:scale(1.1)}
-.fab-pedido-ubicacion{position:absolute;bottom:10.5rem;right:1rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#f59e0b;color:white;border:none;box-shadow:0 4px 18px rgba(245,158,11,.45);font-size:1.4rem;cursor:pointer;z-index:1002;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+/* FAB mapa: nuevo pedido desde ubicación */
+.fab-pedido-ubicacion{position:absolute;bottom:6.25rem;right:1rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#f59e0b;color:white;border:none;box-shadow:0 4px 18px rgba(245,158,11,.45);font-size:1.4rem;cursor:pointer;z-index:1002;display:flex;align-items:center;justify-content:center;transition:transform .2s}
 .fab-pedido-ubicacion:hover{transform:scale(1.1)}
 .mo{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
 .mo.active{display:flex}
@@ -266,7 +267,7 @@ textarea{resize:vertical;min-height:80px}
 #toast{position:fixed;bottom:6rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--td);color:white;padding:.65rem 1.25rem;border-radius:2rem;font-size:.88rem;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 15px rgba(0,0,0,.3)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.success{background:#059669}#toast.error{background:#dc2626}#toast.info{background:var(--bd)}
-@media(min-width:1024px){.bp2{left:auto;right:1rem;bottom:1rem;width:370px;border-radius:1rem;transform:none!important;max-height:calc(100vh - 78px)}.fab-ubicacion{bottom:1.5rem;right:390px}.fab-pedido-ubicacion{bottom:6rem;right:390px}.hl{display:none}}
+@media(min-width:1024px){.bp2{left:auto;right:1rem;bottom:1rem;width:370px;border-radius:1rem;transform:none!important;max-height:calc(100vh - 78px)}.fab-pedido-ubicacion{bottom:4.5rem;right:390px}.hl{display:none}}
 @keyframes pulse-gps{
   0%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}
   70%{box-shadow:0 0 0 10px rgba(16,185,129,0)}
@@ -392,6 +393,7 @@ textarea{resize:vertical;min-height:80px}
   </div>
   <div id="mc"></div>
   <div id="mapa-overlay-ui">
+    <button type="button" id="map-tab-android-bar" class="map-slide-tab map-tab-android-bar" onclick="toggleAndroidMapStripCollapsed(false)" title="Mostrar barra (filtros / alcance)">Barra</button>
     <button type="button" id="map-tab-filtros" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-filtros',false)" title="Mostrar filtros">Filtros</button>
     <div id="mapa-card-filtros" class="moui-card">
       <div class="moui-hd" onclick="toggleMapaFiltrosBody()"><i class="fas fa-filter"></i> Filtros del mapa <span id="mapa-filtros-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtros',true)"><i class="fas fa-eye-slash"></i></button></div>
@@ -443,7 +445,12 @@ textarea{resize:vertical;min-height:80px}
     </div>
   </div>
   <div id="mapa-android-strip"><div class="mas-inner">
-    <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;white-space:nowrap"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"> Filtros avanzados</label>
+    <div class="mas-line-top">
+      <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;white-space:nowrap;margin:0"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"> Filtros avanzados</label>
+      <div class="mas-actions">
+        <button type="button" class="ib-mini" title="Ocultar esta barra" onclick="toggleAndroidMapStripCollapsed(true)"><i class="fas fa-eye-slash"></i></button>
+      </div>
+    </div>
     <span id="wrap-android-scope" style="display:none;align-items:center;gap:.35rem;flex-wrap:wrap">
       <span style="color:var(--tl)">Pedidos:</span>
       <select id="sel-android-pedidos-scope" style="font-size:.72rem;padding:.2rem .35rem;border-radius:.35rem;border:1px solid var(--bo)" onchange="onAndroidPedidosScopeChange()">
@@ -453,11 +460,7 @@ textarea{resize:vertical;min-height:80px}
     </span>
   </div></div>
   
-  <!-- Botones en el mapa -->
-  <button id="btn-ubicacion" class="fab-ubicacion" title="Zoom a mi ubicación">
-    <i class="fas fa-location-dot"></i>
-  </button>
-  
+  <!-- Botón en el mapa -->
   <button id="btn-pedido-ubicacion" class="fab-pedido-ubicacion" title="Nuevo pedido desde mi ubicación actual">
     <i class="fas fa-crosshairs"></i>
   </button>
@@ -1209,6 +1212,9 @@ let fotosTemporales = [];
 let fotoCierreTemp = null;    
 let ultimaUbicacion = null;
 let marcadorUbicacion = null;
+/** En la app Android: hasta que llegue el primer fix GPS, el primer toque en el mapa fija posición (una vez por sesión). */
+let _gpsRecibidoEstaSesion = false;
+const MAP_SEED_SESSION_KEY = 'pmg_map_seed_done';
 let pedidoActualParaAvance = null;
 let modoOffline = false;      
 
@@ -1962,8 +1968,9 @@ function apiUrl(path) {
 }
 /** Tras cerrar por SQL directo (Neon), dispara el aviso WA en la API sin bloquear la UI. */
 async function notificarCierreWhatsappApi(pedidoId, telefonoOverride) {
+    if (modoOffline) return;
     const base = getApiBaseUrl();
-    const tok = app.apiToken;
+    const tok = getApiToken() || app.apiToken;
     if (!base || !tok || pedidoId == null) return;
     const pid = Number(pedidoId);
     if (!Number.isFinite(pid) || pid <= 0) return;
@@ -1980,6 +1987,57 @@ async function notificarCierreWhatsappApi(pedidoId, telefonoOverride) {
         }
     } catch (e) {
         console.warn('[wa-cierre]', e && e.message);
+    }
+}
+
+/** La API Node (JWT) es independiente de Neon en el cliente: no usar NEON_OK aquí. */
+function puedeEnviarApiRestPedidos() {
+    return !modoOffline && !!getApiBaseUrl() && !!getApiToken();
+}
+
+async function pedidoPutApi(id, body) {
+    const base = getApiBaseUrl();
+    const tok = getApiToken();
+    if (!base || !tok || modoOffline) return null;
+    const pid = parseInt(id, 10);
+    if (!Number.isFinite(pid) || pid <= 0 || String(id).startsWith('off_')) return null;
+    try {
+        const resp = await fetch(apiUrl(`/api/pedidos/${pid}`), {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+            const t = await resp.text();
+            console.warn('[pedido-put-api]', resp.status, t.slice(0, 400));
+            return null;
+        }
+        return await resp.json();
+    } catch (e) {
+        console.warn('[pedido-put-api]', e && e.message);
+        return null;
+    }
+}
+
+async function notificarWhatsappClienteEventoApi(pedidoId, event) {
+    if (modoOffline) return;
+    const base = getApiBaseUrl();
+    const tok = getApiToken();
+    if (!base || !tok || pedidoId == null) return;
+    const pid = Number(pedidoId);
+    if (!Number.isFinite(pid) || pid <= 0) return;
+    try {
+        const resp = await fetch(apiUrl(`/api/pedidos/${pid}/whatsapp-aviso-cliente`), {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event }),
+        });
+        if (!resp.ok) {
+            const t = await resp.text();
+            console.warn('[wa-cliente-event]', resp.status, t.slice(0, 200));
+        }
+    } catch (e) {
+        console.warn('[wa-cliente-event]', e && e.message);
     }
 }
 async function loginApiJwt(email, password) {
@@ -2034,6 +2092,49 @@ function esAndroidWebViewMapa() {
         return false;
     }
 }
+
+/** Menos tiles y menos trabajo en WebView / emulador. */
+function gnMapaLigero() {
+    try {
+        return esAndroidWebViewMapa();
+    } catch (_) {
+        return false;
+    }
+}
+
+let _gnLastWatchUbicacionMs = 0;
+let _mapEscalaDebounceTimer = null;
+
+function mapTapUbicacionInicialHechaSesion() {
+    try { return sessionStorage.getItem(MAP_SEED_SESSION_KEY) === '1'; } catch (_) { return false; }
+}
+function marcarMapTapUbicacionInicialHecha() {
+    try { sessionStorage.setItem(MAP_SEED_SESSION_KEY, '1'); } catch (_) {}
+}
+function limpiarEstadoMapaSesion() {
+    _gpsRecibidoEstaSesion = false;
+    try { sessionStorage.removeItem(MAP_SEED_SESSION_KEY); } catch (_) {}
+}
+function marcarGpsRecibidoEstaSesion() {
+    _gpsRecibidoEstaSesion = true;
+}
+
+function toggleAndroidMapStripCollapsed(collapse) {
+    const strip = document.getElementById('mapa-android-strip');
+    const tab = document.getElementById('map-tab-android-bar');
+    if (!strip) return;
+    if (collapse === undefined) {
+        collapse = strip.style.display !== 'none';
+    }
+    const hide = !!collapse;
+    strip.style.display = hide ? 'none' : 'block';
+    if (tab) {
+        if (hide && esAndroidWebViewMapa()) tab.classList.add('visible');
+        else tab.classList.remove('visible');
+    }
+    try { localStorage.setItem('pmg_android_strip_collapsed', hide ? '1' : '0'); } catch (_) {}
+}
+window.toggleAndroidMapStripCollapsed = toggleAndroidMapStripCollapsed;
 
 
 
@@ -2367,7 +2468,8 @@ const norm = p => ({
     fasi: p.fecha_asignacion || null,
     firma: p.firma_cliente || null,
     chkl: p.checklist_seguridad || null,
-    tel: (p.telefono_contacto || '').trim()
+    tel: (p.telefono_contacto || '').trim(),
+    opin: p.opinion_cliente || null
 });
 
 function distanciaKm(lat1, lon1, lat2, lon2) {
@@ -2632,8 +2734,16 @@ function aplicarUIMapaPlataforma() {
             const sel = document.getElementById('sel-android-pedidos-scope');
             if (sel) sel.value = localStorage.getItem('pmg_tecnico_ver_todos') === '1' ? 'todos' : 'asignados';
         }
+        const tabBar = document.getElementById('map-tab-android-bar');
+        if (localStorage.getItem('pmg_android_strip_collapsed') === '1') {
+            strip.style.display = 'none';
+            tabBar?.classList.add('visible');
+        } else {
+            tabBar?.classList.remove('visible');
+        }
     } else {
         strip.style.display = 'none';
+        document.getElementById('map-tab-android-bar')?.classList.remove('visible');
         card.style.display = 'block';
         if (cardCol) cardCol.style.display = 'block';
     }
@@ -3071,16 +3181,21 @@ function calcularEscalaReal(zoom) {
 
 function gnAttachBaseMapLayers(mapa) {
     if (!mapa) return;
-    const capaOsm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        subdomains: 'abc',
-        maxZoom: 19,
-        maxNativeZoom: 19,
-        tileSize: 256,
-        crossOrigin: true,
-        updateWhenIdle: true,
-        keepBuffer: 2
-    });
+    const ligero = gnMapaLigero();
+    /** Esri World Street Map: no exige Referer como tile.openstreetmap.org (WebView Android). */
+    const capaEsri = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        {
+            attribution:
+                'Tiles &copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, GIS User Community',
+            maxZoom: 19,
+            maxNativeZoom: 19,
+            tileSize: 256,
+            crossOrigin: true,
+            updateWhenIdle: true,
+            keepBuffer: ligero ? 0 : 1
+        }
+    );
     const capaCarto = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
@@ -3090,16 +3205,16 @@ function gnAttachBaseMapLayers(mapa) {
         detectRetina: false,
         crossOrigin: true,
         updateWhenIdle: true,
-        keepBuffer: 1
+        keepBuffer: ligero ? 0 : 1
     });
     let nErr = 0;
     capaCarto.on('tileerror', () => {
         nErr++;
-        if (nErr >= 4 && !mapa._gnUsandoOsm) {
-            mapa._gnUsandoOsm = true;
+        if (nErr >= 4 && !mapa._gnUsandoEsriFallback) {
+            mapa._gnUsandoEsriFallback = true;
             try { mapa.removeLayer(capaCarto); } catch (_) {}
-            capaOsm.addTo(mapa);
-            toast('Mapa: capa CARTO inestable — usando OpenStreetMap', 'info');
+            capaEsri.addTo(mapa);
+            toast('Mapa: capa CARTO inestable — usando mapa base alternativo', 'info');
         }
     });
     capaCarto.addTo(mapa);
@@ -3143,8 +3258,12 @@ function initMap() {
     const actualizarEscala = () => {
         if (app.map) document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
     };
+    const actualizarEscalaDebounced = () => {
+        clearTimeout(_mapEscalaDebounceTimer);
+        _mapEscalaDebounceTimer = setTimeout(actualizarEscala, gnMapaLigero() ? 200 : 90);
+    };
     app.map.on('zoomend', actualizarEscala);
-    app.map.on('moveend', actualizarEscala);
+    app.map.on('moveend', actualizarEscalaDebounced);
     
     setTimeout(actualizarEscala, 200);
     
@@ -3165,6 +3284,22 @@ function initMap() {
         
         const hayModalAbierto = document.querySelector('.mo.active');
         if (hayModalAbierto) return;
+
+        // App Android: un solo toque en el mapa visible fija posición inicial si el GPS aún no respondió; luego manda el GPS.
+        if (esAndroidWebViewMapa() && !mapTapUbicacionInicialHechaSesion() && !_gpsRecibidoEstaSesion) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            registrarFajaInstalacionSiFalta(lng);
+            ultimaUbicacion = { lat, lon: lng, acc: null };
+            try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch (_) {}
+            mostrarMarcadorUbicacion(lat, lng, null);
+            app.map.setView([lat, lng], 15, { animate: !gnMapaLigero() });
+            actualizarEscala();
+            marcarMapTapUbicacionInicialHecha();
+            toast('Ubicación en el mapa. Seguimos con el GPS del teléfono — para un pedido nuevo tocá de nuevo o usá el botón naranja.', 'info');
+            solicitarUbicacion(false, true);
+            return;
+        }
 
         app.sel = e.latlng;
         limpiarFotosYPreviewNuevoPedido();
@@ -3244,7 +3379,7 @@ function mostrarMarcadorUbicacion(lat, lon, acc) {
             border:3px solid white;
             border-radius:50%;
             box-shadow:0 0 0 3px rgba(16,185,129,.4);
-            animation:pulse-gps 2s infinite;
+            ${gnMapaLigero() ? '' : 'animation:pulse-gps 2s infinite;'}
             position:relative;
         "></div>`,
         iconSize: [16, 16],
@@ -3272,7 +3407,7 @@ function mostrarMarcadorUbicacion(lat, lon, acc) {
         `);
 
     
-    if (acc && acc > 50) {
+    if (acc && acc > 50 && !gnMapaLigero()) {
         const radioVisual = Math.min(acc, 380);
         _circuloAcc = L.circle([lat, lon], {
             radius: radioVisual,
@@ -3299,20 +3434,15 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
     }
 
     
-    const btnVerde = document.getElementById('btn-ubicacion');
-    if (btnVerde && !modoSilencioso) {
-        btnVerde.style.opacity = '0.6';
-        btnVerde.style.animation = 'none';
-    }
-
     let intentos = 0;
-    const MAX_INTENTOS = 3;
+    const MAX_INTENTOS = gnMapaLigero() ? 2 : 3;
     let centroInicialAplicado = false;
 
     function procesarPosicion(position, esWatchUpdate = false) {
         const { latitude, longitude, accuracy } = position.coords;
         const acc = Math.round(accuracy);
         registrarFajaInstalacionSiFalta(longitude);
+        marcarGpsRecibidoEstaSesion();
 
         
         if (esWatchUpdate && acc >= _mejorPrecision && acc > 200) return;
@@ -3331,7 +3461,7 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
                 const distLon = Math.abs(actualCenter.lng - longitude);
                 const estaLejos = distLat > 0.05 || distLon > 0.05;
                 if (estaLejos || !esWatchUpdate) {
-                    app.map.setView([latitude, longitude], zoomSugerido, { animate: true });
+                    app.map.setView([latitude, longitude], zoomSugerido, { animate: !gnMapaLigero() });
                 }
                 centroInicialAplicado = true;
                 setTimeout(() => {
@@ -3341,8 +3471,6 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         }
 
         
-        if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
-
         if (!modoSilencioso && !esWatchUpdate) {
             const msg = acc < 100
                 ? `📍 GPS: ±${acc}m`
@@ -3354,7 +3482,6 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
     }
 
     function manejarError(error) {
-        if (btnVerde) { btnVerde.style.opacity = ''; btnVerde.style.animation = ''; }
         const msgs = {
             1: 'Permiso de ubicación denegado — activalo en Configuración',
             2: 'GPS no disponible',
@@ -3367,7 +3494,7 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
         if (ultimaUbicacion && app.map && centrarMapa) {
             app.map.invalidateSize({ animate: false });
             mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-            app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], 14, { animate: true });
+            app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], 14, { animate: !gnMapaLigero() });
             if (!modoSilencioso) toast('📍 Mostrando última ubicación conocida', 'info');
         }
     }
@@ -3414,32 +3541,20 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
                 ultimaUbicacion = { lat: latitude, lon: longitude, acc };
                 try { localStorage.setItem('ultima_ubicacion', JSON.stringify(ultimaUbicacion)); } catch(_) {}
                 
-                if (app.map) mostrarMarcadorUbicacion(latitude, longitude, acc);
+                if (!app.map) return;
+                marcarGpsRecibidoEstaSesion();
+                if (gnMapaLigero()) {
+                    const now = Date.now();
+                    if (now - _gnLastWatchUbicacionMs < 20000) return;
+                    _gnLastWatchUbicacionMs = now;
+                }
+                mostrarMarcadorUbicacion(latitude, longitude, acc);
             },
             err => console.warn('[GPS watch]', err.message),
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
         );
     }
 }
-
-
-document.getElementById('btn-ubicacion').addEventListener('click', () => {
-    if (!app.map) return;
-    if (ultimaUbicacion) {
-        
-        app.map.invalidateSize({ animate: false });
-        const z = mostrarMarcadorUbicacion(ultimaUbicacion.lat, ultimaUbicacion.lon, ultimaUbicacion.acc);
-        app.map.setView([ultimaUbicacion.lat, ultimaUbicacion.lon], z || 15, { animate: true });
-        setTimeout(() => {
-            document.getElementById('zoom-altura').textContent = calcularEscalaReal(app.map.getZoom());
-        }, 300);
-        
-        solicitarUbicacion(true, true);
-    } else {
-        
-        solicitarUbicacion(true, false);
-    }
-});
 
 
 document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => {
@@ -3584,9 +3699,12 @@ window._desasignarMapa = id => {
 };
 
 window._a = (a, id) => {
+    if (a === 'i') {
+        void iniciar(id);
+        return;
+    }
     closeAll();
-    if (a === 'i') iniciar(id);
-    else if (a === 'av') abrirAvance(id);
+    if (a === 'av') abrirAvance(id);
     else abrirCierre(id);
 };
 
@@ -4859,17 +4977,35 @@ document.getElementById('pf').addEventListener('submit', async e => {
 async function actualizarAvance(id, avance) {
     try {
         const now = new Date().toISOString();
+        const idx0 = app.p.findIndex(p => String(p.id) === String(id));
+        const avPrev = idx0 !== -1 ? Number(app.p[idx0].av) : null;
+
+        const apiRow = await pedidoPutApi(id, { avance: avance });
+        if (apiRow) {
+            const idx = app.p.findIndex(p => String(p.id) === String(id));
+            if (idx !== -1) app.p[idx] = norm(apiRow);
+            offlinePedidosSave(app.p);
+            render();
+            toast('Avance actualizado', 'success');
+            return;
+        }
+
         await ejecutarSQLConReintentos(
             `UPDATE pedidos SET avance = {0}, fecha_avance = {1} WHERE id = {2}`,
             [avance, now, parseInt(id)]
         );
-        
+
         const idx = app.p.findIndex(p => String(p.id) === String(id));
         if (idx !== -1) {
             app.p[idx].av = avance;
             app.p[idx].fa = now;
         }
-        
+
+        if (puedeEnviarApiRestPedidos() && avPrev !== Number(avance)) {
+            const pidNum = parseInt(id, 10);
+            if (Number.isFinite(pidNum) && pidNum > 0) void notificarWhatsappClienteEventoApi(pidNum, 'avance');
+        }
+
         render();
         toast('Avance actualizado', 'success');
     } catch(e) {
@@ -4942,11 +5078,25 @@ async function updPedido(id, campos, usuarioId) {
 async function iniciar(id) {
     try {
         const now = new Date().toISOString();
-        await updPedido(id, { 
-            estado: 'En ejecución', 
+        const apiRow = await pedidoPutApi(id, { estado: 'En ejecución', avance: 0 });
+        if (apiRow) {
+            const idx = app.p.findIndex(p => String(p.id) === String(id));
+            if (idx !== -1) app.p[idx] = norm(apiRow);
+            offlinePedidosSave(app.p);
+            render();
+            toast('Pedido iniciado. Si hay teléfono de contacto y WhatsApp configurado, se avisó al cliente.', 'success');
+            closeAll();
+            return;
+        }
+        await updPedido(id, {
+            estado: 'En ejecución',
             avance: 0,
-            fecha_avance: now 
+            fecha_avance: now
         }, app.u?.id);
+        if (puedeEnviarApiRestPedidos()) {
+            const pidNum = parseInt(id, 10);
+            if (Number.isFinite(pidNum) && pidNum > 0) void notificarWhatsappClienteEventoApi(pidNum, 'inicio');
+        }
         toast('Pedido iniciado', 'info');
         closeAll();
     } catch(e) {
@@ -5211,7 +5361,7 @@ document.getElementById('cc2').addEventListener('click', async () => {
         };
         if (telCierre) camposCierre.telefono_contacto = telCierre;
         await updPedido(app.cid, camposCierre, app.u?.id);
-        if (!modoOffline && NEON_OK && app.apiToken && !String(app.cid).startsWith('off_')) {
+        if (puedeEnviarApiRestPedidos() && !String(app.cid).startsWith('off_')) {
             const pidNum = parseInt(app.cid, 10);
             if (Number.isFinite(pidNum) && pidNum > 0) {
                 void notificarCierreWhatsappApi(pidNum, telCierre || undefined);
@@ -5350,6 +5500,7 @@ function detalle(p) {
             ${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura" style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada(this.src, {tipo:'pedido_cierre',id:'${p.id}'})"></div>` : ''}
             ${chkResumen}
             ${p.firma ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">✍️ Firma del ${labFirmaDet}</div><img src="${p.firma}" class="foto-miniatura" style="width:100%;max-height:180px;object-fit:contain;border-radius:.5rem;border:1px solid #e2e8f0" alt="Firma"></div>` : ''}
+            ${p.opin ? `<div class="dr" style="flex-direction:column;gap:.3rem;margin-top:.5rem"><span class="dl">Opinión del cliente (WhatsApp)</span><div class="trb">${String(p.opin).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div></div>` : ''}
         </div>` : ''}
 
         <div class="ds" id="materiales-detalle-wrap" data-pid="${p.id}">
@@ -5674,6 +5825,7 @@ document.getElementById('ub').addEventListener('click', () => {
             if (window.AndroidSession && typeof AndroidSession.clearUser === 'function') AndroidSession.clearUser();
         } catch (_) {}
         detenerSyncCatalogos();
+        limpiarEstadoMapaSesion();
         localStorage.removeItem('pmg');
         localStorage.removeItem('pmg_api_token');
         app.apiToken = null;
@@ -6070,8 +6222,9 @@ function inicializarMapaSetupWizard() {
     }
     if (!_setupMap) {
         _setupMap = L.map('setup-map', { zoomControl: true }).setView([_setupLat, _setupLng], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            subdomains: 'abcd'
         }).addTo(_setupMap);
         _setupMarker = L.marker([_setupLat, _setupLng], { draggable: true }).addTo(_setupMap);
         _setupMarker.on('dragend', () => {
