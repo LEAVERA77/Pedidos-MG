@@ -1,6 +1,6 @@
 {
   "neon": {
-    "connectionString": "postgresql://USUARIO:CONTRASEÑA@HOST.neon.tech/neondb?sslmode=require"
+    "connectionString": "postgresql://USUARIO:CONTRASEÑA@HOST-pooler.neon.tech/neondb?sslmode=require"
   },
   "api": {
     "baseUrl": "https://nexxo-api-418k.onrender.com"
@@ -10,10 +10,8 @@
     "serviceId": "TU_SERVICE_ID",
     "templateId": "TU_TEMPLATE_ID"
   },
-  "admin": {
-    "recoveryKey": "CLAVE_LARGA_SOLO_ADMIN"
-  },
   "app": {
-    "version": "2.0.0"
+    "version": "2.0.0",
+    "tenantId": 1
   }
 }
