@@ -43,7 +43,7 @@ cp config.example.json config.json
 
 ### Cómo publicar los cambios del front (implementación en GitHub)
 
-1. Subí a `main` el front modular: `index.html`, `styles.css`, `app.js`, `map.js`, `offline.js` y `sw.js` (commit + `git push origin main`). El workflow de Pages copia esos archivos al sitio publicado.
+1. Subí a `main` el front modular: `index.html`, `styles.css`, `app.js`, `map.js`, `map-view.js`, `offline.js` y `sw.js` (commit + `git push origin main`). El workflow de Pages copia esos archivos al sitio publicado.
 2. Esperá a que termine el workflow **Deploy GitHub Pages** en la pestaña **Actions**, o disparalo a mano: **Actions → Deploy GitHub Pages → Run workflow** en la rama `main`.
 3. La API en Render debe estar actualizada si cambió el backend: commit/push en **`api/`** de este repo y **Manual Deploy** en Render (o el auto-deploy que tengas configurado).
 4. **Setup inicial (admin):** la primera vez, el administrador debe completar el asistente en la app; el estado queda guardado en Neon (`clientes.configuracion.setup_wizard_completado`). Para saltearlo en un tenant ya existente (solo BD):  
@@ -55,7 +55,7 @@ Si alguna vez subiste credenciales al repo público, leé [SECURITY.md](./SECURI
 
 ## Paridad con la app Android
 
-La fuente de verdad del front suele ser `Nexxo/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html`, `styles.css`, `app.js`, `map.js`, `offline.js` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
+La fuente de verdad del front suele ser `Nexxo/app/src/main/assets/` (Android Studio). Tras cambios grandes, copiá `index.html`, `styles.css`, `app.js`, `map.js`, `map-view.js`, `offline.js` y `sw.js` a este repo y subí commit (el `config.json` del APK no se sube aquí: usá secretos + Actions).
 
 ## API Node (carpeta `api/` en este repo)
 
