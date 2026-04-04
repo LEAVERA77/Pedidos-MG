@@ -63,7 +63,7 @@
     <button type="button" id="map-tab-android-bar" class="map-slide-tab map-tab-android-bar" onclick="toggleAndroidMapStripCollapsed(false)" title="Mostrar barra (filtros / alcance)">Barra</button>
     <button type="button" id="map-tab-filtros" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-filtros',false)" title="Mostrar filtros">Filtros</button>
     <div id="mapa-card-filtros" class="moui-card">
-      <div class="moui-hd" onclick="toggleMapaFiltrosBody()"><i class="fas fa-filter"></i> Filtros del mapa <span id="mapa-filtros-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtros',true)"><i class="fas fa-eye-slash"></i></button></div>
+      <div class="moui-hd" onclick="toggleMapaFiltrosBody()"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-filter"></i> Filtros del mapa <span id="mapa-filtros-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtros',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-filtros-body" class="moui-bd">
         <div class="moui-row moui-estados">
           <label class="moui-chk"><input type="checkbox" id="mapa-flt-pendiente" checked onchange="onMapaFiltroChange()"> Pendiente</label>
@@ -85,7 +85,7 @@
     </div>
     <button type="button" id="map-tab-colores" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-colores',false)" title="Mostrar colores" style="top:160px">Colores</button>
     <div id="mapa-card-colores" class="moui-card">
-      <div class="moui-hd" onclick="toggleMapaColoresBody()"><i class="fas fa-palette"></i> Colores (prioridad) <span id="mapa-colores-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-colores',true)"><i class="fas fa-eye-slash"></i></button></div>
+      <div class="moui-hd" onclick="toggleMapaColoresBody()"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-palette"></i> Colores (prioridad) <span id="mapa-colores-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-colores',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-colores-body" class="moui-bd">
         <div class="ll-grid">
           <label class="ll-row"><input type="checkbox" id="mapa-flt-prio-critica" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#ef4444"></span><span class="ll-txt">Crítica</span></label>
@@ -99,7 +99,7 @@
     </div>
     <button type="button" id="map-tab-dash" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-dashboard',false)" title="Mostrar dashboard" style="top:200px">Dash</button>
     <div id="mapa-card-dashboard" class="moui-card moui-dash" style="display:none">
-      <div class="moui-hd" onclick="toggleMapaDashBody()"><i class="fas fa-tachometer-alt"></i> Dashboard <span id="mapa-dash-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-dashboard',true)"><i class="fas fa-eye-slash"></i></button></div>
+      <div class="moui-hd" onclick="toggleMapaDashBody()"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-tachometer-alt"></i> Dashboard <span id="mapa-dash-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-dashboard',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-dash-body" class="moui-bd moui-scroll">
         <div id="mapa-main-dash-kpi" class="dash-kpi-mini"></div>
         <div id="mapa-main-dash-filtro-host" style="display:none;margin:.35rem 0 .5rem;font-size:.7rem;border:1px solid var(--bo);border-radius:.35rem;padding:.35rem;max-height:100px;overflow-y:auto;background:var(--bg)"></div>
@@ -130,14 +130,10 @@
   <button type="button" id="btn-mapa-ir-gps" class="btn-mapa-ir-gps" title="Ir a mi ubicación" aria-label="Ir a mi ubicación">
     <i class="fas fa-location-arrow"></i>
   </button>
-  <!-- Botón en el mapa -->
-  <button id="btn-pedido-ubicacion" class="fab-pedido-ubicacion" title="Nuevo pedido desde mi ubicación actual">
-    <i class="fas fa-crosshairs"></i>
-  </button>
   
   <button type="button" id="fab-show-pedidos" class="fab-show-pedidos" onclick="setBp2PanelHidden(false)" title="Mostrar lista de pedidos"><i class="fas fa-list"></i> Pedidos</button>
   <div id="bp2" class="bp2 col">
-    <div class="ph" id="ph"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:.4rem"><span style="display:flex;align-items:center;gap:.35rem"><div class="hb"></div><span class="hl">Pedidos</span></span><button type="button" class="ib-mini" id="btn-bp2-hide" title="Ocultar panel" onclick="event.stopPropagation();setBp2PanelHidden(true)"><i class="fas fa-chevron-down"></i></button></div></div>
+    <div class="ph" id="ph" title="Arrastrá para mover el panel (PC) · tocá para plegar/desplegar"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:.4rem"><span style="display:flex;align-items:center;gap:.35rem"><div class="hb"></div><span class="hl">Pedidos</span></span><button type="button" class="ib-mini" id="btn-bp2-hide" title="Ocultar panel (mostrar con el botón flotante Pedidos)" onclick="event.stopPropagation();setBp2PanelHidden(true)"><i class="fas fa-eye-slash"></i></button></div></div>
     <div class="pc">
       <div class="pt">
         <button class="tb active" data-tab="p"><span class="tb-stack"><span class="tb-line"><i class="fas fa-clock"></i> Pendientes</span><span id="pc" class="bge">0</span></span></button>
@@ -415,10 +411,11 @@
         <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin:0">Catálogo de socios (NIS / medidor)</h3>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
           <label class="btn-sm success" style="cursor:pointer"><i class="fas fa-file-excel"></i> Importar Excel<input type="file" id="input-excel-socios" accept=".xlsx,.xls" style="display:none" onchange="importarExcelSocios(event)"></label>
+          <a class="btn-sm primary" href="ejemplos/socios-demo-300.xlsx" download="socios-demo-300.xlsx" style="text-decoration:none;display:inline-flex;align-items:center;gap:.35rem"><i class="fas fa-download"></i> Ejemplo 300 (OSM)</a>
           <button type="button" class="btn-sm" onclick="mostrarFormatoExcelSocios()" style="background:#fef9c3;border:1px solid #eab308;color:#854d0e"><i class="fas fa-table"></i> Formato</button>
         </div>
       </div>
-      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem">Columnas Excel: <strong>nis_medidor</strong> | <strong>nombre</strong> | <strong>domicilio</strong> | <strong>telefono</strong> | <strong>distribuidor_codigo</strong> | <strong>localidad</strong> | <strong>tipo_tarifa</strong> | <strong>urbano_rural</strong> (urbano/rural). Fila 1 = encabezados.</p>
+      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem">Columnas Excel: <strong>nis_medidor</strong> | <strong>nombre</strong> | <strong>domicilio</strong> | <strong>telefono</strong> | <strong>distribuidor_codigo</strong> | <strong>localidad</strong> | <strong>tipo_tarifa</strong> | <strong>urbano_rural</strong> (urbano/rural) | <strong>transformador</strong> (cooperativas eléctricas). Fila 1 = encabezados.</p>
       <div id="lista-socios-admin"><div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div></div>
       <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px dashed var(--bo)">
         <h4 style="color:var(--bd);font-size:.9rem;margin-bottom:.5rem"><i class="fas fa-history"></i> Historial de reclamos por NIS / medidor</h4>
