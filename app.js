@@ -959,6 +959,83 @@ function esAndroidWebViewMapa() {
     }
 }
 
+/** Admin en navegador (GitHub Pages / PWA), no en WebView empaquetado. */
+function esAdminSesionWebPublica() {
+    try {
+        return esAdmin() && !esAndroidWebViewMapa();
+    } catch (_) {
+        return false;
+    }
+}
+
+const SESSION_WEB_ADMIN_TIPO_OK = 'pmg_web_admin_tipo_ok';
+let _resolveAdminTipoModal = null;
+
+async function promptAdminTipoNegocioWebIfNeeded() {
+    if (!esAdminSesionWebPublica()) return;
+    try {
+        if (sessionStorage.getItem(SESSION_WEB_ADMIN_TIPO_OK) === '1') return;
+    } catch (_) {}
+    const modal = document.getElementById('modal-admin-tipo-negocio');
+    const sel = document.getElementById('admin-sesion-tipo');
+    if (!modal || !sel) return;
+    const actual = String(window.EMPRESA_CFG?.tipo || '').trim();
+    sel.value = actual || '';
+    return new Promise((resolve) => {
+        _resolveAdminTipoModal = resolve;
+        modal.classList.add('active');
+    });
+}
+
+async function confirmarAdminTipoNegocioWeb() {
+    const sel = document.getElementById('admin-sesion-tipo');
+    const chk = document.getElementById('admin-sesion-tipo-persistir');
+    const modal = document.getElementById('modal-admin-tipo-negocio');
+    const tipo = (sel?.value || '').trim();
+    if (!tipo) {
+        toast('Elegí un tipo de negocio', 'error');
+        return;
+    }
+    const persistir = !!(chk && chk.checked);
+    if (persistir) {
+        try {
+            const token = getApiToken();
+            if (!token) {
+                toast('Sin token API: no se puede guardar en el servidor', 'error');
+                return;
+            }
+            const resp = await fetch(apiUrl('/api/clientes/mi-configuracion'), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ tipo })
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${resp.status}`);
+            }
+        } catch (e) {
+            toast('No se pudo guardar en servidor: ' + (e?.message || e), 'error');
+            return;
+        }
+    }
+    window.EMPRESA_CFG = { ...(window.EMPRESA_CFG || {}), tipo };
+    aplicarEtiquetasPorTipo(tipo);
+    poblarSelectTiposReclamo();
+    try {
+        sessionStorage.setItem(SESSION_WEB_ADMIN_TIPO_OK, '1');
+    } catch (_) {}
+    if (modal) modal.classList.remove('active');
+    if (_resolveAdminTipoModal) {
+        _resolveAdminTipoModal();
+        _resolveAdminTipoModal = null;
+    }
+    toast(persistir ? 'Tipo guardado en servidor y en pantalla' : 'Tipo aplicado en esta sesión', 'success');
+}
+window.confirmarAdminTipoNegocioWeb = confirmarAdminTipoNegocioWeb;
+
 /** Menos tiles y menos trabajo en WebView / emulador. */
 function gnMapaLigero() {
     try {
@@ -1126,6 +1203,9 @@ document.getElementById('lf').addEventListener('submit', async e => {
         u.rol = normalizarRolStr(u.rol);
         invalidatePedidosTenantSqlCache();
         app.u = u;
+        if (esAdmin() && !esAndroidWebViewMapa()) {
+            try { sessionStorage.removeItem(SESSION_WEB_ADMIN_TIPO_OK); } catch (_) {}
+        }
         localStorage.setItem('pmg', JSON.stringify(app.u));
         document.getElementById('un').textContent = u.nombre.split(' ')[0];
         document.getElementById('ls').classList.remove('active');
@@ -1182,6 +1262,7 @@ document.getElementById('lf').addEventListener('submit', async e => {
                 await cargarDistribuidores();
                 const cfgLista = await verificarConfiguracionInicialObligatoria();
                 if (!cfgLista) return;
+                await promptAdminTipoNegocioWebIfNeeded();
                 await cargarConfigEmpresa();
                 await cargarPedidos();
                 
@@ -2264,6 +2345,15 @@ function solicitarUbicacion(centrarMapa = true, modoSilencioso = false) {
     }
 }
 
+function irAMiUbicacionEnMapa() {
+    if (!app.map) {
+        toast('Abre el mapa primero', 'info');
+        return;
+    }
+    solicitarUbicacion(true, false);
+}
+window.irAMiUbicacionEnMapa = irAMiUbicacionEnMapa;
+
 let mapViewImportPromise = null;
 function loadMapViewModule() {
     if (!mapViewImportPromise) mapViewImportPromise = import('./map-view.js');
@@ -2316,6 +2406,8 @@ async function initMap() {
     await mod.runInitMap();
 }
 
+const btnMapaIrGps = document.getElementById('btn-mapa-ir-gps');
+if (btnMapaIrGps) btnMapaIrGps.addEventListener('click', () => irAMiUbicacionEnMapa());
 
 document.getElementById('btn-pedido-ubicacion').addEventListener('click', () => {
     limpiarFotosYPreviewNuevoPedido();
@@ -4586,6 +4678,7 @@ document.getElementById('ub').addEventListener('click', () => {
         } catch (_) {}
         detenerSyncCatalogos();
         limpiarEstadoMapaSesion();
+        try { sessionStorage.removeItem(SESSION_WEB_ADMIN_TIPO_OK); } catch (_) {}
         localStorage.removeItem('pmg');
         localStorage.removeItem('pmg_api_token');
         app.apiToken = null;
@@ -4817,6 +4910,12 @@ try {
             solicitarPermisos();
             initMap();
             await asegurarJwtApiRest();
+            if (!modoOffline) {
+                const cfgLista = await verificarConfiguracionInicialObligatoria();
+                if (!cfgLista) return;
+                await promptAdminTipoNegocioWebIfNeeded();
+                await cargarConfigEmpresa();
+            }
             await cargarPedidos();
             
             if (!modoOffline && offlineQueue().length > 0) {
@@ -5264,6 +5363,7 @@ async function guardarConfiguracionInicialObligatoria() {
         await cargarConfigEmpresa();
         const ok = await verificarConfiguracionInicialObligatoria();
         if (ok) {
+            await promptAdminTipoNegocioWebIfNeeded();
             toast('Setup inicial completado', 'success');
             // El login ya había salido antes de completar el wizard (cfgLista === false),
             // así que nunca se llegó a cargarPedidos() en entrarConUsuario.
