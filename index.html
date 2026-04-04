@@ -113,10 +113,10 @@
   </div>
   <div id="mapa-android-strip"><div class="mas-inner">
     <div class="mas-line-top">
-      <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;white-space:nowrap;margin:0"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"> Filtros avanzados</label>
-      <div class="mas-actions">
-        <button type="button" class="ib-mini" title="Ocultar esta barra" onclick="toggleAndroidMapStripCollapsed(true)"><i class="fas fa-eye-slash"></i></button>
+      <div class="mas-actions mas-actions-lead">
+        <button type="button" class="ib-mini" title="Ocultar esta barra" onclick="toggleAndroidMapStripCollapsed(true)"><i class="fas fa-chevron-right"></i></button>
       </div>
+      <label class="mas-filtros-label"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"> Filtros avanzados</label>
     </div>
     <span id="wrap-android-scope" style="display:none;align-items:center;gap:.35rem;flex-wrap:wrap">
       <span style="color:var(--tl)">Pedidos:</span>
@@ -141,6 +141,7 @@
     <div class="pc">
       <div class="pt">
         <button class="tb active" data-tab="p"><i class="fas fa-clock"></i> Pendientes <span id="pc" class="bge">0</span></button>
+        <button class="tb" data-tab="a"><i class="fas fa-user-check"></i> Asignados <span id="ac" class="bge">0</span></button>
         <button class="tb" data-tab="c"><i class="fas fa-check-circle"></i> Cerrados <span id="cc" class="bge">0</span></button>
         <label id="wrap-toggle-ver-todos" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
           <input type="checkbox" id="toggle-ver-todos-pedidos" title="Ver todos los reclamos del sistema"> Todos
