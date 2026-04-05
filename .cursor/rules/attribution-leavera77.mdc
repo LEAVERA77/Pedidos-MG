@@ -1,0 +1,10 @@
+---
+description: Atribución made by leavera77 en commits (Pedidos-MG / front GitHub Pages).
+alwaysApply: true
+---
+
+# Atribución de cambios (LEAVERA77)
+
+- En **cada commit** en este repositorio, incluí la frase exacta **`made by leavera77`** en el mensaje de commit (por ejemplo al final del cuerpo o en la última línea).
+- Si el commit es de una sola línea: `… tu resumen — made by leavera77`.
+- El lugar principal es el **mensaje de git**, no hace falta repetir en cada línea del código.
