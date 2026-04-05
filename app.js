@@ -1405,7 +1405,6 @@ async function conectarNeon() {
                     id SERIAL PRIMARY KEY,
                     nis_medidor TEXT NOT NULL UNIQUE,
                     nombre TEXT,
-                    domicilio TEXT,
                     calle TEXT,
                     numero TEXT,
                     telefono TEXT,
@@ -1419,9 +1418,6 @@ async function conectarNeon() {
                 await sqlSimple(`ALTER TABLE socios_catalogo ADD COLUMN IF NOT EXISTS transformador TEXT`);
                 await sqlSimple(`ALTER TABLE socios_catalogo ADD COLUMN IF NOT EXISTS calle TEXT`);
                 await sqlSimple(`ALTER TABLE socios_catalogo ADD COLUMN IF NOT EXISTS numero TEXT`);
-                await sqlSimple(`UPDATE socios_catalogo SET calle = TRIM(domicilio)
-                    WHERE (calle IS NULL OR TRIM(COALESCE(calle,'')) = '')
-                      AND domicilio IS NOT NULL AND TRIM(COALESCE(domicilio,'')) <> ''`);
                 await sqlSimple(`CREATE TABLE IF NOT EXISTS pedido_materiales(
                     id SERIAL PRIMARY KEY,
                     pedido_id INTEGER NOT NULL,
@@ -7022,7 +7018,7 @@ async function cargarListaSociosAdmin() {
     if (!cont) return;
     cont.innerHTML = '<div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div>';
     try {
-        const r = await sqlSimple('SELECT id, nis_medidor, nombre, calle, numero, domicilio, telefono, distribuidor_codigo, localidad, tipo_tarifa, urbano_rural, transformador, activo FROM socios_catalogo ORDER BY nis_medidor LIMIT 500');
+        const r = await sqlSimple('SELECT id, nis_medidor, nombre, calle, numero, telefono, distribuidor_codigo, localidad, tipo_tarifa, urbano_rural, transformador, activo FROM socios_catalogo ORDER BY nis_medidor LIMIT 500');
         const rows = r.rows || [];
         if (!rows.length) {
             cont.innerHTML = '<p style="color:var(--tl);font-size:.85rem">Sin socios. Importá un Excel.</p>';
@@ -7031,7 +7027,7 @@ async function cargarListaSociosAdmin() {
         cont.innerHTML = '<div style="overflow-x:auto"><table style="width:100%;font-size:.8rem;border-collapse:collapse"><thead><tr><th align="left">NIS</th><th>Nombre</th><th>Localidad</th><th>Transf.</th><th>Tarifa</th><th>U/R</th><th>Calle</th><th>Nº</th><th>Tel.</th><th>Dist.</th><th>Estado</th></tr></thead><tbody>' +
             rows.map(s => {
                 const e = (x) => String(x ?? '').replace(/</g, '&lt;');
-                const calleDisp = String(s.calle || '').trim() || String(s.domicilio || '').trim();
+                const calleDisp = String(s.calle || '').trim();
                 const numDisp = String(s.numero || '').trim();
                 return `<tr><td>${e(s.nis_medidor)}</td><td>${e(s.nombre)}</td><td>${e(s.localidad)}</td><td>${e(s.transformador)}</td><td>${e(s.tipo_tarifa)}</td><td>${e(s.urbano_rural)}</td><td>${e(calleDisp)}</td><td>${e(numDisp)}</td><td>${e(s.telefono)}</td><td>${e(s.distribuidor_codigo)}</td><td>${s.activo ? 'Activo' : 'Baja'}</td></tr>`;
             }).join('') + '</tbody></table></div>';
@@ -7092,9 +7088,10 @@ async function importarExcelSocios(event) {
             const nombre = valorSociosPorEncabezados(row, mapNormAOriginal, 'nombre', 'razon_social', 'socio');
             let calle = valorSociosPorEncabezados(row, mapNormAOriginal, 'calle', 'calle_nombre', 'via');
             let numero = valorSociosPorEncabezados(row, mapNormAOriginal, 'numero', 'nro', 'num', 'altura', 'numero_calle', 'n');
-            const domicilioUnico = valorSociosPorEncabezados(row, mapNormAOriginal, 'domicilio', 'direccion');
-            if (domicilioUnico && !calle && !numero) {
-                const t = String(domicilioUnico).trim();
+            /* Excel: una sola columna de dirección (encabezado direccion u otros sinónimos normalizados) */
+            const textoDireccionUnica = valorSociosPorEncabezados(row, mapNormAOriginal, 'direccion', 'domicilio');
+            if (textoDireccionUnica && !calle && !numero) {
+                const t = String(textoDireccionUnica).trim();
                 const m = t.match(/^(.+?)\s+(\d{1,6}[a-zA-Z\u00f1\u00b0]?)$/);
                 if (m) {
                     calle = m[1].trim();
@@ -7102,10 +7099,9 @@ async function importarExcelSocios(event) {
                 } else {
                     calle = t;
                 }
-            } else if (domicilioUnico && !calle) {
-                calle = String(domicilioUnico).trim();
+            } else if (textoDireccionUnica && !calle) {
+                calle = String(textoDireccionUnica).trim();
             }
-            const domicilio = [calle, numero].filter(Boolean).join(' ').trim() || null;
             const telefono = valorSociosPorEncabezados(row, mapNormAOriginal, 'telefono', 'tel', 'celular');
             /* Excel cooperativa: columna "distribuidor_" (guión bajo al final) */
             const dist = valorSociosPorEncabezados(row, mapNormAOriginal,
@@ -7115,9 +7111,9 @@ async function importarExcelSocios(event) {
             const ur = valorSociosPorEncabezados(row, mapNormAOriginal, 'urbano_rural', 'zona', 'tipo_ubicacion');
             const transf = valorSociosPorEncabezados(row, mapNormAOriginal, 'transformador', 'trafo', 'transformador_codigo');
             try {
-                await sqlSimple(`INSERT INTO socios_catalogo(nis_medidor, nombre, calle, numero, domicilio, telefono, distribuidor_codigo, localidad, tipo_tarifa, urbano_rural, transformador)
-                    VALUES(${esc(nis)}, ${esc(nombre)}, ${esc(calle)}, ${esc(numero)}, ${esc(domicilio)}, ${esc(telefono)}, ${esc(dist)}, ${esc(loc)}, ${esc(tar)}, ${esc(ur)}, ${esc(transf)})
-                    ON CONFLICT (nis_medidor) DO UPDATE SET nombre = EXCLUDED.nombre, calle = EXCLUDED.calle, numero = EXCLUDED.numero, domicilio = EXCLUDED.domicilio, telefono = EXCLUDED.telefono, distribuidor_codigo = EXCLUDED.distribuidor_codigo, localidad = EXCLUDED.localidad, tipo_tarifa = EXCLUDED.tipo_tarifa, urbano_rural = EXCLUDED.urbano_rural, transformador = EXCLUDED.transformador`);
+                await sqlSimple(`INSERT INTO socios_catalogo(nis_medidor, nombre, calle, numero, telefono, distribuidor_codigo, localidad, tipo_tarifa, urbano_rural, transformador)
+                    VALUES(${esc(nis)}, ${esc(nombre)}, ${esc(calle)}, ${esc(numero)}, ${esc(telefono)}, ${esc(dist)}, ${esc(loc)}, ${esc(tar)}, ${esc(ur)}, ${esc(transf)})
+                    ON CONFLICT (nis_medidor) DO UPDATE SET nombre = EXCLUDED.nombre, calle = EXCLUDED.calle, numero = EXCLUDED.numero, telefono = EXCLUDED.telefono, distribuidor_codigo = EXCLUDED.distribuidor_codigo, localidad = EXCLUDED.localidad, tipo_tarifa = EXCLUDED.tipo_tarifa, urbano_rural = EXCLUDED.urbano_rural, transformador = EXCLUDED.transformador`);
                 ok++;
             } catch (_) { fail++; }
         }
@@ -7132,7 +7128,7 @@ async function importarExcelSocios(event) {
 }
 
 function mostrarFormatoExcelSocios() {
-    alert('Excel socios — fila 1 = encabezados (el orden no importa).\n\nRecomendado (cooperativa eléctrica):\n• nis_medidor · nombre · Calle · Numero\n• telefono · distribuidor_ o distribuidor_codigo\n• localidad · tipo_tarifa · urbano_rural · transformador\n\nAlternativa: una sola columna domicilio o direccion (intenta separar calle y número al final).\nImportación: sin “vaciar”, se actualizan/agregan por NIS; con “vaciar”, se borra todo el catálogo antes.\nTeléfono: formato texto en Excel para el 0 inicial.');
+    alert('Excel socios — fila 1 = encabezados (el orden no importa).\n\nRecomendado (cooperativa eléctrica):\n• nis_medidor · nombre · Calle · Numero\n• telefono · distribuidor_ o distribuidor_codigo\n• localidad · tipo_tarifa · urbano_rural · transformador\n\nOpcional: una sola columna direccion (se intenta separar calle y número al final).\nImportación: sin “vaciar”, se actualizan/agregan por NIS; con “vaciar”, se borra todo el catálogo antes.\nTeléfono: formato texto en Excel para el 0 inicial.');
 }
 
 async function buscarHistorialPorNIS() {
