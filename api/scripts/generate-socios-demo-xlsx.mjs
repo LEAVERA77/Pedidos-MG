@@ -1,5 +1,5 @@
 /**
- * Genera socios-demo-300.xlsx: domicilios con nombres de calle reales (Overpass/OSM).
+ * Genera socios-demo-300.xlsx: Calle + Numero (cooperativa), calles OSM vía Overpass.
  * Ejecutar: cd api && node scripts/generate-socios-demo-xlsx.mjs
  */
 import XLSX from "xlsx";
@@ -187,9 +187,10 @@ function main() {
         rows.push({
           nis_medidor: String(nisBase++),
           nombre: fakeNombre(idx),
-          domicilio: `${alt} ${calle}`,
+          Calle: calle,
+          Numero: String(alt),
           telefono: `0344${String(4000000 + idx).slice(-7)}`,
-          distribuidor_codigo: dists[idx % dists.length],
+          distribuidor_: dists[idx % dists.length],
           localidad: z.localidad,
           tipo_tarifa: tarifas[idx % tarifas.length],
           urbano_rural: zonas[idx % 2],
@@ -202,7 +203,7 @@ function main() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Socios");
-    const outDir = path.join(__dirname, "../../app/src/main/assets/ejemplos");
+    const outDir = path.join(__dirname, "../../ejemplos");
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, "socios-demo-300.xlsx");
     XLSX.writeFile(wb, outPath);
