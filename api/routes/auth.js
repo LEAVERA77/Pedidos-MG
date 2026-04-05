@@ -12,7 +12,7 @@ router.post("/login", async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: "Email y contraseña requeridos" });
 
     const r = await query(
-      "SELECT id, email, nombre, rol, password_hash, activo FROM usuarios WHERE email = $1 LIMIT 1",
+      "SELECT id, email, nombre, rol, password_hash, activo, COALESCE(must_change_password, false) AS must_change_password FROM usuarios WHERE email = $1 LIMIT 1",
       [email]
     );
     if (!r.rows.length) return res.status(401).json({ error: "Credenciales inválidas" });
@@ -31,7 +31,13 @@ router.post("/login", async (req, res) => {
     const token = signToken({ userId: u.id, rol: u.rol });
     return res.json({
       token,
-      user: { id: u.id, email: u.email, nombre: u.nombre, rol: u.rol },
+      user: {
+        id: u.id,
+        email: u.email,
+        nombre: u.nombre,
+        rol: u.rol,
+        must_change_password: Boolean(u.must_change_password),
+      },
     });
   } catch (error) {
     return res.status(500).json({ error: "Error en login", detail: error.message });
