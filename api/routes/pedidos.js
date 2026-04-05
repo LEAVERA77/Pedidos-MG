@@ -169,6 +169,8 @@ router.post("/", async (req, res) => {
       telefono_contacto,
       nis,
       medidor,
+      suministro_tipo_conexion,
+      suministro_fases,
     } = req.body;
 
     const tenantId = await getUserTenantId(req.user.id);
@@ -191,12 +193,10 @@ router.post("/", async (req, res) => {
     const medK = String(medidor || "").trim();
     const tieneNisOMedidor = !!(nisK || medK);
     let distribuidorFinal = null;
-    let setdFinal = null;
     let trafoFinal = null;
     if (tieneNisOMedidor) {
       const lk = await lookupDistribuidorTrafoPorNisMedidor(nisK || medK);
       distribuidorFinal = lk.distribuidor;
-      setdFinal = lk.trafo;
       trafoFinal = lk.trafo;
     }
 
@@ -235,22 +235,26 @@ router.post("/", async (req, res) => {
     );
     const numeroPedido = `${rCont.rows[0].anio}-${String(rCont.rows[0].ultimo_numero).padStart(4, "0")}`;
 
+    const stc = String(suministro_tipo_conexion || "").trim() || null;
+    const sfa = String(suministro_fases || "").trim() || null;
+
     const insert = await query(
       `INSERT INTO pedidos (
-        numero_pedido, distribuidor, setd, trafo, cliente, tipo_trabajo, descripcion, prioridad,
+        numero_pedido, distribuidor, trafo, cliente, tipo_trabajo, descripcion, prioridad,
         estado, avance, lat, lng, usuario_id, usuario_creador_id, fecha_creacion,
         telefono_contacto, cliente_nombre, foto_urls, nis, medidor,
-        cliente_calle, cliente_localidad, cliente_numero_puerta, cliente_direccion
+        cliente_calle, cliente_localidad, cliente_numero_puerta, cliente_direccion,
+        suministro_tipo_conexion, suministro_fases
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,
-        'Pendiente',0,$9,$10,$11,$11,NOW(),
-        $12,$13,$14,$15,$16,
-        $17,$18,$19,$20
+        $1,$2,$3,$4,$5,$6,$7,
+        'Pendiente',0,$8,$9,$10,$10,NOW(),
+        $11,$12,$13,$14,$15,
+        $16,$17,$18,$19,
+        $20,$21
       ) RETURNING *`,
       [
         numeroPedido,
         distribuidorFinal,
-        setdFinal,
         trafoFinal,
         cliente || null,
         tipo_trabajo || null,
@@ -268,6 +272,8 @@ router.post("/", async (req, res) => {
         cliente_localidad ?? null,
         cliente_numero_puerta ?? null,
         cliente_direccion ?? null,
+        stc,
+        sfa,
       ]
     );
     return res.status(201).json(insert.rows[0]);

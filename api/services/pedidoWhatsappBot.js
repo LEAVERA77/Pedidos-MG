@@ -111,6 +111,8 @@ export async function crearPedidoDesdeWhatsappBot({
   clienteCalle,
   clienteNumeroPuerta,
   clienteLocalidad,
+  suministroTipoConexion,
+  suministroFases,
 }) {
   const tt = String(tipoTrabajo || "").trim();
   const de = String(descripcion || "").trim();
@@ -131,12 +133,10 @@ export async function crearPedidoDesdeWhatsappBot({
 
   let distribuidorVal = null;
   let trafoVal = null;
-  let setdVal = null;
   if (tieneIdentificadorSum && lookupKey) {
     const lk = await lookupDistribuidorTrafoPorNisMedidor(lookupKey);
     distribuidorVal = lk.distribuidor;
     trafoVal = lk.trafo;
-    setdVal = lk.trafo;
   }
 
   if (tieneIdentificadorSum && (distribuidorVal || trafoVal)) {
@@ -176,7 +176,6 @@ export async function crearPedidoDesdeWhatsappBot({
   const cols = [
     "numero_pedido",
     "distribuidor",
-    "setd",
     "cliente",
     "tipo_trabajo",
     "descripcion",
@@ -192,7 +191,6 @@ export async function crearPedidoDesdeWhatsappBot({
   const vals = [
     numeroPedido,
     distribuidorVal,
-    setdVal,
     null,
     tt,
     de,
@@ -260,6 +258,23 @@ export async function crearPedidoDesdeWhatsappBot({
   if (pCols.has("cliente_localidad") && locT) {
     cols.push("cliente_localidad");
     vals.push(locT);
+  }
+
+  const stc =
+    suministroTipoConexion != null && String(suministroTipoConexion).trim()
+      ? String(suministroTipoConexion).trim()
+      : null;
+  const sfa =
+    suministroFases != null && String(suministroFases).trim()
+      ? String(suministroFases).trim()
+      : null;
+  if (pCols.has("suministro_tipo_conexion") && stc) {
+    cols.push("suministro_tipo_conexion");
+    vals.push(stc);
+  }
+  if (pCols.has("suministro_fases") && sfa) {
+    cols.push("suministro_fases");
+    vals.push(sfa);
   }
 
   if (hasTenant) {
