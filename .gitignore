@@ -1,6 +1,9 @@
 # Credenciales locales — no subir a GitHub (ver README y GitHub Actions)
 config.json
 
+# Dependencias si instalás npm en la raíz del repo (p. ej. jest)
+node_modules/
+
 # API Node: dependencias y secretos solo locales (ver api/.gitignore)
 api/node_modules/
 api/.env

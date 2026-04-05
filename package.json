@@ -1,0 +1,14 @@
+{
+  "name": "pedidos-mg-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run && npm run test --prefix api",
+    "test:front": "vitest run",
+    "test:api": "npm run test --prefix api",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}
