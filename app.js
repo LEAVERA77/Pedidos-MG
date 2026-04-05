@@ -501,6 +501,7 @@ async function heartbeat() {
             detenerSyncCatalogos();
             detenerDashboardGerenciaPoll();
             detenerTecnicosMapaPrincipalPoll();
+            detenerPollSincroPedidosTecnico();
             app.u = null;
             mapaInicializado = false;
             if (app.map) { app.map.remove(); app.map = null; }
@@ -581,6 +582,9 @@ document.addEventListener('visibilitychange', () => {
         console.log('Tab visible: heartbeat preventivo');
         heartbeat();
         if (!esAdmin()) window.pollNotificacionesMovil();
+        if (!esAdmin() && esTecnicoOSupervisor() && !modoOffline && NEON_OK && _sql) {
+            void cargarPedidos({ silent: true });
+        }
     }
 });
 
@@ -1556,11 +1560,13 @@ document.getElementById('lf').addEventListener('submit', async e => {
         if (esAdmin()) {
             iniciarDashboardGerenciaPoll();
             iniciarPollWhatsappHumanChat();
+            detenerPollSincroPedidosTecnico();
         } else {
             detenerDashboardGerenciaPoll();
             detenerPollWhatsappHumanChat();
             destruirTodasVentanasWaHc();
             detenerTecnicosMapaPrincipalPoll();
+            iniciarPollSincroPedidosTecnico();
         }
         setTimeout(async () => {
 
@@ -2334,8 +2340,68 @@ let _pollDashInterval = null;
 let _pollPedidosActividadInterval = null;
 let _pedidosActividadFinger = '';
 let _pollTecnicosMapaInterval = null;
+/** Sincroniza lista Neon → técnico/supervisor cuando el admin cambia estados desde la web. */
+let _pollTecnicoPedidosInterval = null;
+const TECNICO_PEDIDOS_SYNC_MS = 22000;
 let _seenClosedIds = new Set();
 let _dashCierresInit = false;
+
+function detenerPollSincroPedidosTecnico() {
+    if (_pollTecnicoPedidosInterval) {
+        clearInterval(_pollTecnicoPedidosInterval);
+        _pollTecnicoPedidosInterval = null;
+    }
+}
+
+async function tickSincroPedidosTecnico() {
+    if (!app.u || esAdmin() || modoOffline || !NEON_OK || !_sql) return;
+    if (!esTecnicoOSupervisor()) return;
+    try {
+        await cargarPedidos({ silent: true });
+    } catch (_) {}
+}
+
+function iniciarPollSincroPedidosTecnico() {
+    detenerPollSincroPedidosTecnico();
+    if (!app.u || esAdmin()) return;
+    if (!esTecnicoOSupervisor()) return;
+    void tickSincroPedidosTecnico();
+    _pollTecnicoPedidosInterval = setInterval(() => void tickSincroPedidosTecnico(), TECNICO_PEDIDOS_SYNC_MS);
+}
+
+/** Si el detalle está abierto, repinta con la fila actual de app.p (p. ej. cierre remoto). */
+function refrescarDetalleSiAbiertoTrasSync() {
+    const dm = document.getElementById('dm');
+    if (!dm || !dm.classList.contains('active') || app.cid == null || app.cid === '') return;
+    const fresh = app.p.find(x => String(x.id) === String(app.cid));
+    if (fresh) {
+        try {
+            detalle(fresh);
+        } catch (_) {}
+    } else {
+        try {
+            closeAll();
+        } catch (_) {}
+        toast('El pedido ya no está en tu listado (actualizado desde la central).', 'info');
+    }
+}
+
+function notificarCambiosPedidoTecnico(prevSnap) {
+    if (!prevSnap || !app.u || esAdmin() || modoOffline) return;
+    if (!esTecnicoOSupervisor()) return;
+    const uid = String(app.u.id);
+    for (const p of app.p) {
+        const prev = prevSnap.get(String(p.id));
+        if (!prev) continue;
+        if (prev.es === p.es) continue;
+        const eraAbierto = ['Pendiente', 'Asignado', 'En ejecución'].includes(prev.es);
+        const ahoraCerrado = p.es === 'Cerrado';
+        if (eraAbierto && ahoraCerrado && p.tai != null && String(p.tai) === uid) {
+            const quien = (p.tc || '').trim() || 'Administración';
+            toast(`Pedido #${p.np || p.id}: cerrado desde la central (${quien}). Revisá «Cerrados».`, 'success');
+        }
+    }
+}
 
 function detenerPedidosActividadPollAdmin() {
     if (_pollPedidosActividadInterval) {
@@ -3144,9 +3210,14 @@ async function cargarPedidos(opts) {
                 qPed = `SELECT * FROM pedidos WHERE tecnico_asignado_id = ${esc(parseInt(app.u.id, 10))}${tsql} ORDER BY fecha_creacion DESC`;
             }
         }
+        const prevSnapTecnico =
+            !esAdmin() && esTecnicoOSupervisor() && (app.p || []).length
+                ? new Map((app.p || []).map(p => [String(p.id), { es: p.es, np: p.np, tai: p.tai }]))
+                : null;
         const r = await ejecutarSQLConReintentos(qPed);
         const prevIds = new Set((app.p || []).map(p => p.id));
         app.p = (r.rows || []).map(norm);
+        if (prevSnapTecnico) notificarCambiosPedidoTecnico(prevSnapTecnico);
         if (esAdmin() && app.p.length) {
             const mx = app.p.reduce((a, p) => Math.max(a, Number(p.id) || 0), 0);
             if (Number.isFinite(mx) && mx > 0) app._lastMaxPedidoIdSynced = mx;
@@ -3175,10 +3246,16 @@ async function cargarPedidos(opts) {
         toast('Sin conexión — mostrando pedidos en caché', 'info');
     }
     render();
+    try {
+        refrescarDetalleSiAbiertoTrasSync();
+    } catch (_) {}
 }
 
-
-
+/** Llamado desde Android (onResume) para traer cierres/cambios hechos por el admin en la web. */
+window.gnSincronizarPedidosDesdeAndroid = function gnSincronizarPedidosDesdeAndroid() {
+    if (!app.u || modoOffline || !NEON_OK || !_sql) return;
+    void cargarPedidos({ silent: true });
+};
 
 
 
@@ -5843,6 +5920,7 @@ document.getElementById('ub').addEventListener('click', () => {
         detenerPollWhatsappHumanChat();
         destruirTodasVentanasWaHc();
         detenerTecnicosMapaPrincipalPoll();
+        detenerPollSincroPedidosTecnico();
         _dashCierresInit = false;
         _seenClosedIds.clear();
         try {
@@ -6158,11 +6236,13 @@ try {
         if (esAdmin()) {
             iniciarDashboardGerenciaPoll();
             iniciarPollWhatsappHumanChat();
+            detenerPollSincroPedidosTecnico();
         } else {
             detenerDashboardGerenciaPoll();
             detenerPollWhatsappHumanChat();
             destruirTodasVentanasWaHc();
             detenerTecnicosMapaPrincipalPoll();
+            iniciarPollSincroPedidosTecnico();
         }
         document.getElementById('ls').classList.remove('active');
         document.getElementById('ms').classList.add('active');
