@@ -12091,6 +12091,10 @@ async function generarInformeMensualENRE() {
                         ty = top + h / 2;
                         ctx.textBaseline = 'middle';
                     }
+                    if (ctx.textBaseline === 'bottom' && ty > area.bottom - 10) {
+                        ty = top + h / 2;
+                        ctx.textBaseline = 'middle';
+                    }
                     const t = pct + '%';
                     const inkP = typeof window !== 'undefined' && window.__gnStatsInkSave;
                     ctx.lineWidth = inkP ? 0 : 3;
@@ -12484,7 +12488,7 @@ async function cargarEstadisticas() {
                 rUsuarios.rows.map(r => r.usuario.length > 14 ? r.usuario.substring(0,14)+'…' : r.usuario),
                 [{ label: 'Pedidos', data: rUsuarios.rows.map(r => parseInt(r.n)),
                    backgroundColor: COLORES.slice(0,10) }],
-                { layout: { padding: { top: 32, bottom: 4, left: 4, right: 8 } },
+                { layout: { padding: { top: 32, bottom: 28, left: 4, right: 8 } },
                     plugins: { legend: { display: false },
                     tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}},
                   scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
@@ -12499,7 +12503,7 @@ async function cargarEstadisticas() {
                 rTecnicos.rows.map(r => r.tecnico.length > 15 ? r.tecnico.substring(0,15)+'…' : r.tecnico),
                 [{ label: 'Pedidos cerrados', data: rTecnicos.rows.map(r => parseInt(r.n)),
                    backgroundColor: COLORES }],
-                { layout: { padding: { top: 32, bottom: 4, left: 4, right: 8 } },
+                { layout: { padding: { top: 32, bottom: 28, left: 4, right: 8 } },
                     plugins: { legend: { display: false },
                     tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' pedidos' }}} }
             );
