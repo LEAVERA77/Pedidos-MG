@@ -203,7 +203,7 @@ function main() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Socios");
-    const outDir = path.join(__dirname, "../../ejemplos");
+    const outDir = path.join(__dirname, "../../app/src/main/assets/ejemplos");
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, "socios-demo-300.xlsx");
     XLSX.writeFile(wb, outPath);

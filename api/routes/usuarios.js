@@ -18,31 +18,6 @@ router.get("/tecnicos", async (_req, res) => {
   res.json(r.rows);
 });
 
-/** Clave provisoria para técnico/supervisor; en la app Android se exige cambio al ingresar. */
-router.post("/:id/reset-provisional-password", async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "ID inválido" });
-    const r = await query("SELECT id, email, nombre, rol FROM usuarios WHERE id = $1 LIMIT 1", [id]);
-    if (!r.rows.length) return res.status(404).json({ error: "Usuario no encontrado" });
-    const u = r.rows[0];
-    const rol = String(u.rol || "").toLowerCase();
-    if (rol !== "tecnico" && rol !== "supervisor") {
-      return res.status(400).json({ error: "Solo técnicos o supervisores" });
-    }
-    const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let pwd = "";
-    for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-    await query(
-      `UPDATE usuarios SET password_hash = $1, must_change_password = TRUE, reset_token = NULL, reset_expiry = NULL WHERE id = $2`,
-      [pwd, id]
-    );
-    return res.json({ ok: true, provisionalPassword: pwd, userId: id });
-  } catch (error) {
-    return res.status(500).json({ error: "No se pudo generar clave", detail: error.message });
-  }
-});
-
 router.post("/", async (req, res) => {
   try {
     const { email, nombre, rol = "tecnico", password } = req.body;
