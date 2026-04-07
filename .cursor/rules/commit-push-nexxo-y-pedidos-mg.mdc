@@ -1,0 +1,29 @@
+---
+description: Tras cambios, commit y push en Pedidos-MG y paridad con Nexxo (Android)
+alwaysApply: true
+---
+
+# Commit y push dual: Pedidos-MG + Nexxo
+
+Cuando el agente implemente cambios en este repo **[Pedidos-MG](https://github.com/LEAVERA77/Pedidos-MG)**:
+
+## 1. Siempre en este repositorio
+
+- `git add` / `git commit` / `git push origin main`.
+- **No** commitear `config.json` con secretos.
+
+## 2. Paridad con Nexxo (Android / GestorNova)
+
+| Área tocada aquí | Acción en Nexxo |
+|------------------|-----------------|
+| `api/**` | Copiar `api/` al proyecto Nexxo (`AndroidStudioProjects/Nexxo`), luego commit + push en el remoto Android ([Pedidos-Manteniemiento-Android](https://github.com/LEAVERA77/Pedidos-Manteniemiento-Android)). |
+| Raíz: `index.html`, `app.js`, `styles.css`, `map.js`, `map-view.js`, `offline.js`, `sw.js` | Copiar a `Nexxo/app/src/main/assets/` (o script equivalente desde el PC), luego commit + push en Nexxo. |
+
+## 3. Excepciones
+
+- Si el usuario pide **solo un repo** o **no pushear**, respetarlo.
+- Si `git push` falla, informar y dejar commit local.
+
+## Regla espejo
+
+En el workspace **Nexxo** existe la misma política desde el otro sentido: `.cursor/rules/commit-push-nexxo-y-pedidos-mg.mdc`.
