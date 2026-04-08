@@ -1948,6 +1948,8 @@ function aplicarMarcaVisualCompleta() {
 
 /** Primera vez en este navegador: modal de rubro. Luego: botón «Cambiar rubro» con contraseña. */
 const LS_ADMIN_WEB_TIPO_ACK = 'pmg_admin_web_tipo_ack_v1';
+/** Admin: incluir pedidos en estado «Derivado externo» en listas y mapa (histórico operativo). */
+const LS_MOSTRAR_DERIVADOS_FUERA = 'pmg_pedidos_mostrar_derivados_fuera';
 let _resolveAdminTipoModal = null;
 
 function invalidateCachesTrasCambioRubro(tipoAnterior, tipoNuevo) {
@@ -5625,6 +5627,27 @@ window.confirmarImpresionPedido = function() {
     }
 };
 
+function tituloPedidoDocumento(p) {
+    const tt = String(p?.tt ?? '').trim();
+    const np = String(p?.np ?? '').trim();
+    if (tt && np) return `${tt} N° ${np}`;
+    if (np) return `Pedido N° ${np}`;
+    return tt || 'Pedido';
+}
+
+function nombreArchivoExportPedidoUnico(p) {
+    const base = tituloPedidoDocumento(p);
+    let safe = base.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '_');
+    if (safe.length > 120) safe = safe.slice(0, 120);
+    return safe || ('pedido_' + String(p?.np || 'export').replace(/[\\/:*?"<>|]/g, '-'));
+}
+
+function nombreHojaExcelPedidoUnico(p) {
+    let s = tituloPedidoDocumento(p).replace(/[:\\/*?\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (s.length > 31) s = s.slice(0, 31).trim();
+    return s || 'Pedidos';
+}
+
 async function imprimirPedidoAsync(p) {
     if (!p) { toast('Pedido inválido', 'error'); return; }
     const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
@@ -5683,7 +5706,7 @@ async function imprimirPedidoAsync(p) {
             : '';
 
     const contenidoCuerpo = `
-            <h1>Pedido de Mantenimiento N° ${escHtmlPrint(p.np)}</h1>
+            <h1>${escHtmlPrint(tituloPedidoDocumento(p))}</h1>
             
             <h2>📋 Información General</h2>
             <table>
@@ -8361,7 +8384,8 @@ function exportPedido(pedidos, nombre) {
             ];
             ws['!cols'] = colWidths;
             
-            XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+            const sheetName = pedidos.length === 1 ? nombreHojaExcelPedidoUnico(pedidos[0]) : 'Pedidos';
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
             const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
             const fileName = nombre + '.xlsx';
             const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -8414,7 +8438,7 @@ function dl(data, nombre, mime) {
 
 window._xl = id => {
     const p = app.p.find(x => String(x.id) === String(id));
-    if (p) exportPedido([p], 'pedido_' + p.np);
+    if (p) exportPedido([p], nombreArchivoExportPedidoUnico(p));
 };
 
 
@@ -9715,6 +9739,19 @@ window.adminBannerCerrarSinDetalle = ocultarBannerReclamoCliente;
 window.adminBannerOpinionClickVerDetalle = adminBannerOpinionClickVerDetalle;
 window.adminBannerOpinionCerrar = ocultarBannerOpinionCliente;
 
+function pedidoEsDerivadoFuera(p) {
+    if (!p) return false;
+    return String(p.es || '') === 'Derivado externo' || p.dex === true || p.dex === 1;
+}
+
+function adminMuestraPedidosDerivadosFuera() {
+    try {
+        return esAdmin() && localStorage.getItem(LS_MOSTRAR_DERIVADOS_FUERA) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
 /** Mapa: oculta pedidos cuyo tipo pertenece claramente a otro rubro (catálogo distinto). */
 function pedidoVisibleSegunRubro(p) {
     const rubro = normalizarRubroEmpresa(window.EMPRESA_CFG?.tipo);
@@ -10157,7 +10194,9 @@ async function guardarConfiguracionInicialObligatoria() {
         await cargarConfigEmpresa();
         const ok = await verificarConfiguracionInicialObligatoria();
         if (ok) {
-            await promptAdminTipoNegocioWebIfNeeded();
+            try {
+                localStorage.setItem(LS_ADMIN_WEB_TIPO_ACK, '1');
+            } catch (_) {}
             toast('Setup inicial completado', 'success');
             // El login ya había salido antes de completar el wizard (cfgLista === false),
             // así que nunca se llegó a cargarPedidos() en entrarConUsuario.
@@ -11430,19 +11469,36 @@ async function repoblarSelectDistribuidoresInfraAdmin() {
 
 function mostrarFormatoExcelInfraTrafo() {
     alert(
-        'Formato Excel — transformadores (hoja 1, fila 1 = encabezados):\n\n' +
-            'codigo | nombre | capacidad_kva (o kva) | clientes_conectados (o socios) | barrio (opc.) | distribuidor_codigo (opc., debe existir en Distribuidores) | alimentador (opc.)\n\n' +
-            '• codigo: obligatorio (se normaliza a mayúsculas).\n' +
-            '• Si el código ya existe para tu tenant, la fila actualiza datos y reactiva el trafo.\n' +
-            '• distribuidor_codigo: mismo código que en el panel Distribuidores (ej. D001).'
+        'Formato Excel — transformadores (hoja 1, fila 1 = encabezados).\n\n' +
+            'Títulos recomendados (también valen los nombres técnicos entre paréntesis):\n' +
+            '• Id transformador (codigo) · obligatorio\n' +
+            '• nombre\n' +
+            '• capacidad_kva o kva\n' +
+            '• clientes_conectados o socios\n' +
+            '• barrio (opc.)\n' +
+            '• Código de distribuidor (distribuidor_codigo, opc.; debe existir en Distribuidores)\n' +
+            '• Código de alimentador (alimentador, opc.)\n\n' +
+            'Ejemplo ficticio — fila 1 títulos, fila 2 datos:\n' +
+            'Id transformador | nombre | kva | socios | barrio | Código de distribuidor | Código de alimentador\n' +
+            'TRF-001 | Centro Norte | 315 | 42 | Centro | DIS05H | ALIM-NORTE\n\n' +
+            '• Si el Id transformador ya existe para tu tenant, la fila actualiza datos y reactiva el trafo.\n' +
+            '• Código de distribuidor = mismo código que en el panel Distribuidores (ej. DIS05H).'
     );
 }
 
 function mostrarFormatoExcelInfraAsignacion() {
     alert(
-        'Formato Excel — solo asignar distribuidor / alimentador a trafos ya cargados:\n\n' +
-            'codigo | distribuidor_codigo | alimentador (opcional)\n\n' +
-            'Actualiza solo transformadores activos del tenant cuyo código coincida. Si no hay fila, suma en «sin coincidencia».'
+        'Formato Excel — solo asignar distribuidor / alimentador a trafos ya cargados.\n\n' +
+            'Fila 1 = encabezados. Títulos recomendados (también valen los nombres técnicos entre paréntesis):\n' +
+            '• Id transformador (codigo)\n' +
+            '• Código de distribuidor (distribuidor_codigo)\n' +
+            '• Código de alimentador (alimentador, opcional)\n\n' +
+            'Ejemplo ficticio — fila 1 títulos, fila 2 datos:\n' +
+            'Id transformador | Código de distribuidor | Código de alimentador\n' +
+            'TRF-001 | DIS05H | ALIM-NORTE\n' +
+            'TRF-002 | DIS01C |\n\n' +
+            'Actualiza solo transformadores activos del tenant cuyo código coincida. ' +
+            'Si una fila no coincide con ningún trafo, suma en «sin coincidencia».'
     );
 }
 
@@ -11531,14 +11587,21 @@ async function importarExcelInfraTransformadores(event) {
         let err = 0;
         for (const raw of rows) {
             const row = _normKeyInfraRow(raw);
-            const codigo = _cellStrInfra(row, 'codigo', 'código', 'code').toUpperCase();
+            const codigo = _cellStrInfra(row, 'codigo', 'código', 'code', 'id_transformador', 'transformador_id', 'id_trafo').toUpperCase();
             if (!codigo) continue;
             const nombre = _cellStrInfra(row, 'nombre', 'name') || null;
             const kva = _cellNumInfra(row, 'capacidad_kva', 'kva', 'potencia_kva');
             const soc = _cellNumInfra(row, 'clientes_conectados', 'socios', 'clientes');
             const clientes = soc != null ? Math.max(0, Math.floor(soc)) : 0;
             const barrio = _cellStrInfra(row, 'barrio', 'barrio_texto') || null;
-            const distCod = _cellStrInfra(row, 'distribuidor_codigo', 'distribuidor', 'dist_codigo');
+            const distCod = _cellStrInfra(
+                row,
+                'distribuidor_codigo',
+                'distribuidor',
+                'dist_codigo',
+                'codigo_de_distribuidor',
+                'código_de_distribuidor'
+            );
             let distId = null;
             if (distCod) {
                 const rd = await sqlSimple(
@@ -11546,7 +11609,9 @@ async function importarExcelInfraTransformadores(event) {
                 );
                 distId = rd.rows?.[0]?.id ?? null;
             }
-            const alim = _cellStrInfra(row, 'alimentador', 'alim', 'feeder') || null;
+            const alim =
+                _cellStrInfra(row, 'alimentador', 'alim', 'feeder', 'codigo_de_alimentador', 'código_de_alimentador') ||
+                null;
             const kvaSql = kva != null && Number.isFinite(kva) ? esc(Math.floor(kva)) : 'NULL';
             try {
                 await sqlSimple(
@@ -11619,9 +11684,16 @@ async function importarExcelInfraAsignacion(event) {
         let err = 0;
         for (const raw of rows) {
             const row = _normKeyInfraRow(raw);
-            const codigo = _cellStrInfra(row, 'codigo', 'código', 'code').toUpperCase();
+            const codigo = _cellStrInfra(row, 'codigo', 'código', 'code', 'id_transformador', 'transformador_id', 'id_trafo').toUpperCase();
             if (!codigo) continue;
-            const distCod = _cellStrInfra(row, 'distribuidor_codigo', 'distribuidor', 'dist_codigo');
+            const distCod = _cellStrInfra(
+                row,
+                'distribuidor_codigo',
+                'distribuidor',
+                'dist_codigo',
+                'codigo_de_distribuidor',
+                'código_de_distribuidor'
+            );
             let distId = null;
             if (distCod) {
                 const rd = await sqlSimple(
@@ -11629,7 +11701,9 @@ async function importarExcelInfraAsignacion(event) {
                 );
                 distId = rd.rows?.[0]?.id ?? null;
             }
-            const alim = _cellStrInfra(row, 'alimentador', 'alim', 'feeder') || null;
+            const alim =
+                _cellStrInfra(row, 'alimentador', 'alim', 'feeder', 'codigo_de_alimentador', 'código_de_alimentador') ||
+                null;
             try {
                 const ru = await sqlSimple(
                     `UPDATE infra_transformadores SET distribuidor_id = ${esc(distId)}, alimentador = ${esc(
