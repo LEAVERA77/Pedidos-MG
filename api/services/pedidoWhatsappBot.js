@@ -9,6 +9,37 @@ import {
   contarPedidosAbiertosMismaZona,
   OUTAGE_SECTOR_MULTI_RECLAMO,
 } from "./pedidoZonaOutage.js";
+import { parseDomicilioLibreArgentina } from "../utils/parseDomicilioArg.js";
+import {
+  geocodeCalleNumeroLocalidadArgentina,
+  verifyCatalogGeocodeReverse,
+} from "./nominatimClient.js";
+
+async function loadTenantGeocodeHintsForPedido(tenantId) {
+  const r = await query(
+    `SELECT configuracion FROM clientes WHERE id = $1 AND activo = TRUE LIMIT 1`,
+    [Number(tenantId)]
+  );
+  const row = r.rows?.[0];
+  if (!row) return { geocodeState: null, tenantCentroid: null };
+  let cfg = row.configuracion;
+  if (typeof cfg === "string") {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = {};
+    }
+  }
+  const c = cfg && typeof cfg === "object" ? cfg : {};
+  const provRaw = c.provincia ?? c.state ?? c.provincia_nominatim ?? c.provincia_geocode;
+  const geocodeState =
+    provRaw != null && String(provRaw).trim().length >= 2 ? String(provRaw).trim() : null;
+  const lat = c.lat_base != null ? Number(c.lat_base) : null;
+  const lng = c.lng_base != null ? Number(c.lng_base) : null;
+  const tenantCentroid =
+    Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  return { geocodeState, tenantCentroid };
+}
 
 async function columnasUsuarios() {
   const cols = await query(
@@ -177,6 +208,53 @@ export async function crearPedidoDesdeWhatsappBot({
   const hasTenant = pCols.has("tenant_id");
   const hasOrigen = pCols.has("origen_reclamo");
 
+  const dirT =
+    clienteDireccion != null && String(clienteDireccion).trim()
+      ? String(clienteDireccion).trim()
+      : null;
+
+  let calleT = clienteCalle != null && String(clienteCalle).trim() ? String(clienteCalle).trim() : null;
+  let numT =
+    clienteNumeroPuerta != null && String(clienteNumeroPuerta).trim()
+      ? String(clienteNumeroPuerta).trim()
+      : null;
+  let locT =
+    clienteLocalidad != null && String(clienteLocalidad).trim() ? String(clienteLocalidad).trim() : null;
+
+  if (dirT) {
+    const parsed = parseDomicilioLibreArgentina(dirT, locT);
+    if (parsed) {
+      if (!calleT) calleT = parsed.calle;
+      if (!numT && parsed.numero) numT = parsed.numero;
+      if (!locT) locT = parsed.localidad;
+    }
+  }
+
+  let latFinal = lat != null && Number.isFinite(Number(lat)) ? Number(lat) : null;
+  let lngFinal = lng != null && Number.isFinite(Number(lng)) ? Number(lng) : null;
+  if ((latFinal == null || lngFinal == null) && calleT && locT) {
+    try {
+      const hints = await loadTenantGeocodeHintsForPedido(tenantId);
+      const g = await geocodeCalleNumeroLocalidadArgentina(
+        locT,
+        calleT,
+        numT && String(numT).trim() ? String(numT).trim() : "0",
+        {
+          allowTenantCentroidFallback: true,
+          tenantCentroid: hints.tenantCentroid || undefined,
+          stateOrProvince: hints.geocodeState || undefined,
+        }
+      );
+      if (g && Number.isFinite(g.lat) && Number.isFinite(g.lng)) {
+        const revOk = await verifyCatalogGeocodeReverse(g.lat, g.lng, locT, calleT);
+        if (revOk) {
+          if (latFinal == null) latFinal = g.lat;
+          if (lngFinal == null) lngFinal = g.lng;
+        }
+      }
+    } catch (_) {}
+  }
+
   const cols = [
     "numero_pedido",
     "distribuidor",
@@ -201,8 +279,8 @@ export async function crearPedidoDesdeWhatsappBot({
     prioridadPredeterminadaPorTipoTrabajo(tt),
     "Pendiente",
     0,
-    lat ?? null,
-    lng ?? null,
+    latFinal,
+    lngFinal,
     new Date(),
     telefonoContacto || null,
     clienteNombre,
@@ -235,22 +313,11 @@ export async function crearPedidoDesdeWhatsappBot({
     vals.push(nmT);
   }
 
-  const dirT =
-    clienteDireccion != null && String(clienteDireccion).trim()
-      ? String(clienteDireccion).trim()
-      : null;
   if (pCols.has("cliente_direccion") && dirT) {
     cols.push("cliente_direccion");
     vals.push(dirT);
   }
 
-  const calleT = clienteCalle != null && String(clienteCalle).trim() ? String(clienteCalle).trim() : null;
-  const numT =
-    clienteNumeroPuerta != null && String(clienteNumeroPuerta).trim()
-      ? String(clienteNumeroPuerta).trim()
-      : null;
-  const locT =
-    clienteLocalidad != null && String(clienteLocalidad).trim() ? String(clienteLocalidad).trim() : null;
   if (pCols.has("cliente_calle") && calleT) {
     cols.push("cliente_calle");
     vals.push(calleT);
