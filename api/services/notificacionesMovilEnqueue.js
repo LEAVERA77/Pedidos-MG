@@ -100,13 +100,14 @@ export async function enqueueNotificacionChatInternoPedido({
     let rows;
     if (col && Number.isFinite(tid) && tid >= 1) {
       const r = await query(
-        `SELECT id FROM usuarios WHERE ${col} = $1 AND rol = 'admin' AND activo = TRUE`,
-        [tid]
+        `SELECT id FROM usuarios WHERE ${col} = $1 AND rol = 'admin' AND activo = TRUE AND id != $2`,
+        [tid, autor]
       );
       rows = r.rows;
     } else {
       const r = await query(
-        `SELECT id FROM usuarios WHERE rol = 'admin' AND activo = TRUE`
+        `SELECT id FROM usuarios WHERE rol = 'admin' AND activo = TRUE AND id != $1`,
+        [autor]
       );
       rows = r.rows;
     }
@@ -125,39 +126,46 @@ export async function enqueueNotificacionChatInternoPedido({
 }
 
 /**
- * Técnico solicita derivación a terceros: avisar a administradores del tenant (app Android / cola).
+ * Técnico solicita derivación a tercero → avisar a admins del tenant (panel web + cola móvil).
  */
 export async function enqueueNotificacionSolicitudDerivacionParaAdmins({
   tenantId,
   pedidoId,
   numeroPedido,
-  tipoTrabajo,
   motivoSnippet,
-  tituloOverride,
 }) {
   if (!(await ensureNotificacionesMovilTable())) return;
-  const pid = Number(pedidoId);
   const tid = Number(tenantId);
-  if (!Number.isFinite(pid) || pid < 1 || !Number.isFinite(tid) || tid < 1) return;
+  const pid = Number(pedidoId);
+  if (!Number.isFinite(tid) || tid < 1 || !Number.isFinite(pid) || pid < 1) return;
   const np = String(numeroPedido || "").trim() || `#${pid}`;
-  const tt = String(tipoTrabajo || "").trim() || "Reclamo";
-  const snip = String(motivoSnippet || "").trim().slice(0, 220);
-  const titulo = tituloOverride || "Derivación pendiente";
-  const cuerpo = `${np} · ${tt}${snip ? ` — ${snip}` : ""}`.slice(0, 480);
+  const snip = String(motivoSnippet || "")
+    .trim()
+    .slice(0, 160);
+  const titulo = "Solicitud de derivación (técnico)";
+  const cuerpo = snip
+    ? `${np}: el técnico pide derivar a un tercero. Motivo: ${snip}`
+    : `${np}: el técnico pidió derivar el reclamo a un tercero. Revisá la cola de derivaciones.`;
   try {
     const col = await tenantColumnForUsuarios();
     let rows;
-    if (col) {
+    if (col && Number.isFinite(tid) && tid >= 1) {
       const r = await query(
-        `SELECT id FROM usuarios WHERE ${col} = $1 AND rol = 'admin' AND activo = TRUE`,
+        `SELECT id FROM usuarios WHERE ${col} = $1 AND activo = TRUE
+         AND (LOWER(COALESCE(rol::text,'')) = 'admin' OR LOWER(COALESCE(rol::text,'')) = 'administrador')`,
         [tid]
       );
       rows = r.rows;
     } else {
-      const r = await query(`SELECT id FROM usuarios WHERE rol = 'admin' AND activo = TRUE`);
+      const r = await query(
+        `SELECT id FROM usuarios WHERE activo = TRUE
+         AND (LOWER(COALESCE(rol::text,'')) = 'admin' OR LOWER(COALESCE(rol::text,'')) = 'administrador')`,
+        []
+      );
       rows = r.rows;
     }
-    for (const row of rows || []) {
+    if (!rows?.length) return;
+    for (const row of rows) {
       const uid = Number(row.id);
       if (!Number.isFinite(uid) || uid < 1) continue;
       await query(
@@ -167,6 +175,6 @@ export async function enqueueNotificacionSolicitudDerivacionParaAdmins({
       );
     }
   } catch (e) {
-    console.error("[notificacionesMovilEnqueue] solicitud derivación", e.message);
+    console.error("[notificacionesMovilEnqueue] solicitud derivación admin", e.message);
   }
 }
