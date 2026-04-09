@@ -127,28 +127,28 @@ describe("derivacionReclamos utils", () => {
     expect(t).toContain("Gracias por su atención.");
   });
 
-  it("buildDerivacionExternaMensaje trata 0,0 como sin GPS (fallback a dirección)", () => {
+  it("buildDerivacionExternaMensaje ignora coordenadas 0,0 y usa dirección", () => {
     const t = buildDerivacionExternaMensaje({
       nombreTenant: "Coop",
       pedido: {
-        id: 3,
-        numero_pedido: 3,
-        tipo_trabajo: "T",
-        descripcion: "D",
-        prioridad: "Media",
+        id: 25,
+        numero_pedido: "2026-0053",
+        tipo_trabajo: "Cables",
+        descripcion: "X",
+        prioridad: "Crítica",
         estado: "En ejecución",
-        cliente_calle: "San Martín",
-        cliente_numero_puerta: "50",
+        cliente_calle: "Boulevard",
+        cliente_numero_puerta: "401",
         cliente_localidad: "Cerrito",
         lat: 0,
         lng: 0,
       },
-      nombreEmpresaDestino: "Tercero",
-      textoObservacionesTecnico: "Obs.",
+      nombreEmpresaDestino: "ENERSA",
+      textoObservacionesTecnico: "corresponde a enersa",
     });
-    expect(t).toContain("Sin coordenadas GPS registradas en el sistema");
-    expect(t).toContain("San Martín");
-    expect(t).not.toMatch(/maps\?q=0,0/);
+    expect(t).toContain("Sin coordenadas GPS registradas");
+    expect(t).toContain("Boulevard");
+    expect(t).not.toContain("maps?q=0,0");
   });
 
   it("buildDerivacionExternaMensaje sin GPS usa dirección y aclaración sin coordenadas", () => {

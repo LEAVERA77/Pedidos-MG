@@ -17,10 +17,7 @@ import {
   notifyPedidoAltaClienteWhatsAppSafe,
   notifyPedidoDerivacionClienteWhatsAppSafe,
 } from "../services/whatsappService.js";
-import {
-  enqueueNotificacionPedidoCerradoParaTecnico,
-  enqueueNotificacionSolicitudDerivacionParaAdmins,
-} from "../services/notificacionesMovilEnqueue.js";
+import { enqueueNotificacionPedidoCerradoParaTecnico } from "../services/notificacionesMovilEnqueue.js";
 import {
   lookupDistribuidorTrafoPorNisMedidor,
   contarPedidosAbiertosMismaZona,
@@ -34,8 +31,7 @@ import {
   buildDerivacionExternaMensaje,
   etiquetaDestinoDerivacion,
 } from "../utils/derivacionReclamos.js";
-import { registerDerivacionExternaWaThread } from "../services/whatsappBotMeta.js";
-import { normalizeWhatsAppRecipientForMeta } from "../services/metaWhatsapp.js";
+import { humanChatOpenOrGetSession, humanChatAppendOutbound } from "../services/whatsappHumanChat.js";
 
 const router = express.Router();
 router.use(authWithTenantHost);
@@ -468,16 +464,10 @@ const TIPOS_SOLICITUD_DERIVACION_TERCERO = new Set([
   "Alumbrado Público (Mantenimiento)",
   "Riesgo en la vía pública",
   "Corrimiento de poste/columna",
-  "Cables Caídos/Peligro",
 ]);
 
 function pedidoTipoPermiteSolicitudDerivacion(tt) {
   return TIPOS_SOLICITUD_DERIVACION_TERCERO.has(String(tt || "").trim());
-}
-
-/** Booleanos desde PG / JSON intermedio (Android, proxies). */
-function esTruthyPgBool(v) {
-  return v === true || v === "t" || v === "true" || v === 1 || v === "1";
 }
 
 function esRolTecnicoOSupervisorAuth(rol) {
@@ -521,7 +511,7 @@ router.post("/:id/solicitar-derivacion-tercero", async (req, res) => {
     if (!pedidoTipoPermiteSolicitudDerivacion(pedido.tipo_trabajo)) {
       return res.status(400).json({ error: "Este tipo de reclamo no admite solicitud de derivación desde el técnico" });
     }
-    if (esTruthyPgBool(pedido.solicitud_derivacion_pendiente)) {
+    if (pedido.solicitud_derivacion_pendiente === true) {
       return res.status(400).json({ error: "Ya hay una solicitud pendiente" });
     }
     if (!motivoStr || motivoStr.length < 8) {
@@ -567,17 +557,7 @@ router.post("/:id/solicitar-derivacion-tercero", async (req, res) => {
       throw err;
     }
     if (!r.rows.length) return res.status(404).json({ error: "Pedido no encontrado" });
-    const saved = r.rows[0];
-    setImmediate(() => {
-      enqueueNotificacionSolicitudDerivacionParaAdmins({
-        tenantId: req.tenantId,
-        pedidoId: saved.id,
-        numeroPedido: saved.numero_pedido,
-        tipoTrabajo: saved.tipo_trabajo,
-        motivoSnippet: motivoStr,
-      }).catch(() => {});
-    });
-    return res.json(saved);
+    return res.json(r.rows[0]);
   } catch (error) {
     return res.status(500).json({ error: "No se pudo registrar la solicitud", detail: error.message });
   }
@@ -601,7 +581,7 @@ router.post("/:id/rechazar-solicitud-derivacion-tercero", adminOnly, async (req,
       if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       throw e;
     }
-    if (!esTruthyPgBool(pedido.solicitud_derivacion_pendiente)) {
+    if (pedido.solicitud_derivacion_pendiente !== true) {
       return res.status(400).json({ error: "No hay solicitud pendiente" });
     }
 
@@ -709,9 +689,19 @@ router.post("/:id/derivar-externo", adminOnly, async (req, res) => {
     }
     const destinoEtiqueta = etiquetaDestinoDerivacion(destinoStr);
     const nombreEmpresaDestino = (rContact.nombre && String(rContact.nombre).trim()) || destinoEtiqueta;
+    let pedidoParaMensaje = { ...pedido };
+    const latBody = req.body?.lat ?? req.body?.latitude;
+    const lngBody = req.body?.lng ?? req.body?.longitude;
+    if (latBody != null && lngBody != null) {
+      const lx = Number(latBody);
+      const ly = Number(lngBody);
+      if (Number.isFinite(lx) && Number.isFinite(ly) && (Math.abs(lx) > 1e-7 || Math.abs(ly) > 1e-7)) {
+        pedidoParaMensaje = { ...pedidoParaMensaje, lat: lx, lng: ly };
+      }
+    }
     const snapBase = buildDerivacionExternaMensaje({
       nombreTenant,
-      pedido,
+      pedido: pedidoParaMensaje,
       nombreEmpresaDestino,
       textoObservacionesTecnico: textoObservaciones,
     });
@@ -784,14 +774,6 @@ router.post("/:id/derivar-externo", adminOnly, async (req, res) => {
     if (!r.rows.length) return res.status(404).json({ error: "Pedido no encontrado" });
 
     const row = r.rows[0];
-    try {
-      const extDigits = normalizeWhatsAppRecipientForMeta(String(rContact.whatsapp || "").replace(/\D/g, ""));
-      if (extDigits.length >= 8) {
-        await registerDerivacionExternaWaThread(req.tenantId, extDigits, id);
-      }
-    } catch (e) {
-      console.warn("[pedidos] hilo WA tercero (derivación)", e?.message || e);
-    }
     void (async () => {
       try {
         await notifyPedidoDerivacionClienteWhatsAppSafe({
@@ -806,6 +788,25 @@ router.post("/:id/derivar-externo", adminOnly, async (req, res) => {
         console.error("[pedidos] aviso cliente derivación externa (no bloqueante)", e.message);
       }
     })();
+    const waDigits = String(rContact.whatsapp || "").replace(/\D/g, "");
+    if (waDigits.length >= 8) {
+      void (async () => {
+        try {
+          const { id: sid } = await humanChatOpenOrGetSession(
+            req.tenantId,
+            waDigits,
+            rContact.nombre || nombreEmpresaDestino
+          );
+          const stub = `[Derivación externa] Pedido #${row.numero_pedido ?? row.id} — el admin abrirá WhatsApp con el texto completo. Respondé por este hilo; un operador te verá en el panel de chat.`;
+          await humanChatAppendOutbound(sid, stub, {
+            source: "derivacion_externa",
+            pedido_id: row.id,
+          });
+        } catch (e) {
+          console.error("[pedidos] human chat derivación tercero (no bloqueante)", e?.message || e);
+        }
+      })();
+    }
     return res.json({
       ...row,
       _derivacion_whatsapp: rContact.whatsapp,
@@ -1122,18 +1123,6 @@ router.put("/:id", async (req, res) => {
           pedidoId: updated.id,
           numeroPedido: updated.numero_pedido,
           cerradoPorUsuarioId: req.user.id,
-        }).catch(() => {});
-      });
-    } else if (trabajo_realizado != null && String(trabajo_realizado).trim() !== "" && req.user.rol !== "admin") {
-      // Técnico guarda observación: avisar a admins
-      setImmediate(() => {
-        enqueueNotificacionSolicitudDerivacionParaAdmins({
-          tenantId: req.tenantId,
-          pedidoId: updated.id,
-          numeroPedido: updated.numero_pedido,
-          tipoTrabajo: updated.tipo_trabajo,
-          motivoSnippet: String(trabajo_realizado).trim(),
-          tituloOverride: "Observación de técnico",
         }).catch(() => {});
       });
     }
