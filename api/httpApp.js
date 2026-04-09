@@ -17,6 +17,7 @@ import webhooksWhatsappRoutes from "./routes/webhooksWhatsapp.js";
 import webhooksMetaRoutes from "./routes/webhooksMeta.js";
 import configUbicacionRoutes from "./routes/configUbicacion.js";
 import whatsappGeocodeRoutes from "./routes/whatsappGeocode.js";
+import geocodeNominatimRoutes from "./routes/geocodeNominatim.js";
 import infraAfectadosRoutes from "./routes/infraAfectados.js";
 import tenantOperativaSettingsRoutes from "./routes/tenantOperativaSettings.js";
 
@@ -39,7 +40,6 @@ export function createHttpApp() {
     const origin = req.header("Origin");
     const corsOptions = {
       origin: false,
-      credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Hub-Signature-256", "X-Request-Id"],
       optionsSuccessStatus: 204,
@@ -52,7 +52,7 @@ export function createHttpApp() {
     }
 
     if (allowedOrigins.has(origin)) {
-      corsOptions.origin = origin;
+      corsOptions.origin = true;
       return callback(null, corsOptions);
     }
 
@@ -81,6 +81,7 @@ export function createHttpApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/config", configUbicacionRoutes);
   app.use("/api/whatsapp", whatsappGeocodeRoutes);
+  app.use("/api/geocode", geocodeNominatimRoutes);
   app.use("/api/pedidos", pedidosRoutes);
   app.use("/api/tenant-operativa", tenantOperativaSettingsRoutes);
   app.use("/api/infra-afectados", infraAfectadosRoutes);
@@ -90,9 +91,8 @@ export function createHttpApp() {
   app.use("/api/distribuidores", distribuidoresRoutes);
   app.use("/api/estadisticas", estadisticasRoutes);
   app.use("/api/notificaciones", notificacionesRoutes);
-  /* human-chat antes que /api/whatsapp para que no lo intercepten routers montados en el mismo prefijo */
-  app.use("/api/whatsapp/human-chat", whatsappHumanChatRoutes);
   app.use("/api/whatsapp", whatsappRoutes);
+  app.use("/api/whatsapp/human-chat", whatsappHumanChatRoutes);
   app.use("/api/webhooks/whatsapp", webhooksWhatsappRoutes);
 
   app.get("/api/app-version", async (_req, res) => {
