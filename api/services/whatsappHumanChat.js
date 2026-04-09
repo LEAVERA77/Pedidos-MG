@@ -4,8 +4,16 @@
  */
 
 import { query } from "../db/neon.js";
+import { normalizeWhatsAppRecipientForMeta } from "./metaWhatsapp.js";
+import { enqueueNotificacionWhatsappHumanChatTercero } from "./notificacionesMovilEnqueue.js";
 
 let _tablesReady = false;
+
+function canonicalPhoneForHumanChat(digits) {
+  const raw = String(digits || "").replace(/\D/g, "");
+  if (!raw || raw.length < 8) return "";
+  return normalizeWhatsAppRecipientForMeta(raw);
+}
 
 export async function ensureHumanChatTables() {
   if (_tablesReady) return;
@@ -22,6 +30,11 @@ export async function ensureHumanChatTables() {
       last_message_at TIMESTAMPTZ
     )
   `);
+  try {
+    await query(
+      `ALTER TABLE whatsapp_human_chat_session ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`
+    );
+  } catch (_) {}
   await query(`
     CREATE TABLE IF NOT EXISTS whatsapp_human_chat_message (
       id SERIAL PRIMARY KEY,
@@ -63,47 +76,79 @@ export async function ensureHumanChatTables() {
 export async function humanChatFindOpenSessionForPhone(tenantId, phoneCanonical) {
   await ensureHumanChatTables();
   const tid = Number(tenantId);
-  const phone = String(phoneCanonical || "").replace(/\D/g, "");
-  if (!Number.isFinite(tid) || tid < 1 || phone.length < 8) return null;
+  const raw = String(phoneCanonical || "").replace(/\D/g, "");
+  const norm = canonicalPhoneForHumanChat(raw);
+  if (!Number.isFinite(tid) || tid < 1 || norm.length < 8) return null;
   const r = await query(
     `SELECT id FROM whatsapp_human_chat_session
-     WHERE tenant_id = $1 AND phone_canonical = $2 AND estado IN ('queued', 'active')
+     WHERE tenant_id = $1
+       AND estado IN ('queued', 'active')
+       AND (phone_canonical = $2 OR phone_canonical = $3)
+       AND (expires_at IS NULL OR expires_at > NOW())
      LIMIT 1`,
-    [tid, phone]
+    [tid, norm, raw]
   );
   const id = r.rows?.[0]?.id;
   return id != null ? { id: Number(id) } : null;
 }
 
-export async function humanChatOpenOrGetSession(tenantId, phoneCanonical, contactName) {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.expiresInHours] — p. ej. 2 para chat tercero; NULL = sin vencimiento
+ */
+export async function humanChatOpenOrGetSession(tenantId, phoneCanonical, contactName, opts = null) {
   await ensureHumanChatTables();
   const tid = Number(tenantId);
-  const phone = String(phoneCanonical || "").replace(/\D/g, "");
+  const raw = String(phoneCanonical || "").replace(/\D/g, "");
+  const phone = canonicalPhoneForHumanChat(raw) || raw;
   if (!Number.isFinite(tid) || tid < 1 || phone.length < 8) {
     throw new Error("invalid_tenant_or_phone");
   }
   const cn = contactName != null ? String(contactName).trim().slice(0, 200) : null;
+  const hours =
+    opts && opts.expiresInHours != null && Number.isFinite(Number(opts.expiresInHours))
+      ? Number(opts.expiresInHours)
+      : null;
   const ex = await query(
     `SELECT id FROM whatsapp_human_chat_session
-     WHERE tenant_id = $1 AND phone_canonical = $2 AND estado IN ('queued', 'active')
+     WHERE tenant_id = $1
+       AND estado IN ('queued', 'active')
+       AND (phone_canonical = $2 OR phone_canonical = $3)
+       AND (expires_at IS NULL OR expires_at > NOW())
      LIMIT 1`,
-    [tid, phone]
+    [tid, phone, raw]
   );
   if (ex.rows?.[0]) {
     const id = Number(ex.rows[0].id);
-    await query(
-      `UPDATE whatsapp_human_chat_session
-       SET contact_name = COALESCE($2, contact_name), updated_at = NOW()
-       WHERE id = $1`,
-      [id, cn || null]
-    );
+    if (hours != null && hours > 0) {
+      await query(
+        `UPDATE whatsapp_human_chat_session
+         SET contact_name = COALESCE($2, contact_name),
+             phone_canonical = $4,
+             updated_at = NOW(),
+             expires_at = NOW() + ($3::numeric * INTERVAL '1 hour')
+         WHERE id = $1`,
+        [id, cn || null, hours, phone]
+      );
+    } else {
+      await query(
+        `UPDATE whatsapp_human_chat_session
+         SET contact_name = COALESCE($2, contact_name), phone_canonical = $3, updated_at = NOW()
+         WHERE id = $1`,
+        [id, cn || null, phone]
+      );
+    }
     return { id, isNew: false };
   }
   const ins = await query(
-    `INSERT INTO whatsapp_human_chat_session (tenant_id, phone_canonical, contact_name, estado)
-     VALUES ($1, $2, $3, 'queued')
-     RETURNING id`,
-    [tid, phone, cn]
+    hours != null && hours > 0
+      ? `INSERT INTO whatsapp_human_chat_session (tenant_id, phone_canonical, contact_name, estado, expires_at)
+         VALUES ($1, $2, $3, 'queued', NOW() + ($4::numeric * INTERVAL '1 hour'))
+         RETURNING id`
+      : `INSERT INTO whatsapp_human_chat_session (tenant_id, phone_canonical, contact_name, estado)
+         VALUES ($1, $2, $3, 'queued')
+         RETURNING id`,
+    hours != null && hours > 0 ? [tid, phone, cn, hours] : [tid, phone, cn]
   );
   return { id: Number(ins.rows[0].id), isNew: true };
 }
@@ -193,12 +238,13 @@ export async function humanChatCloseBySessionId(sessionId) {
 export async function humanChatCloseOpenForPhone(tenantId, phoneCanonical) {
   await ensureHumanChatTables();
   const tid = Number(tenantId);
-  const phone = String(phoneCanonical || "").replace(/\D/g, "");
-  if (!Number.isFinite(tid) || tid < 1 || !phone) return;
+  const raw = String(phoneCanonical || "").replace(/\D/g, "");
+  const norm = canonicalPhoneForHumanChat(raw) || raw;
+  if (!Number.isFinite(tid) || tid < 1 || !norm) return;
   await query(
     `UPDATE whatsapp_human_chat_session SET estado = 'closed', updated_at = NOW()
-     WHERE tenant_id = $1 AND phone_canonical = $2 AND estado IN ('queued','active')`,
-    [tid, phone]
+     WHERE tenant_id = $1 AND (phone_canonical = $2 OR phone_canonical = $3) AND estado IN ('queued','active')`,
+    [tid, norm, raw]
   );
 }
 
