@@ -185,7 +185,8 @@ export async function humanChatAppendInbound(sessionId, body) {
   const b = String(body || "").trim().slice(0, 4000);
   if (!Number.isFinite(sid) || sid < 1 || !b) return;
   const open = await query(
-    `SELECT 1 FROM whatsapp_human_chat_session WHERE id = $1 AND estado IN ('queued','active') LIMIT 1`,
+    `SELECT tenant_id, phone_canonical, expires_at FROM whatsapp_human_chat_session
+     WHERE id = $1 AND estado IN ('queued','active') LIMIT 1`,
     [sid]
   );
   if (!open.rows?.length) {
@@ -193,14 +194,32 @@ export async function humanChatAppendInbound(sessionId, body) {
     err.code = "HUMAN_CHAT_CLOSED";
     throw err;
   }
+  const row0 = open.rows[0];
+  const tenantId = Number(row0.tenant_id);
+  const phoneCanon = String(row0.phone_canonical || "").replace(/\D/g, "");
   await query(
     `INSERT INTO whatsapp_human_chat_message (session_id, direction, body) VALUES ($1, 'in', $2)`,
     [sid, b]
   );
   await query(
-    `UPDATE whatsapp_human_chat_session SET last_message_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    `UPDATE whatsapp_human_chat_session
+     SET last_message_at = NOW(),
+         updated_at = NOW(),
+         expires_at = CASE
+           WHEN expires_at IS NOT NULL THEN NOW() + INTERVAL '2 hours'
+           ELSE expires_at
+         END
+     WHERE id = $1`,
     [sid]
   );
+  try {
+    await enqueueNotificacionWhatsappHumanChatTercero({
+      tenantId,
+      sessionId: sid,
+      phoneDigits: phoneCanon,
+      snippet: b,
+    });
+  } catch (_) {}
 }
 
 export async function humanChatAppendOutbound(sessionId, body, meta = null) {
@@ -258,7 +277,8 @@ export async function humanChatListOpenSessions(tenantId, updatedSince = null) {
            s.created_at, s.updated_at, s.last_message_at,
            (SELECT COUNT(*)::int FROM whatsapp_human_chat_message m WHERE m.session_id = s.id) AS message_count
     FROM whatsapp_human_chat_session s
-    WHERE s.tenant_id = $1 AND s.estado IN ('queued', 'active')`;
+    WHERE s.tenant_id = $1 AND s.estado IN ('queued', 'active')
+      AND (s.expires_at IS NULL OR s.expires_at > NOW())`;
   if (updatedSince instanceof Date && !Number.isNaN(updatedSince.getTime())) {
     sql += ` AND s.updated_at > $2`;
     params.push(updatedSince.toISOString());
