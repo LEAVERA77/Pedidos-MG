@@ -1,29 +1,47 @@
 ---
-description: Tras cambios, commit y push en Pedidos-MG y paridad con Nexxo (Android)
+description: Tras implementar cambios, commit y push en Pedidos-MG y Pedidos-Manteniemiento-Android (GitHub)
 alwaysApply: true
 ---
 
-# Commit y push dual: Pedidos-MG + Nexxo
+# Commit y push en los dos repos de GitHub
 
-Cuando el agente implemente cambios en este repo **[Pedidos-MG](https://github.com/LEAVERA77/Pedidos-MG)**:
+**Repos (siempre estos):**
 
-## 1. Siempre en este repositorio
+- **Web + API (admin / Pages) — este workspace:** [github.com/LEAVERA77/Pedidos-MG](https://github.com/LEAVERA77/Pedidos-MG) — rama `main`, remoto habitual `origin`.
+- **Android / Nexxo:** [github.com/LEAVERA77/Pedidos-Manteniemiento-Android](https://github.com/LEAVERA77/Pedidos-Manteniemiento-Android) — rama `main`, remoto habitual `origin`.
 
-- `git add` / `git commit` / `git push origin main`.
-- **No** commitear `config.json` con secretos.
+**Norma por defecto:** cuando el agente **implemente cambios reales** en **Pedidos-MG**, al **cerrar la tarea** debe quedar el trabajo **versionado y subido** según corresponda:
 
-## 2. Paridad con Nexxo (Android / GestorNova)
+1. **Siempre** `git commit` + `git push` en **Pedidos-MG** para todo lo modificado aquí (**no** commitear `config.json` con secretos; respetar `.gitignore`).
+2. **Siempre** completar también **Pedidos-Manteniemiento-Android** cuando la tarea haya tocado algo que debe vivir en paridad en Nexxo: copiar al proyecto `AndroidStudioProjects/Nexxo` y hacer `commit` + `push` allí. **No** cerrar la tarea dejando Nexxo desactualizado si hubo esos cambios.
 
-| Área tocada aquí | Acción en Nexxo |
-|------------------|-----------------|
-| `api/**` | Copiar `api/` al proyecto Nexxo (`AndroidStudioProjects/Nexxo`), luego commit + push en el remoto Android ([Pedidos-Manteniemiento-Android](https://github.com/LEAVERA77/Pedidos-Manteniemiento-Android)). |
-| Raíz: `index.html`, `app.js`, `styles.css`, `map.js`, `map-view.js`, `offline.js`, `sw.js` | Copiar a `Nexxo/app/src/main/assets/` (o script equivalente desde el PC), luego commit + push en Nexxo. |
+Si solo se tocaron archivos **exclusivos** de Pedidos-MG (p. ej. solo `index.html` de Pages sin copiar aún a assets — según flujo del equipo), o cambios que **no** existen en el árbol Android, **no** hace falta commit vacío en Android salvo petición explícita del usuario.
 
-## 3. Excepciones
+**Salvo** que el usuario diga explícitamente lo contrario: un solo repo, sin push, borrador local, etc.
 
-- Si el usuario pide **solo un repo** o **no pushear**, respetarlo.
-- Si `git push` falla, informar y dejar commit local.
+## 1. Siempre en este repositorio (Pedidos-MG)
+
+- `git add` / `git commit` / `git push origin main` (mensaje claro y atribución según regla del proyecto).
+
+## 2. Paridad con Nexxo (`AndroidStudioProjects/Nexxo`)
+
+| Cambios en Pedidos-MG | Acción en Nexxo |
+|----------------------|-----------------|
+| `api/**` | Copiar `api/` al proyecto Nexxo (sin arrastrar secretos innecesarios), luego commit + push en [Pedidos-Manteniemiento-Android](https://github.com/LEAVERA77/Pedidos-Manteniemiento-Android). |
+| Raíz: `index.html`, `app.js`, `styles.css`, `map.js`, `map-view.js`, `offline.js`, `sw.js` | Copiar a `Nexxo/app/src/main/assets/` (o script `sync` inverso / manual desde el PC), luego commit + push en Nexxo. |
+| `docs/**` compartidos con Android | Copiar a `Nexxo/docs/` cuando aplique paridad. |
+
+## 3. Orden recomendado
+
+1. Completar cambios y tests en Pedidos-MG.  
+2. Commit + push **Pedidos-MG**.  
+3. Sincronizar a **Nexxo** lo que corresponda; commit + push **Pedidos-Manteniemiento-Android**.  
+
+## 4. Fallos y excepciones
+
+- Si `git push` falla (red, permisos), informar el error y dejar commits locales listos; no afirmar que se subió.
+- Si el usuario pide **solo un repo** o **sin push**, priorizar esa instrucción sobre esta regla.
 
 ## Regla espejo
 
-En el workspace **Nexxo** existe la misma política desde el otro sentido: `.cursor/rules/commit-push-nexxo-y-pedidos-mg.mdc`.
+En el workspace **Nexxo** la misma política desde el otro sentido: `.cursor/rules/commit-push-nexxo-y-pedidos-mg.mdc`.
