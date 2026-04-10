@@ -14433,6 +14433,47 @@ async function importarExcelSocios(event) {
     event.target.value = '';
 }
 
+async function vaciarCoordenadasSociosCatalogo() {
+    if (!esAdmin()) {
+        toast('Operación solo para administradores', 'error');
+        return;
+    }
+    const confirmar = confirm(
+        '⚠️ ¿ELIMINAR TODOS LOS REGISTROS del catálogo de socios?\n\n' +
+        'Se borrarán TODOS los datos de TODOS los socios (NIS, nombre, dirección, coordenadas, TODO).\n' +
+        'Esta acción NO se puede deshacer.\n\n' +
+        '¿Continuar?'
+    );
+    if (!confirmar) return;
+    
+    const confirmar2 = confirm(
+        '⚠️⚠️ ÚLTIMA CONFIRMACIÓN ⚠️⚠️\n\n' +
+        'Vas a BORRAR TODA LA TABLA de socios_catalogo.\n' +
+        'Se perderán todos los NIS, nombres, direcciones y coordenadas.\n\n' +
+        '¿Estás SEGURO/A?'
+    );
+    if (!confirmar2) return;
+
+    try {
+        mostrarOverlayImportacion('Eliminando TODOS los registros del catálogo...');
+        
+        await sqlSimple(`DELETE FROM socios_catalogo`);
+        
+        ocultarOverlayImportacion();
+        
+        // Recargar lista
+        if (typeof listarSociosAdmin === 'function') {
+            await listarSociosAdmin();
+        }
+        
+        toast('✓ Tabla de socios eliminada completamente', 'success');
+    } catch (e) {
+        ocultarOverlayImportacion();
+        console.error('[vaciar-tabla-socios]', e);
+        toast('Error al vaciar tabla: ' + (e?.message || e), 'error');
+    }
+}
+
 function mostrarFormatoExcelSocios() {
     alert(
         'GestorNova — Excel de socios (fila 1 = encabezados; el orden no importa).\n\n' +
