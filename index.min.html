@@ -78,7 +78,8 @@
   <div id="admin-banner-opinion-cliente" class="admin-banner-opinion-cliente" style="display:none" role="status" aria-live="polite">
     <span class="admin-banner-opinion-cliente-ic" aria-hidden="true"><i class="fas fa-comment-dots"></i></span>
     <span id="admin-banner-opinion-cliente-txt" class="admin-banner-opinion-cliente-txt admin-banner-clickable-txt" role="button" tabindex="0" onclick="adminBannerOpinionClickVerDetalle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();adminBannerOpinionClickVerDetalle();}"></span>
-    <button type="button" id="admin-banner-opinion-wa" class="admin-banner-btn admin-banner-btn-opinion admin-banner-btn-wa" style="display:none" onclick="adminBannerOpinionClickWhatsapp()" title="Abrir WhatsApp con el cliente"><i class="fab fa-whatsapp"></i> Cliente</button>
+    <button type="button" id="admin-banner-opinion-wa" class="admin-banner-btn admin-banner-btn-opinion admin-banner-btn-wa" style="display:none" onclick="adminBannerOpinionClickWhatsapp()" title="Abrir chat con el cliente (WhatsApp)"><i class="fab fa-whatsapp"></i> Abrir chat con cliente</button>
+    <button type="button" id="admin-banner-opinion-hc" class="admin-banner-btn admin-banner-btn-opinion" style="display:none" onclick="adminBannerOpinionAbrirChatOperador()" title="Abrir chat operador (WhatsApp Business)"><i class="fas fa-comments"></i> Chat</button>
     <button type="button" class="admin-banner-btn admin-banner-btn-opinion" onclick="adminBannerOpinionClickVerDetalle()">Ver pedido</button>
     <button type="button" class="admin-banner-x" onclick="adminBannerOpinionCerrar()" title="Cerrar">&times;</button>
   </div>
@@ -113,7 +114,6 @@
   </div>
   <div id="mc"></div>
   <div id="mapa-overlay-ui">
-    <button type="button" id="map-tab-android-bar" class="map-slide-tab map-tab-android-bar" onclick="toggleAndroidMapStripCollapsed(false)" title="Mostrar barra (filtros / alcance)">Barra</button>
     <div id="map-slide-tabs-cluster" class="map-slide-tabs-cluster">
     <button type="button" id="map-tab-filtros" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-filtros',false)" title="Mostrar filtros">Filtros</button>
     <button type="button" id="map-tab-filtro-tipo" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-filtro-tipo',false)" title="Mostrar filtro por tipo de reclamo">Tipo</button>
@@ -127,6 +127,13 @@
     <div id="mapa-card-filtros" class="moui-card">
       <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-filter"></i> Filtros del mapa <span id="mapa-filtros-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtros',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-filtros-body" class="moui-bd">
+        <div id="wrap-android-scope" class="moui-row" style="display:none;align-items:center;gap:.35rem;flex-wrap:wrap;margin-bottom:.35rem;width:100%">
+          <span class="moui-lbl">Alcance</span>
+          <select id="sel-android-pedidos-scope" class="moui-sel" style="max-width:min(12rem,70vw)" onchange="onAndroidPedidosScopeChange()">
+            <option value="asignados">Solo a mí</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
         <div class="moui-row moui-estados">
           <label class="moui-chk"><input type="checkbox" id="mapa-flt-pendiente" checked onchange="onMapaFiltroChange()"> Pendiente</label>
           <label class="moui-chk"><input type="checkbox" id="mapa-flt-asignado" checked onchange="onMapaFiltroChange()"> Asignado</label>
@@ -171,35 +178,6 @@
       </div>
     </div>
   </div>
-  <div id="mapa-android-strip"><div class="mas-inner">
-    <div class="mas-line-top">
-      <div class="mas-actions mas-actions-lead">
-        <button type="button" class="ib-mini" title="Ocultar esta barra" onclick="toggleAndroidMapStripCollapsed(true)"><i class="fas fa-chevron-right"></i></button>
-      </div>
-      <div class="mas-filters-cluster" id="wrap-android-filtros-rapidos">
-      <span id="wrap-android-scope" class="mas-scope-wrap" style="display:none">
-        <span class="mas-scope-lbl">Alcance</span>
-        <select id="sel-android-pedidos-scope" class="mas-scope-select" onchange="onAndroidPedidosScopeChange()">
-          <option value="asignados">Solo a mí</option>
-          <option value="todos">Todos</option>
-        </select>
-      </span>
-      <span id="wrap-android-estado" class="mas-scope-wrap">
-        <span class="mas-scope-lbl">Estado</span>
-        <select id="sel-android-mapa-estado" class="mas-scope-select" onchange="onAndroidMapaEstadoChange()">
-          <option value="todos">Todos</option>
-          <option value="abiertos">Abiertos</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="asignado">Asignado</option>
-          <option value="ejecucion">En ejecución</option>
-          <option value="cerrado">Cerrado</option>
-          <option value="pers">Varios (Av.)</option>
-        </select>
-      </span>
-      </div>
-      <label class="mas-filtros-av-mini" title="Filtros avanzados (prioridad, colores, dashboard)"><input type="checkbox" id="chk-android-filtros-av" onchange="onToggleAndroidFiltrosMapa()"><span>Av.</span></label>
-    </div>
-  </div></div>
   
   <button type="button" id="btn-mapa-nuevo-gps" class="btn-mapa-nuevo-gps" title="Nuevo pedido en mi ubicación" aria-label="Nuevo pedido en mi ubicación">
     <i class="fas fa-plus"></i>
@@ -369,46 +347,6 @@
         <p style="font-size:.72rem;color:var(--tm);margin:.25rem 0 .5rem">Si el tipo de reclamo admite materiales, podés cargarlos o editarlos antes de confirmar el cierre.</p>
         <div id="cierre-materiales-body"></div>
       </div>
-      <div id="cierre-afectados-block" class="fg" style="padding:0;margin-top:1rem;display:none">
-        <label><i class="fas fa-bolt"></i> Clientes sin servicio (SAIDI / SAIFI)</label>
-        <p style="font-size:.72rem;color:var(--tm);margin:.25rem 0 .55rem;line-height:1.4">Los totales por <strong>distribuidor</strong> o <strong>alimentador</strong> suman los transformadores cargados (kVA y socios). Si no sabés el dato, omití.</p>
-        <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.86rem">
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="omitir" checked onchange="syncCierreAfectadosPanels()"> No registrar ahora</label>
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="transformador" onchange="syncCierreAfectadosPanels()"> Por transformador</label>
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="distribuidor" onchange="syncCierreAfectadosPanels()"> Por distribuidor (suma de trafos)</label>
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="alimentador" onchange="syncCierreAfectadosPanels()"> Por alimentador (suma por distribuidor)</label>
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="rango" onchange="syncCierreAfectadosPanels()"> Rango de medidores</label>
-          <label style="display:flex;align-items:center;gap:.45rem;font-weight:500"><input type="radio" name="cierre-afect-metodo" value="manual" onchange="syncCierreAfectadosPanels()"> Cantidad manual (emergencia)</label>
-        </div>
-        <div id="cierre-afect-panel-trafo" style="display:none;margin-top:.65rem">
-          <label for="cierre-afect-sel-trafo" style="font-size:.8rem">Transformador</label>
-          <select id="cierre-afect-sel-trafo" style="width:100%;margin-top:.2rem;padding:.45rem;border:1px solid var(--bo);border-radius:.45rem;font-size:.88rem"></select>
-        </div>
-        <div id="cierre-afect-panel-distribuidor" style="display:none;margin-top:.65rem">
-          <label for="cierre-afect-sel-distribuidor" style="font-size:.8rem">Distribuidor</label>
-          <select id="cierre-afect-sel-distribuidor" style="width:100%;margin-top:.2rem;padding:.45rem;border:1px solid var(--bo);border-radius:.45rem;font-size:.88rem"></select>
-        </div>
-        <div id="cierre-afect-panel-alimentador" style="display:none;margin-top:.65rem">
-          <label for="cierre-afect-alim-dist" style="font-size:.78rem">Distribuidor</label>
-          <select id="cierre-afect-alim-dist" style="width:100%;margin-top:.2rem;padding:.45rem;border:1px solid var(--bo);border-radius:.45rem;font-size:.88rem"></select>
-          <label for="cierre-afect-sel-alimentador" style="font-size:.78rem;margin-top:.5rem;display:block">Alimentador</label>
-          <select id="cierre-afect-sel-alimentador" style="width:100%;margin-top:.2rem;padding:.45rem;border:1px solid var(--bo);border-radius:.45rem;font-size:.88rem"></select>
-        </div>
-        <div id="cierre-afect-panel-rango" style="display:none;margin-top:.65rem">
-          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:.5rem">
-            <div><label for="cierre-afect-med-desde" style="font-size:.78rem">Medidor desde</label><input id="cierre-afect-med-desde" type="text" autocomplete="off" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid var(--bo);border-radius:.45rem"></div>
-            <div><label for="cierre-afect-med-hasta" style="font-size:.78rem">Medidor hasta</label><input id="cierre-afect-med-hasta" type="text" autocomplete="off" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid var(--bo);border-radius:.45rem"></div>
-          </div>
-          <div style="margin-top:.45rem">
-            <label for="cierre-afect-rango-cant" style="font-size:.72rem;color:var(--tm)">Si no son números correlativos, cantidad estimada</label>
-            <input id="cierre-afect-rango-cant" type="number" min="1" step="1" inputmode="numeric" placeholder="Opcional si el rango es numérico" style="width:100%;max-width:220px;margin-top:.2rem;padding:.4rem;border:1px solid var(--bo);border-radius:.45rem">
-          </div>
-        </div>
-        <div id="cierre-afect-panel-manual" style="display:none;margin-top:.65rem">
-          <label for="cierre-afect-manual-cant" style="font-size:.8rem">Cantidad estimada de clientes afectados</label>
-          <input id="cierre-afect-manual-cant" type="number" min="1" step="1" inputmode="numeric" style="width:100%;max-width:220px;margin-top:.2rem;padding:.4rem;border:1px solid var(--bo);border-radius:.45rem">
-        </div>
-      </div>
       <div class="fg" style="padding:0;margin-top:1rem">
         <label id="lbl-firma-cierre"><i class="fas fa-signature"></i> Firma del cliente / socio</label>
         <canvas id="firma-canvas-cierre" width="320" height="120" style="border:1.5px solid var(--bo);border-radius:.5rem;touch-action:none;background:#fff;max-width:100%"></canvas>
@@ -478,7 +416,6 @@
       <button class="admin-tab" onclick="adminTab('socios')"><i class="fas fa-address-book"></i> Socios / NIS</button>
       <button class="admin-tab" onclick="adminTab('estadisticas')"><i class="fas fa-chart-bar"></i> Estadísticas</button>
       <button class="admin-tab" onclick="adminTab('kpi')"><i class="fas fa-bullseye"></i> KPI piloto</button>
-      <button type="button" class="admin-tab" id="admin-tab-confiabilidad" onclick="adminTab('confiabilidad')"><i class="fas fa-plug"></i> Clientes afectados</button>
       <button class="admin-tab" onclick="adminTab('mapa-usuarios')"><i class="fas fa-map-marker-alt"></i> Ubicaciones</button>
       <button class="admin-tab" onclick="adminTab('contrasena')"><i class="fas fa-key"></i> Contraseña</button>
     </div>
@@ -657,10 +594,60 @@
         </div>
         <div id="historial-nis-result" role="region" aria-label="Resultados de reclamos" style="margin-top:.85rem;font-size:.83rem;max-height:min(42vh,320px);overflow-y:auto;border-radius:.5rem"></div>
       </div>
+      <div id="socios-import-crs-wrap" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;margin-bottom:.85rem;padding:.65rem .85rem;background:var(--bg2,#f8fafc);border-radius:.5rem;border:1px solid var(--bo)">
+        <div>
+          <label for="socios-import-crs" style="font-size:.72rem;font-weight:600;color:var(--tm);display:block">Coordenadas en el Excel (antes de importar)</label>
+          <select id="socios-import-crs" onchange="if(typeof actualizarUiSociosImportCrs==='function')actualizarUiSociosImportCrs()" style="margin-top:.2rem;padding:.4rem .55rem;border-radius:.4rem;font-size:.8rem;max-width:100%">
+            <option value="wgs84" selected>WGS84 (latitud / longitud)</option>
+            <option value="arg_en" id="socios-import-crs-arg-opt">Este / Norte cartesianas (Inchauspe / POSGAR según Empresa)</option>
+          </select>
+        </div>
+        <div id="socios-import-faja-wrap" style="display:none">
+          <label for="socios-import-faja" style="font-size:.72rem;color:var(--tm);display:block">Faja (si no usás «Auto»)</label>
+          <select id="socios-import-faja" style="margin-top:.2rem;padding:.4rem .55rem;border-radius:.4rem;font-size:.8rem">
+            <option value="auto" selected>Auto (meridiano central = lng_base de la empresa)</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+        <p id="socios-import-detect-msg" style="flex:1 1 100%;margin:.35rem 0 0;font-size:.74rem;color:var(--bd);line-height:1.35;min-height:1.2em" aria-live="polite"></p>
+      </div>
+      <div id="socios-vista-proy-wrap" style="margin-bottom:.85rem;padding:.65rem .85rem;background:#f0fdf4;border-radius:.5rem;border:1px solid #86efac;font-size:.78rem;color:var(--tl)">
+        <div style="font-weight:600;color:var(--bd);margin-bottom:.35rem">Vista del catálogo (solo pantalla; la base sigue guardando solo WGS84)</div>
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;margin:.2rem 0">
+          <input type="radio" name="socios-tabla-proy-mode" value="solo_wgs" checked onchange="if(typeof onCambioVistaProySocios==='function')onCambioVistaProySocios()" />
+          Sin conversión extra — solo columnas lat/lon de la BD
+        </label>
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;margin:.2rem 0">
+          <input type="radio" name="socios-tabla-proy-mode" value="extra_proy" onchange="if(typeof onCambioVistaProySocios==='function')onCambioVistaProySocios()" />
+          Convertir / mostrar Este·Norte (m): Inchauspe, POSGAR 94 / 98 / 2007 (solo pantalla)
+        </label>
+        <div id="socios-vista-proy-checks" style="display:none;margin:.45rem 0 0 1.1rem;flex-wrap:wrap;gap:.45rem .9rem;align-items:center">
+          <span style="color:var(--tm);width:100%;font-size:.74rem">Familias de salida (proj4 en map.js). Faja: misma regla que el import — <strong>Auto</strong> = meridiano central según <code>lng_base</code> de la empresa; si no hay base, <strong>fallback faja 4</strong> (~ −64°).</span>
+          <label for="socios-proy-fam-primaria" style="width:100%;font-size:.74rem;color:var(--bd)">Familia principal (orden de columnas X/Y)
+            <select id="socios-proy-fam-primaria" onchange="if(typeof onCambioFamiliaPrimariaSociosCatalogo==='function')onCambioFamiliaPrimariaSociosCatalogo()" style="display:block;margin-top:.25rem;padding:.35rem .5rem;border-radius:.4rem;font-size:.78rem;max-width:min(100%,280px);border:1px solid var(--bo)">
+              <option value="">(ninguna — orden por checkboxes)</option>
+              <option value="inchauspe">Campo Inchauspe 1969</option>
+              <option value="posgar94">POSGAR 1994</option>
+              <option value="posgar98">POSGAR 1998</option>
+              <option value="posgar2007">POSGAR 2007</option>
+            </select>
+          </label>
+          <label style="cursor:pointer;white-space:nowrap"><input type="checkbox" class="socios-proy-fam-cb" data-fam="inchauspe" onchange="if(typeof onCambioCheckFamProySocios==='function')onCambioCheckFamProySocios()" /> Inchauspe</label>
+          <label style="cursor:pointer;white-space:nowrap"><input type="checkbox" class="socios-proy-fam-cb" data-fam="posgar94" onchange="if(typeof onCambioCheckFamProySocios==='function')onCambioCheckFamProySocios()" /> POSGAR 94</label>
+          <label style="cursor:pointer;white-space:nowrap"><input type="checkbox" class="socios-proy-fam-cb" data-fam="posgar98" onchange="if(typeof onCambioCheckFamProySocios==='function')onCambioCheckFamProySocios()" /> POSGAR 98</label>
+          <label style="cursor:pointer;white-space:nowrap"><input type="checkbox" class="socios-proy-fam-cb" data-fam="posgar2007" onchange="if(typeof onCambioCheckFamProySocios==='function')onCambioCheckFamProySocios()" /> POSGAR 2007</label>
+        </div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <h3 id="admin-socios-catalogo-titulo" style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin:0">Catálogo de socios (NIS / medidor)</h3>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <label class="btn-sm success" style="cursor:pointer"><i class="fas fa-file-excel"></i> Importar Excel<input type="file" id="input-excel-socios" accept=".xlsx,.xls" style="display:none" onchange="importarExcelSocios(event)"></label>
+          <label class="btn-sm success" style="cursor:pointer"><i class="fas fa-file-excel"></i> Importar Excel<input type="file" id="input-excel-socios" accept=".xlsx,.xls" style="display:none" onchange="if(typeof onInputExcelSociosConInferencia==='function')onInputExcelSociosConInferencia(event)"></label>
           <a class="btn-sm primary" href="ejemplos/socios-demo-300.xlsx" download="socios-demo-300.xlsx" style="text-decoration:none;display:inline-flex;align-items:center;gap:.35rem"><i class="fas fa-download"></i> Ejemplo 300 (OSM)</a>
           <button type="button" class="btn-sm" onclick="mostrarFormatoExcelSocios()" style="background:#fef9c3;border:1px solid #eab308;color:#854d0e"><i class="fas fa-table"></i> Formato</button>
           <label style="font-size:.78rem;color:var(--tm);display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;margin-left:.25rem">
@@ -668,7 +655,7 @@
           </label>
         </div>
       </div>
-      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem">Columnas Excel: <strong>nis</strong> (columna A) y <strong>medidor</strong> (columna B, ej. 5 cifras), o una sola columna <strong>nis_medidor</strong> | <strong>nombre</strong> | <strong>Calle</strong> | <strong>Numero</strong> | <strong>telefono</strong> | <strong>distribuidor_</strong> o <strong>distribuidor_codigo</strong> | <strong>localidad</strong> | <strong>tipo_tarifa</strong> | <strong>urbano_rural</strong> | <strong>transformador</strong> | <strong>tipo_conexion</strong> (aéreo/subterráneo) | <strong>fases</strong> (monofásico/trifásico). Opcional: columna <strong>direccion</strong> (una sola celda). El listado muestra todos los socios (sin tope de 500). Sin “vaciar”, se fusiona por NIS. Autocompletar y búsqueda de reclamos aceptan NIS o medidor. Fila 1 = encabezados.</p>
+      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem"><strong>Columnas recomendadas:</strong> <code style="font-size:.72rem">nis | medidor | nombre | calle | numero | localidad</code> y según «Coordenadas en el Excel»: <code style="font-size:.72rem">latitud | longitud</code> (WGS84, se guardan en Neon) o <code style="font-size:.72rem">este | norte</code> (metros; familia según Empresa; convierte a WGS84 con proj4). La sección verde solo agrega columnas X/Y de otras proyecciones en pantalla. Opcionales: <strong>telefono</strong>, <strong>distribuidor_codigo</strong>, <strong>barrio</strong>, etc. Fila 1 = encabezados; lotes de 1000 filas.</p>
       <div id="lista-socios-admin"><div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div></div>
     </div>
     <div id="admin-estadisticas" class="admin-section">
@@ -911,33 +898,6 @@
         </div>
       </div>
       <div id="kpi-snapshots-lista"><div class="ll2" style="color:var(--tl)">Abrí esta pestaña para cargar.</div></div>
-    </div>
-    <div id="admin-confiabilidad" class="admin-section">
-      <p style="font-size:.8rem;color:var(--tl);margin:0 0 .85rem;line-height:1.45">Catálogo de transformadores con <strong>distribuidor</strong> y <strong>alimentador</strong>; al cerrar se pueden sumar socios y kVA por distribuidor o por alimentador. SQL: <code style="font-size:.78rem">docs/NEON_clientes_afectados_infra.sql</code>, <code style="font-size:.78rem">docs/NEON_clientes_afectados_distribuidor_alimentador.sql</code>, <code style="font-size:.78rem">docs/NEON_distribuidores_localidad.sql</code> (localidad en catálogo).</p>
-      <div id="admin-infra-afect-sin-tabla" style="display:none;padding:.85rem;background:#fff7ed;border:1px solid #fdba74;border-radius:.5rem;font-size:.82rem;color:#9a3412;margin-bottom:1rem"></div>
-      <div id="admin-infra-afect-wrap" style="display:none">
-        <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin:0 0 .65rem">Resumen por distribuidor</h3>
-        <p style="font-size:.76rem;color:var(--tm);margin:-.35rem 0 .55rem">Por cada distribuidor asignado a trafos activos: código, nombre, localidad (si cargaste la columna en Neon), cantidad de transformadores, suma de kVA y de socios.</p>
-        <div id="lista-infra-resumen-dist-admin" style="margin:0 0 1.15rem;font-size:.85rem"></div>
-        <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin:0 0 .65rem">Transformadores</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.65rem;align-items:center">
-          <label class="btn-sm success" style="cursor:pointer;margin:0"><i class="fas fa-file-excel"></i> Importar Excel (completo)<input type="file" id="input-excel-infra-trafo" accept=".xlsx,.xls" style="display:none" onchange="importarExcelInfraTransformadores(event)"></label>
-          <button type="button" class="btn-sm warning" onclick="mostrarFormatoExcelInfraTrafo()"><i class="fas fa-table"></i> Formato Excel trafos</button>
-          <label class="btn-sm success" style="cursor:pointer;margin:0"><i class="fas fa-link"></i> Excel asignación dist./alim.<input type="file" id="input-excel-infra-asign" accept=".xlsx,.xls" style="display:none" onchange="importarExcelInfraAsignacion(event)"></label>
-          <button type="button" class="btn-sm warning" onclick="mostrarFormatoExcelInfraAsignacion()"><i class="fas fa-question-circle"></i> Formato asignación</button>
-        </div>
-        <div class="form-grid" style="margin-bottom:.75rem">
-          <div><label for="ia-t-codigo">Código *</label><input id="ia-t-codigo" type="text" placeholder="TR-ALBERDI-01" autocomplete="off"></div>
-          <div><label for="ia-t-nombre">Nombre</label><input id="ia-t-nombre" type="text" autocomplete="off"></div>
-          <div><label for="ia-t-kva">kVA</label><input id="ia-t-kva" type="number" min="0" step="1" inputmode="numeric"></div>
-          <div><label for="ia-t-clientes">Socios conectados *</label><input id="ia-t-clientes" type="number" min="0" step="1" inputmode="numeric" placeholder="220"></div>
-          <div class="full"><label for="ia-t-distribuidor">Distribuidor (catálogo)</label><select id="ia-t-distribuidor"><option value="">— Sin asignar —</option></select></div>
-          <div class="full"><label for="ia-t-alimentador">Alimentador (código, opcional)</label><input id="ia-t-alimentador" type="text" placeholder="Ej. AL-03" autocomplete="off"></div>
-          <div class="full"><label for="ia-t-barrio">Barrio (texto, opcional)</label><input id="ia-t-barrio" type="text" autocomplete="off"></div>
-        </div>
-        <button type="button" class="btn-sm primary" onclick="guardarInfraTransformadorAdmin()"><i class="fas fa-save"></i> Guardar transformador</button>
-        <div id="lista-infra-transformadores-admin" style="margin:1rem 0 0;font-size:.85rem"></div>
-      </div>
     </div>
     <div id="admin-mapa-usuarios" class="admin-section">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
