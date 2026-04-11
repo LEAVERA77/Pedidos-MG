@@ -45,9 +45,9 @@ jobs:
             --arg pk "${EJS_PK:-}" \
             --arg sv "${EJS_SV:-}" \
             --arg tpl "${EJS_TPL:-}" \
-            '{neon:{connectionString:$cs},api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},app:{version:"2.0.3"}}' \
+            '{neon:{connectionString:$cs},api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl},app:{version:"2.0.4"}}' \
             > config.json
-          echo "OK: config.json generado (v2.0.3 con fix regeocodificar)."
+          echo "OK: config.json generado (v2.0.4 con escapeHtml fix)."
 
       - name: Preparar carpeta publicable
         run: |
