@@ -53,7 +53,7 @@ jobs:
         run: |
           rm -rf dist
           mkdir -p dist
-          cp index.html sw.js styles.css app.js map.js map-view.js offline.js config.example.json config.json dist/
+          cp index.html sw.js styles.css app.js map.js map-view.js offline.js autocompletado-calles.js config.example.json config.json dist/
           [ -f gestornova-logo.png ] && cp gestornova-logo.png dist/ || true
           if [ -d privacy ]; then mkdir -p dist/privacy && cp -r privacy/* dist/privacy/; fi
           [ -f README.md ] && cp README.md dist/ || true
