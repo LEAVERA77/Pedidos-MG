@@ -1,5 +1,3 @@
-// HTTP server setup for Pedidos-MG API
-// Last updated: 2026-04-11 00:45 - Endpoint regeocodificar + coords en socios_catalogo
 import express from "express";
 import cors from "cors";
 
