@@ -1,5 +1,3 @@
-// HTTP server setup for Pedidos-MG API
-// Last updated: 2026-04-11 00:45 - Endpoint regeocodificar + coords en socios_catalogo
 import express from "express";
 import cors from "cors";
 
@@ -21,6 +19,7 @@ import configUbicacionRoutes from "./routes/configUbicacion.js";
 import whatsappGeocodeRoutes from "./routes/whatsappGeocode.js";
 import geocodeNominatimRoutes from "./routes/geocodeNominatim.js";
 import callesNormalizadasRoutes from "./routes/callesNormalizadas.js";
+import adminRoutes from "./routes/admin.js";
 import infraAfectadosRoutes from "./routes/infraAfectados.js";
 import tenantOperativaSettingsRoutes from "./routes/tenantOperativaSettings.js";
 
@@ -82,6 +81,7 @@ export function createHttpApp() {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/admin", adminRoutes);
   app.use("/api/config", configUbicacionRoutes);
   app.use("/api/whatsapp", whatsappGeocodeRoutes);
   app.use("/api/geocode", geocodeNominatimRoutes);
@@ -131,3 +131,5 @@ export function createHttpApp() {
 
   return app;
 }
+
+// Last updated: 2026-04-11 02:15 - Endpoint admin para migración automática de socios_catalogo
