@@ -12,9 +12,6 @@ app.listen(PORT, () => {
       msg: "api_listening",
       port: PORT,
       service: "pedidosmg-api",
-      version: "2.0.2-coords-fixed"
     })
   );
 });
-
-// Deploy marker: 2026-04-11 02:40 - Columnas agregadas en Neon, forzando redeploy
