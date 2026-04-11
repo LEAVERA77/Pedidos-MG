@@ -1,3 +1,5 @@
+// HTTP server setup for Pedidos-MG API
+// Last updated: 2026-04-11 - Added regeocodificar endpoint
 import express from "express";
 import cors from "cors";
 
