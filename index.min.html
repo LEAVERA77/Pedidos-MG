@@ -78,8 +78,7 @@
   <div id="admin-banner-opinion-cliente" class="admin-banner-opinion-cliente" style="display:none" role="status" aria-live="polite">
     <span class="admin-banner-opinion-cliente-ic" aria-hidden="true"><i class="fas fa-comment-dots"></i></span>
     <span id="admin-banner-opinion-cliente-txt" class="admin-banner-opinion-cliente-txt admin-banner-clickable-txt" role="button" tabindex="0" onclick="adminBannerOpinionClickVerDetalle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();adminBannerOpinionClickVerDetalle();}"></span>
-    <button type="button" id="admin-banner-opinion-wa" class="admin-banner-btn admin-banner-btn-opinion admin-banner-btn-wa" style="display:none" onclick="adminBannerOpinionClickWhatsapp()" title="Abrir chat con el cliente (WhatsApp)"><i class="fab fa-whatsapp"></i> Abrir chat con cliente</button>
-    <button type="button" id="admin-banner-opinion-hc" class="admin-banner-btn admin-banner-btn-opinion" style="display:none" onclick="adminBannerOpinionAbrirChatOperador()" title="Abrir chat operador (WhatsApp Business)"><i class="fas fa-comments"></i> Chat</button>
+    <button type="button" id="admin-banner-opinion-hc" class="admin-banner-btn admin-banner-btn-opinion admin-banner-btn-wa" style="display:none" onclick="adminBannerOpinionAbrirChatOperador()" title="Abrir chat con el cliente (panel de mensajería)"><i class="fab fa-whatsapp"></i> Chat con cliente</button>
     <button type="button" class="admin-banner-btn admin-banner-btn-opinion" onclick="adminBannerOpinionClickVerDetalle()">Ver pedido</button>
     <button type="button" class="admin-banner-x" onclick="adminBannerOpinionCerrar()" title="Cerrar">&times;</button>
   </div>
@@ -90,7 +89,7 @@
     <button type="button" class="admin-banner-x" onclick="ocultarBannerDerivacionPendiente()" title="Cerrar">&times;</button>
   </div>
   <div class="hd">
-    <button type="button" id="mt" class="ib" title="Admin: abre el asistente de marca, logo y ubicación base del tenant. Otros roles: panel de pedidos."><i class="fas fa-list"></i></button>
+    <button type="button" id="mt" class="ib" title="Marca, logo y ubicación (admin: pide contraseña). Otros roles: panel de pedidos."><i class="fas fa-list"></i></button>
     <h2><i class="fas fa-network-wired"></i> GestorNova</h2>
     <div class="hr">
       <span id="di" class="di ok"><i class="fas fa-database"></i></span>
@@ -650,6 +649,7 @@
           <label class="btn-sm success" style="cursor:pointer"><i class="fas fa-file-excel"></i> Importar Excel<input type="file" id="input-excel-socios" accept=".xlsx,.xls" style="display:none" onchange="if(typeof onInputExcelSociosConInferencia==='function')onInputExcelSociosConInferencia(event)"></label>
           <a class="btn-sm primary" href="ejemplos/socios-demo-300.xlsx" download="socios-demo-300.xlsx" style="text-decoration:none;display:inline-flex;align-items:center;gap:.35rem"><i class="fas fa-download"></i> Ejemplo 300 (OSM)</a>
           <button type="button" class="btn-sm" onclick="mostrarFormatoExcelSocios()" style="background:#fef9c3;border:1px solid #eab308;color:#854d0e"><i class="fas fa-table"></i> Formato</button>
+          <button type="button" class="btn-sm" onclick="vaciarCoordenadasSociosCatalogo()" style="background:#dc2626;color:#fff;border:none" title="Elimina TODOS los registros de la tabla (100%)"><i class="fas fa-trash-alt"></i> Vaciar tabla</button>
           <label style="font-size:.78rem;color:var(--tm);display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;margin-left:.25rem">
             <input type="checkbox" id="socios-import-reemplazar"> Vaciar catálogo antes de importar
           </label>
@@ -1181,10 +1181,53 @@
   </div>
 </div>
 
+<!-- Admin web: registro visible de geocodificación / proxy Nominatim (no solo consola) -->
+<div id="gn-geocode-log-root" class="gn-geocode-log-root" hidden>
+  <button type="button" id="gn-geocode-log-fab" class="gn-geocode-log-fab" aria-expanded="false" aria-controls="gn-geocode-log-panel" title="Diagnóstico de mapa y geocodificación">
+    <i class="fas fa-clipboard-list" aria-hidden="true"></i><span class="gn-geocode-log-fab-label">Mapa</span>
+  </button>
+  <section id="gn-geocode-log-panel" class="gn-geocode-log-panel" aria-labelledby="gn-geocode-log-heading" role="region" hidden>
+    <header class="gn-geocode-log-head">
+      <h2 id="gn-geocode-log-heading" class="gn-geocode-log-title">Diagnóstico mapa / geocodificación</h2>
+      <div class="gn-geocode-log-actions">
+        <button type="button" class="gn-geocode-log-btn" id="gn-geocode-log-copy">Copiar</button>
+        <button type="button" class="gn-geocode-log-btn" id="gn-geocode-log-clear">Limpiar</button>
+        <button type="button" class="gn-geocode-log-btn gn-geocode-log-btn-close" id="gn-geocode-log-collapse" aria-label="Ocultar panel">✕</button>
+      </div>
+    </header>
+    <div id="gn-geocode-log-body" class="gn-geocode-log-body" role="log" aria-live="polite" aria-relevant="additions"></div>
+    <div class="gn-wa-geo-ops-wrap" id="gn-wa-geo-ops-section">
+      <h3 class="gn-geocode-log-subtitle">Operaciones WhatsApp (geocodificación en servidor)</h3>
+      <p class="gn-wa-geo-ops-intro">Pasos del pipeline (Nominatim, Overpass, fallbacks) mientras corre el alta. Auto-actualización cada ~2,5 s; se pausa si abrís un ítem o pulsás Pausar (así no se cierra el acordeón ni se pierde la selección).</p>
+      <div id="gn-wa-geo-ops-list" class="gn-wa-geo-ops-list" aria-live="polite"></div>
+      <div class="gn-wa-geo-ops-actions">
+        <button type="button" class="gn-geocode-log-btn" id="gn-wa-geo-ops-pause" aria-pressed="false" title="Pausar el refresco automático">Pausar auto</button>
+        <button type="button" class="gn-geocode-log-btn gn-geocode-log-btn-primary" id="gn-wa-geo-ops-refresh">Actualizar ahora</button>
+      </div>
+    </div>
+    <p class="gn-geocode-log-hint">Registro de esta pestaña. Si ves error 503 o “sin conexión”, reintentá en unos minutos o verificá que la API (Render) esté activa y que tu sesión tenga token válido.</p>
+  </section>
+</div>
+
+<div id="modal-log-regeocodificar" class="mo" style="z-index:13000">
+  <div class="mc" style="max-width:min(92vw,560px);max-height:88vh;display:flex;flex-direction:column">
+    <div class="mh">
+      <h3 id="modal-log-regeocod-titulo"><i class="fas fa-map-marker-alt"></i> Log de re-geocodificación</h3>
+      <button type="button" class="cm" id="modal-log-regeocod-cerrar" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="mb" id="modal-log-regeocod-body" style="overflow:auto;flex:1;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.72rem;line-height:1.45;min-height:120px"></div>
+    <div style="padding:.5rem .75rem .65rem;border-top:1px solid var(--bo);font-size:.74rem;color:var(--tm);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;justify-content:space-between">
+      <span>Se cierra solo en <strong id="modal-log-regeocod-countdown">60</strong> s</span>
+      <button type="button" class="sec" id="modal-log-regeocod-cerrar-btn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function(){var _b=atob("d2luZG93Ll9zdXBwb3J0c01vZHVsZXMgPSBmYWxzZTsKdHJ5IHsgaWYgKHR5cGVvZiBQcm9taXNlICE9PSAndW5kZWZpbmVkJyAmJiB0eXBlb2YgZmV0Y2ggIT09ICd1bmRlZmluZWQnKSB7IHdpbmRvdy5fc3VwcG9ydHNNb2R1bGVzID0gdHJ1ZTsgfSB9IGNhdGNoKF8pIHt9");var _u=new Uint8Array(_b.length);for(var _i=0;_i<_b.length;_i++)_u[_i]=_b.charCodeAt(_i);eval(new TextDecoder("utf-8").decode(_u));})()</script>
+<script src="autocompletado-calles.js"></script>
 <script type="module" src="app.js"></script>
 <script>
 (function(){
