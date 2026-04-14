@@ -1,4 +1,35 @@
 /* ESTILOS COMPLETOS */
+/* Control de coordenadas del cursor */
+.gn-cursor-coords {
+    background: rgba(0, 0, 0, 0.75) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(4px);
+    font-family: 'Courier New', monospace;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.gn-cursor-coords-header:hover {
+    background: rgba(0, 0, 0, 0.9) !important;
+}
+
+.gn-cursor-coords-body {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.gn-coords-toggle {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+}
+
+.gn-coords-toggle:hover {
+    opacity: 0.7;
+}
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 :root{--bd:#1e3a8a;--bm:#2563eb;--bl:#3b82f6;--gr:#10b981;--re:#ef4444;--or:#f97316;--ye:#eab308;--bg:#f1f5f9;--bo:#e2e8f0;--td:#1e293b;--tm:#475569;--tl:#94a3b8;--app-header-h:58px}
 html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg)}
