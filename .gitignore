@@ -1,9 +1,30 @@
-# Credenciales locales — no subir a GitHub (ver README y GitHub Actions)
-config.json
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+# APK exportada por Gradle (renameReleaseApk → release-export/)
+/release-export
+/captures
+.externalNativeBuild
+.cxx
+local.properties
 
-# Dependencias si instalás npm en la raíz del repo (p. ej. jest)
-node_modules/
+# Firma release (copiá keystore.properties.example → keystore.properties)
+/keystore.properties
 
-# API Node: dependencias y secretos solo locales (ver api/.gitignore)
-api/node_modules/
-api/.env
+# Credenciales Neon / EmailJS — copiá app/src/main/assets/config.example.json → config.json
+/app/src/main/assets/config.json
+
+# Evolution API (Docker): credenciales locales
+/.env.evolution
+
+# API Node.js
+/api/.env
+/api/node_modules
