@@ -40,6 +40,7 @@ import {
   humanChatFindOpenSessionForPhone,
 } from "./whatsappHumanChat.js";
 import { derivacionReclamosDesdeConfig } from "../utils/derivacionReclamos.js";
+import { tableHasColumn } from "../utils/tenantScope.js";
 import { validarLocalidadParaChatWhatsapp, normalizarNombreLocalidad } from "./tenantLocalidades.js";
 import {
   whatsappBotEnvHardDisabled,
@@ -684,17 +685,20 @@ function formatDerivacionBotMessage(ctx) {
 function textoBienvenidaYAyuda(ctx) {
   const n = ctx.nombre || "nuestro servicio";
   const max = ctx.tipos?.length || 0;
+  const consultaNum = max + 1;
   return (
     `Bienvenido al centro de atención de *${n}*.\n\n` +
     (max
       ? `Si preferís, escribí solo el *número* del *1* al *${max}* según esta guía:\n\n${ctx.tipos.map((t, i) => `${i + 1}) ${t}`).join("\n")}\n\n`
       : "") +
+    `*${consultaNum})* 🔍 Consultar mis reclamos pendientes\n\n` +
     `Enviá *menú* o *0* para repetir este mensaje.`
   );
 }
 
 /** Menú solo texto (respaldo si la lista interactiva falla o clientes antiguos). */
 function menuTextoNumerado(ctx) {
+  const consultaNum = (ctx.tipos?.length || 0) + 1;
   const lineas = [
     `📋 *${ctx.nombre || "Pedidos"}*`,
     "",
@@ -704,6 +708,7 @@ function menuTextoNumerado(ctx) {
   ctx.tipos.forEach((t, i) => {
     lineas.push(`${i + 1}) ${t}`);
   });
+  lineas.push(`${consultaNum}) 🔍 Consultar mis reclamos pendientes`);
   lineas.push("");
   lineas.push("Para *salir*: *menú* o *0*.");
   return lineas.join("\n");
@@ -720,6 +725,102 @@ function esPedidoCargarReclamo(text) {
   if (/\bquiero\s+(hacer\s+)?(un\s+)?reclamo\b/.test(n)) return true;
   if (n === "reclamo" || n === "lista" || n === "tipos") return true;
   return false;
+}
+
+function esComandoConsultaReclamosPendientes(text) {
+  const n = String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  if (!n) return false;
+  if (n === "pendientes" || n === "mis pendientes" || n === "mis reclamos") return true;
+  if (/\bconsult(ar|a)\b/.test(n) && /\breclamo/.test(n)) return true;
+  if (/\bestado\b/.test(n) && /\breclamo/.test(n)) return true;
+  if (/\bmis\s+reclamos\s+pendientes\b/.test(n)) return true;
+  if (/\breclamos?\s+pendientes\b/.test(n)) return true;
+  return false;
+}
+
+function normalizeBotBusinessTypeFromTipo(tipoRaw) {
+  const t = normalizarRubroCliente(tipoRaw);
+  if (t === "cooperativa_agua") return "agua";
+  if (t === "municipio") return "municipio";
+  return "electricidad";
+}
+
+async function buscarReclamosPendientesPorIdentificador(tenantId, businessType, identificador) {
+  const hasBt = await tableHasColumn("pedidos", "business_type");
+  const params = [tenantId];
+  let where = `tenant_id = $1 AND estado IN ('Pendiente','Asignado','En ejecución')`;
+  if (hasBt && businessType) {
+    params.push(businessType);
+    where += ` AND COALESCE(business_type,'electricidad') = $${params.length}`;
+  }
+  const dig = String(identificador || "").replace(/\D/g, "");
+  if (dig.length >= 4) {
+    params.push(dig);
+    where +=
+      ` AND (` +
+      `REGEXP_REPLACE(COALESCE(identificador,''), '\\D', '', 'g') = $${params.length} ` +
+      `OR REGEXP_REPLACE(COALESCE(nis_medidor,''), '\\D', '', 'g') = $${params.length}` +
+      `)`;
+  } else {
+    params.push(String(identificador || "").trim());
+    where +=
+      ` AND (` +
+      `LOWER(COALESCE(identificador,'')) LIKE '%' || LOWER($${params.length}) || '%' ` +
+      `OR LOWER(COALESCE(cliente_nombre,'')) LIKE '%' || LOWER($${params.length}) || '%'` +
+      `)`;
+  }
+  const r = await query(
+    `SELECT id, numero_pedido, estado, direccion, fecha_creacion
+     FROM pedidos
+     WHERE ${where}
+     ORDER BY fecha_creacion ASC
+     LIMIT 8`,
+    params
+  );
+  return r.rows || [];
+}
+
+async function registrarRecordatorioReclamo({ tenantId, businessType, pedidoId, telefonoUsuario, identificador }) {
+  try {
+    const ins = await query(
+      `INSERT INTO recordatorios_reclamos(
+        pedido_id, tenant_id, business_type, telefono_usuario, identificador, enviado, fecha_envio
+      ) VALUES ($1,$2,$3,$4,$5,TRUE,NOW()) RETURNING id`,
+      [pedidoId, tenantId, businessType, telefonoUsuario, identificador]
+    );
+    return Number(ins.rows?.[0]?.id || 0) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function formatearDuracionPendiente(fechaCreacion) {
+  const d = new Date(fechaCreacion);
+  if (Number.isNaN(d.getTime())) return "tiempo no disponible";
+  const diffMs = Math.max(0, Date.now() - d.getTime());
+  const h = Math.floor(diffMs / 3600000);
+  const dias = Math.floor(h / 24);
+  const horas = h % 24;
+  return `${dias} días, ${horas} horas`;
+}
+
+async function iniciarFlujoConsultaReclamosPendientes({ phone, tid, sk, phoneNumberId, wpid, ctx }) {
+  sessions.set(sk, {
+    step: "awaiting_pending_lookup_identifier",
+    tenantId: tid,
+    tipoCliente: ctx.tipo,
+    phoneNumberId: wpid,
+  });
+  await reply(
+    phone,
+    `🔍 CONSULTAR MIS RECLAMOS PENDIENTES\n\nPara buscar sus reclamos activos, necesito identificarle.\n\n🔹 Si es cliente de ELECTRICIDAD: ingrese su NIS, número de medidor o nombre completo\n🔹 Si es cliente de AGUA: ingrese su N° de Abonado o nombre completo\n🔹 Si es del MUNICIPIO: ingrese su N° de Vecino o nombre completo\n\nEjemplo: "123456" o "Juan Pérez"\n\n📝 Escriba su identificador:`,
+    tid,
+    phoneNumberId
+  );
 }
 
 /** Resuelve tenant para enviar con el mismo número/token que recibió el webhook (multitenant). */
@@ -1317,7 +1418,7 @@ async function replyListaTiposReclamo(phoneDigits, ctx, phoneNumberIdWebhook) {
     });
     await reply(
       phoneDigits,
-      menuTextoNumerado(ctx) + "\n\n_(Hay muchas opciones: escribí el número del 1 al " + ctx.tipos.length + ".)_",
+      menuTextoNumerado(ctx) + "\n\n_(Hay muchas opciones: escribí el número del 1 al " + (ctx.tipos.length + 1) + ".)_",
       ctx.id,
       pid || null
     );
@@ -2523,6 +2624,78 @@ async function processInboundText({ fromRaw, text, phoneNumberId, contactName })
     return;
   }
 
+  if (sess && sess.step === "awaiting_pending_lookup_identifier") {
+    const ident = String(text || "").trim();
+    if (ident.length < 2) {
+      await reply(phone, "Escribí un identificador válido (mínimo 2 caracteres).", tid, phoneNumberId);
+      return;
+    }
+    const bt = normalizeBotBusinessTypeFromTipo(ctx?.tipo);
+    const rows = await buscarReclamosPendientesPorIdentificador(tid, bt, ident);
+    sess.pendingLookupIdentificador = ident;
+    sess.pendingLookupRows = rows;
+    if (!rows.length) {
+      sessions.delete(sk);
+      await reply(
+        phone,
+        `✅ No encontramos reclamos activos asociados a "*${ident}*".\n\nSi necesitás hacer uno nuevo, escribí *NUEVO*.\nPara volver al menú principal, escribí *MENU*.`,
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    const bloques = rows.map((r) => {
+      const fecha = r.fecha_creacion ? new Date(r.fecha_creacion).toLocaleString("es-AR") : "—";
+      return [
+        "━━━━━━━━━━━━━━━━━━━━",
+        `📋 RECLAMO #${r.numero_pedido || r.id}`,
+        `📍 ${String(r.direccion || "Sin dirección").trim()}`,
+        `📅 Fecha: ${fecha}`,
+        `⏳ Tiempo transcurrido: ${formatearDuracionPendiente(r.fecha_creacion)}`,
+        `📌 Estado: ${r.estado}`,
+      ].join("\n");
+    });
+    sess.step = "awaiting_pending_lookup_reminder_confirm";
+    sessions.set(sk, sess);
+    await reply(
+      phone,
+      `🔍 Encontramos ${rows.length} reclamo/s suyo/s en proceso:\n\n${bloques.join("\n")}\n━━━━━━━━━━━━━━━━━━━━\n\n¿Desea enviar un recordatorio a la entidad?\n▶️ Responda "SI" para enviar recordatorio\n▶️ Responda "MENU" para volver al inicio`,
+      tid,
+      phoneNumberId
+    );
+    return;
+  }
+
+  if (sess && sess.step === "awaiting_pending_lookup_reminder_confirm") {
+    const ans = String(text || "").trim().toLowerCase();
+    if (ans === "si" || ans === "sí") {
+      const bt = normalizeBotBusinessTypeFromTipo(ctx?.tipo);
+      const target = Array.isArray(sess.pendingLookupRows) && sess.pendingLookupRows.length ? sess.pendingLookupRows[0] : null;
+      const recId = await registrarRecordatorioReclamo({
+        tenantId: tid,
+        businessType: bt,
+        pedidoId: target?.id || null,
+        telefonoUsuario: phone,
+        identificador: sess.pendingLookupIdentificador || null,
+      });
+      sessions.delete(sk);
+      await reply(
+        phone,
+        `✅ Recordatorio enviado correctamente${recId ? ` (ID ${recId})` : ""}. En breve recibirá novedades.`,
+        tid,
+        phoneNumberId
+      );
+      return;
+    }
+    if (ans === "menu" || ans === "menú" || ans === "0") {
+      sessions.delete(sk);
+      await reply(phone, textoBienvenidaYAyuda(ctx), tid, phoneNumberId);
+      return;
+    }
+    await reply(phone, `Respondé *SI* para enviar recordatorio o *MENU* para volver al inicio.`, tid, phoneNumberId);
+    return;
+  }
+
   if (!sess || sess.step === "idle") {
     if (pendOpinionActiva) {
       try {
@@ -2547,7 +2720,16 @@ async function processInboundText({ fromRaw, text, phoneNumberId, contactName })
       await replyListaTiposReclamo(phone, ctx, phoneNumberId);
       return;
     }
+    if (esComandoConsultaReclamosPendientes(text)) {
+      await iniciarFlujoConsultaReclamosPendientes({ phone, tid, sk, phoneNumberId, wpid, ctx });
+      return;
+    }
     const n = enteroMenuPrincipalDesdeTextoLibre(text);
+    const consultaNum = (ctx.tipos?.length || 0) + 1;
+    if (n === consultaNum) {
+      await iniciarFlujoConsultaReclamosPendientes({ phone, tid, sk, phoneNumberId, wpid, ctx });
+      return;
+    }
     if (n != null && n >= 1 && n <= ctx.tipos.length) {
       const tipoSel = ctx.tipos[n - 1];
       if (tipoSel === TIPO_RECLAMO_OTROS) {
