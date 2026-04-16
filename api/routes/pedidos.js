@@ -10,7 +10,6 @@ import {
   tipoTrabajoPermitidoParaNuevoPedido,
   tiposReclamoParaClienteTipo,
   normalizarPrioridadPedido,
-  normalizarRubroCliente,
   TIPOS_SOLICITUD_DERIVACION_TERCERO_COOP_ELECTRICA,
 } from "../services/tiposReclamo.js";
 import {
@@ -441,8 +440,7 @@ router.get("/mis-pedidos", async (req, res) => {
   try {
     const hasT = await pedidosTableHasTenantIdColumn();
     const params = hasT ? [req.user.id, req.tenantId] : [req.user.id];
-    const fakeReq = req;
-    const bt = await pushPedidoBusinessFilter(fakeReq, params);
+    const bt = await pushPedidoBusinessFilter(req, params);
     const r = await query(
       hasT
         ? `SELECT * FROM pedidos
