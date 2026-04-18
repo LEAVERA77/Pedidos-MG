@@ -15,12 +15,14 @@ import notificacionesRoutes from "./routes/notificaciones.js";
 import whatsappRoutes from "./routes/whatsapp.js";
 import whatsappBroadcastRoutes from "./routes/whatsappBroadcast.js";
 import tenantSwitchRoutes from "./routes/tenantSwitch.js";
+import setupWizardRoutes from "./routes/setupWizard.js";
 import whatsappHumanChatRoutes from "./routes/whatsappHumanChat.js";
 import webhooksWhatsappRoutes from "./routes/webhooksWhatsapp.js";
 import webhooksMetaRoutes from "./routes/webhooksMeta.js";
 import configUbicacionRoutes from "./routes/configUbicacion.js";
 import whatsappGeocodeRoutes from "./routes/whatsappGeocode.js";
 import geocodeNominatimRoutes from "./routes/geocodeNominatim.js";
+import nominatimLookupRoutes from "./routes/nominatimLookup.js";
 import callesNormalizadasRoutes from "./routes/callesNormalizadas.js";
 import adminRoutes from "./routes/admin.js";
 import geocodWaOperacionesRoutes from "./routes/geocodWaOperaciones.js";
@@ -33,6 +35,7 @@ import {
   generalApiLimiter,
   geocodeRouteLimiter,
 } from "./middleware/rateLimits.js";
+import { tenantBusinessFilter } from "./middleware/tenantBusinessFilter.js";
 
 export function createHttpApp() {
   const app = express();
@@ -131,21 +134,23 @@ export function createHttpApp() {
   app.use("/api/admin/geocod-wa-operaciones", geocodWaOperacionesRoutes);
   app.use("/api/config", configUbicacionRoutes);
   app.use("/api/whatsapp", whatsappGeocodeRoutes);
-  app.use("/api/whatsapp/broadcast", whatsappBroadcastRoutes);
+  app.use("/api/whatsapp/broadcast", tenantBusinessFilter, whatsappBroadcastRoutes);
   app.use("/api/tenant", tenantSwitchRoutes);
+  app.use("/api/setup", setupWizardRoutes);
   app.use("/api/geocode", geocodeNominatimRoutes);
+  app.use("/api/nominatim", geocodeRouteLimiter, nominatimLookupRoutes);
   app.use("/api/calles-normalizadas", callesNormalizadasRoutes);
-  app.use("/api/pedidos", pedidosRoutes);
-  app.use("/api/direcciones", direccionesRoutes);
+  app.use("/api/pedidos", tenantBusinessFilter, pedidosRoutes);
+  app.use("/api/direcciones", tenantBusinessFilter, direccionesRoutes);
   app.use("/api/tenant-operativa", tenantOperativaSettingsRoutes);
-  app.use("/api/infra-afectados", infraAfectadosRoutes);
+  app.use("/api/infra-afectados", tenantBusinessFilter, infraAfectadosRoutes);
   app.use("/api/usuarios", usuariosRoutes);
   app.use("/api/clientes", clientesRoutes);
-  app.use("/api/clientes-finales", clientesFinalesRoutes);
+  app.use("/api/clientes-finales", tenantBusinessFilter, clientesFinalesRoutes);
   app.use("/api/distribuidores", distribuidoresRoutes);
-  app.use("/api/estadisticas", estadisticasRoutes);
+  app.use("/api/estadisticas", tenantBusinessFilter, estadisticasRoutes);
   app.use("/api/notificaciones", notificacionesRoutes);
-  app.use("/api/whatsapp", whatsappRoutes);
+  app.use("/api/whatsapp", tenantBusinessFilter, whatsappRoutes);
   app.use("/api/whatsapp/human-chat", whatsappHumanChatRoutes);
   app.use("/api/webhooks/whatsapp", webhooksWhatsappRoutes);
 
