@@ -10,7 +10,7 @@ import {
   tipoTrabajoPermitidoParaNuevoPedido,
   tiposReclamoParaClienteTipo,
   normalizarPrioridadPedido,
-  TIPOS_SOLICITUD_DERIVACION_TERCERO_COOP_ELECTRICA,
+  tipoPermiteSolicitudDerivacionTerceroCoopElectrica,
 } from "../services/tiposReclamo.js";
 import {
   notifyPedidoCierreWhatsAppSafe,
@@ -214,7 +214,6 @@ function scheduleNotifyCierreWhatsApp(row, bodyTelefono, userId) {
   setImmediate(() => {
     (async () => {
       try {
-        if (!pedidoOrigenWhatsappCliente(row)) return;
         const tenantId =
           row.tenant_id != null && Number.isFinite(Number(row.tenant_id))
             ? Number(row.tenant_id)
@@ -223,6 +222,18 @@ function scheduleNotifyCierreWhatsApp(row, bodyTelefono, userId) {
         let phoneRaw =
           bodyTelefono !== undefined && bodyTelefono !== null ? bodyTelefono : row.telefono_contacto;
         phoneRaw = await resolverTelefonoContactoParaNotificacionCliente({ ...row, telefono_contacto: phoneRaw }, tenantId);
+
+        // Notificar si:
+        // 1. Es un pedido de WhatsApp cliente, O
+        // 2. Hay un teléfono válido (para clientes en socios_catalogo)
+        const tieneOrigenWA = pedidoOrigenWhatsappCliente(row);
+        const telefono = String(phoneRaw || "").replace(/\D/g, "");
+        const tieneTeléfono = telefono && telefono.length >= 8;
+
+        if (!tieneOrigenWA && !tieneTeléfono) {
+          return;
+        }
+
         await notifyPedidoCierreWhatsAppSafe({
           tenantId,
           numeroPedido: row.numero_pedido,
@@ -257,7 +268,10 @@ function scheduleNotifyClientePedidoWhatsapp({
   setImmediate(() => {
     (async () => {
       try {
-        if (!pedidoOrigenWhatsappCliente(pedidoAntes) && !pedidoOrigenWhatsappCliente(pedidoDespues)) return;
+        // Notificar si:
+        // 1. El pedido origen WhatsApp cliente, O
+        // 2. Hay un teléfono válido para contacto (desde socios_catalogo o del pedido directo)
+        const tieneOrigenWA = pedidoOrigenWhatsappCliente(pedidoAntes) || pedidoOrigenWhatsappCliente(pedidoDespues);
 
         const tenantId =
           pedidoAntes.tenant_id != null && Number.isFinite(Number(pedidoAntes.tenant_id))
@@ -273,11 +287,21 @@ function scheduleNotifyClientePedidoWhatsapp({
           tenantId
         );
         const phone = String(phoneRawMerged || "").replace(/\D/g, "");
-        if (!phone || phone.length < 8) return;
+
+        // Si no hay teléfono válido, no continuar
+        if (!phone || phone.length < 8) {
+          if (tieneOrigenWA) {
+            console.debug("[pedidos] No hay teléfono válido para notificar cliente", {
+              pedidoId: pedidoDespues.id,
+              telefonoRaw: phoneRawMerged,
+            });
+          }
+          return;
+        }
 
         const nombreEntidad = await loadNombreCliente(tenantId);
 
-        if (becameEjecucion) {
+        if (becameEjecucion && (tieneOrigenWA || phoneRawMerged)) {
           await notifyPedidoClienteActualizacionWhatsAppSafe({
             tenantId,
             numeroPedido: pedidoDespues.numero_pedido,
@@ -287,7 +311,7 @@ function scheduleNotifyClientePedidoWhatsapp({
             tipo: "en_ejecucion",
           });
         }
-        if (avanceChanged && estadoPermiteAvance) {
+        if (avanceChanged && estadoPermiteAvance && (tieneOrigenWA || phoneRawMerged)) {
           const snippet =
             pedidoDespues.trabajo_realizado != null
               ? String(pedidoDespues.trabajo_realizado)
@@ -312,6 +336,7 @@ function scheduleNotifyClientePedidoWhatsapp({
   });
 }
 
+// Revisar la función getPedidoInTenant para asegurar que está recuperando el pedido correctamente
 async function getPedidoInTenant(id, req) {
   const tenantId = req.tenantId;
   if (await pedidosTableHasTenantIdColumn()) {
@@ -603,13 +628,6 @@ router.get("/historial/nis/:nis", async (req, res) => {
 
 registerPedidoOperativaRoutes(router, { getPedidoInTenant, assertPedidoMismoTenant });
 
-/** Tipos de reclamo (catálogo eléctrico) para los que el técnico puede pedir derivación a terceros. */
-const TIPOS_SOLICITUD_DERIVACION_TERCERO = new Set(TIPOS_SOLICITUD_DERIVACION_TERCERO_COOP_ELECTRICA);
-
-function pedidoTipoPermiteSolicitudDerivacion(tt) {
-  return TIPOS_SOLICITUD_DERIVACION_TERCERO.has(String(tt || "").trim());
-}
-
 function esRolTecnicoOSupervisorAuth(rol) {
   const r = String(rol || "").toLowerCase();
   return r === "tecnico" || r === "supervisor";
@@ -631,7 +649,7 @@ router.post("/:id/solicitar-derivacion-tercero", async (req, res) => {
     const motivoStr = motivo != null && String(motivo).trim() ? String(motivo).trim().slice(0, MAX_OBSERVACIONES_DERIVACION_API) : "";
     const destinoSug = destinoSugRaw != null ? String(destinoSugRaw).trim().slice(0, 64) : "";
 
-    const pedido = await getPedidoInTenant(id, req);
+    const pedido = await getPedidoPorIdEnTenant(id, req.tenantId);
     if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
     try {
       await assertPedidoMismoTenant(pedido, req);
@@ -649,7 +667,7 @@ router.post("/:id/solicitar-derivacion-tercero", async (req, res) => {
     if (pedido.derivado_externo === true || String(pedido.estado || "") === "Derivado externo") {
       return res.status(400).json({ error: "El pedido ya está derivado" });
     }
-    if (!pedidoTipoPermiteSolicitudDerivacion(pedido.tipo_trabajo)) {
+    if (!tipoPermiteSolicitudDerivacionTerceroCoopElectrica(pedido.tipo_trabajo)) {
       return res.status(400).json({ error: "Este tipo de reclamo no admite solicitud de derivación desde el técnico" });
     }
     if (pedido.solicitud_derivacion_pendiente === true) {
@@ -666,7 +684,21 @@ router.post("/:id/solicitar-derivacion-tercero", async (req, res) => {
     const bind = hasTa
       ? [id, req.user.id, motivoStr || null, destinoSug, req.tenantId]
       : [id, req.user.id, motivoStr || null, destinoSug];
-    const bt = await pushPedidoBusinessFilter(req, bind);
+    /** Sin filtro business_type: ya validamos tenant; evita 0 filas con filas legacy o desalineadas. */
+    const bt = "";
+
+    // Si el pedido está 'Asignado', lo pasamos a 'En ejecución' automáticamente al solicitar derivación
+    if (String(pedido.estado) === "Asignado") {
+      try {
+        await query(
+          `UPDATE pedidos SET estado = 'En ejecución', fecha_inicio = NOW(), usuario_inicio_id = $1 WHERE id = $2`,
+          [req.user.id, id]
+        );
+      } catch (e) {
+        console.error("Error actualizando estado a En ejecución:", e);
+      }
+    }
+
     const sql = hasTa
       ? `UPDATE pedidos SET
           solicitud_derivacion_pendiente = TRUE,
@@ -724,7 +756,7 @@ router.post("/:id/rechazar-solicitud-derivacion-tercero", adminOnly, async (req,
         ? String(req.body.nota_admin).trim().slice(0, 500)
         : "";
 
-    const pedido = await getPedidoInTenant(id, req);
+    const pedido = await getPedidoPorIdEnTenant(id, req.tenantId);
     if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
     try {
       await assertPedidoMismoTenant(pedido, req);
@@ -744,7 +776,7 @@ router.post("/:id/rechazar-solicitud-derivacion-tercero", adminOnly, async (req,
 
     const hasTa = await pedidosTableHasTenantIdColumn();
     const bind = hasTa ? [id, nuevaNota ?? null, req.tenantId] : [id, nuevaNota ?? null];
-    const bt = await pushPedidoBusinessFilter(req, bind);
+    const bt = "";
     const sql = hasTa
       ? `UPDATE pedidos SET
           solicitud_derivacion_pendiente = FALSE,
@@ -798,7 +830,7 @@ router.post("/:id/derivar-externo", adminOnly, async (req, res) => {
     const destinoStr = String(destino || "").trim();
     if (!destinoStr) return res.status(400).json({ error: "destino es obligatorio" });
 
-    const pedido = await getPedidoInTenant(id, req);
+    const pedido = await getPedidoPorIdEnTenant(id, req.tenantId);
     if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
     try {
       await assertPedidoMismoTenant(pedido, req);
@@ -876,7 +908,10 @@ router.post("/:id/derivar-externo", adminOnly, async (req, res) => {
       snap,
     ];
     const bind = hasTa ? [...upParams, req.tenantId] : [...upParams];
-    const bt = await pushPedidoBusinessFilter(req, bind);
+    /** Sin filtro business_type en derivación admin (misma razón que solicitar/rechazar). */
+    const bt = "";
+    // Después del business filter, la posición del tenant_id puede estar desplazada
+    // Pero siempre es en posición 9 si hasTa es true (antes del business filter)
     const sql = hasTa
       ? `UPDATE pedidos SET
           estado = $2,
