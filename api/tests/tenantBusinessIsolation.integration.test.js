@@ -73,6 +73,11 @@ describe("Integración — aislamiento tenant/business", () => {
 
     vi.mocked(query).mockImplementation(async (sql, params = []) => {
       const q = String(sql);
+      if (q.includes("information_schema.tables") && q.includes("table_name = $1")) {
+        const name = String(params[0] || "");
+        const known = new Set(["tenant_businesses", "tenant_active_business", "tenant_business_audit"]);
+        return { rows: known.has(name) ? [{ ok: 1 }] : [] };
+      }
       if (q.includes("information_schema.columns") && q.includes("table_name = $1") && q.includes("column_name = $2")) {
         const t = String(params[0] || "");
         const c = String(params[1] || "");
