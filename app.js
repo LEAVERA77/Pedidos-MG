@@ -13941,7 +13941,8 @@ async function guardarConfiguracionInicialObligatoria() {
         });
         if (!wizResp.ok) {
             const err = await wizResp.json().catch(() => ({}));
-            throw new Error(err.error || err.detail || `wizard HTTP ${wizResp.status}`);
+            const det = [err.detail, err.error].filter(Boolean).join(' — ');
+            throw new Error(det || `wizard HTTP ${wizResp.status}`);
         }
         const wiz = await wizResp.json();
         if (wiz.nueva_instancia && wiz.token) {

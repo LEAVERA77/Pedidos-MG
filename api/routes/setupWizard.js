@@ -28,6 +28,14 @@ function parseConfiguracionDb(val) {
   return {};
 }
 
+/** Tabla o vista inexistente (Neon sin migración multitenant). */
+function isMissingRelationError(e) {
+  const c = String(e?.code || "");
+  if (c === "42P01") return true;
+  const m = String(e?.message || "").toLowerCase();
+  return m.includes("does not exist") && (m.includes("relation") || m.includes("table"));
+}
+
 async function loadActiveBusinessTypeForTenant(tenantId) {
   try {
     const t = await query(`SELECT active_business_type FROM tenant_active_business WHERE tenant_id = $1 LIMIT 1`, [
@@ -35,8 +43,8 @@ async function loadActiveBusinessTypeForTenant(tenantId) {
     ]);
     const v = String(t.rows?.[0]?.active_business_type || "").trim();
     if (v) return normalizeBusinessTypeInput(v);
-  } catch (_) {
-    /* tabla ausente en entornos viejos */
+  } catch (e) {
+    if (!isMissingRelationError(e)) throw e;
   }
   if (await tableHasColumn("clientes", "active_business_type")) {
     const c = await query(`SELECT active_business_type, tipo FROM clientes WHERE id = $1 LIMIT 1`, [tenantId]);
@@ -62,43 +70,60 @@ async function pairKeyForTenant(tenantId) {
 }
 
 async function upsertTenantBusiness(client, tenantId, businessType) {
-  await client.query(
-    `INSERT INTO tenant_businesses(tenant_id, business_type, active)
-     VALUES($1,$2,TRUE)
-     ON CONFLICT (tenant_id, business_type)
-     DO UPDATE SET active = TRUE`,
-    [tenantId, businessType]
-  );
+  try {
+    await client.query(
+      `INSERT INTO tenant_businesses(tenant_id, business_type, active)
+       VALUES($1,$2,TRUE)
+       ON CONFLICT (tenant_id, business_type)
+       DO UPDATE SET active = TRUE`,
+      [tenantId, businessType]
+    );
+  } catch (e) {
+    if (!isMissingRelationError(e)) throw e;
+    console.warn("[setup/wizard] tenant_businesses omitido (sin tabla o error de relación):", e.message);
+  }
 }
 
-async function upsertActiveBusiness(client, tenantId, businessType) {
-  const prev = await client.query(
-    `SELECT active_business_type FROM tenant_active_business WHERE tenant_id = $1 LIMIT 1`,
-    [tenantId]
-  );
-  const previousBusinessType = String(prev.rows?.[0]?.active_business_type || "").trim() || null;
-  await client.query(
-    `INSERT INTO tenant_active_business(tenant_id, active_business_type, updated_at)
-     VALUES($1,$2,NOW())
-     ON CONFLICT (tenant_id)
-     DO UPDATE SET active_business_type = EXCLUDED.active_business_type,
-                   updated_at = NOW()`,
-    [tenantId, businessType]
-  );
-  if (await tableHasColumn("clientes", "active_business_type")) {
+async function upsertActiveBusiness(client, tenantId, businessType, hasClientesAbt) {
+  let tenantActiveOk = false;
+  let previousBusinessType = null;
+  try {
+    const prev = await client.query(
+      `SELECT active_business_type FROM tenant_active_business WHERE tenant_id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    previousBusinessType = String(prev.rows?.[0]?.active_business_type || "").trim() || null;
+    await client.query(
+      `INSERT INTO tenant_active_business(tenant_id, active_business_type, updated_at)
+       VALUES($1,$2,NOW())
+       ON CONFLICT (tenant_id)
+       DO UPDATE SET active_business_type = EXCLUDED.active_business_type,
+                     updated_at = NOW()`,
+      [tenantId, businessType]
+    );
+    tenantActiveOk = true;
+  } catch (e) {
+    if (!isMissingRelationError(e)) throw e;
+    console.warn("[setup/wizard] tenant_active_business omitido (sin tabla):", e.message);
+  }
+  if (hasClientesAbt) {
     await client.query(`UPDATE clientes SET active_business_type = $2, fecha_actualizacion = NOW() WHERE id = $1`, [
       tenantId,
       businessType,
     ]);
   }
-  try {
-    await client.query(
-      `INSERT INTO tenant_business_audit(
+  if (tenantActiveOk) {
+    try {
+      await client.query(
+        `INSERT INTO tenant_business_audit(
         tenant_id, previous_business_type, new_business_type, changed_by_user_id, source
       ) VALUES($1,$2,$3,$4,'wizard')`,
-      [tenantId, previousBusinessType, businessType, null]
-    );
-  } catch (_) {}
+        [tenantId, previousBusinessType, businessType, null]
+      );
+    } catch (e) {
+      if (!isMissingRelationError(e)) throw e;
+    }
+  }
 }
 
 async function ensureGlobalAdminForTenant({ tenantId, adminEmail, adminPassword, fallbackUserId }) {
@@ -162,16 +187,23 @@ router.post("/wizard", async (req, res) => {
 
     const debeNuevaInstancia = state.setupDone && pairNew !== pairOld;
 
+    const hasClientesAbt = await tableHasColumn("clientes", "active_business_type");
+
     if (!debeNuevaInstancia) {
-      const rb = await query(
-        `SELECT id FROM tenant_businesses WHERE tenant_id = $1 AND business_type = $2 LIMIT 1`,
-        [tenantIdOld, businessType]
-      );
-      const datosExistentes = !!rb.rows.length;
+      let datosExistentes = false;
+      try {
+        const rb = await query(
+          `SELECT id FROM tenant_businesses WHERE tenant_id = $1 AND business_type = $2 LIMIT 1`,
+          [tenantIdOld, businessType]
+        );
+        datosExistentes = !!rb.rows.length;
+      } catch (e) {
+        if (!isMissingRelationError(e)) throw e;
+      }
 
       await withTransaction(async (client) => {
         await upsertTenantBusiness(client, tenantIdOld, businessType);
-        await upsertActiveBusiness(client, tenantIdOld, businessType);
+        await upsertActiveBusiness(client, tenantIdOld, businessType, hasClientesAbt);
       });
 
       await ensureGlobalAdminForTenant({
@@ -199,8 +231,7 @@ router.post("/wizard", async (req, res) => {
     const nombreInsert = normalizeCompanyNameKey(nombreWizard) ? nombreWizard : `Organización ${Date.now()}`;
 
     const result = await withTransaction(async (client) => {
-      const hasAbt = await tableHasColumn("clientes", "active_business_type");
-      const rIns = hasAbt
+      const rIns = hasClientesAbt
         ? await client.query(
             `INSERT INTO clientes (nombre, tipo, plan, activo, configuracion, fecha_registro, fecha_actualizacion, active_business_type)
              VALUES ($1,$2,'basico',TRUE,'{}'::jsonb,NOW(),NOW(),$3)
@@ -217,7 +248,7 @@ router.post("/wizard", async (req, res) => {
       if (!Number.isFinite(newId)) throw new Error("insert_cliente");
 
       await upsertTenantBusiness(client, newId, businessType);
-      await upsertActiveBusiness(client, newId, businessType);
+      await upsertActiveBusiness(client, newId, businessType, hasClientesAbt);
 
       const uid = Number(req.user.id);
       const rUp = await client.query(
@@ -270,6 +301,7 @@ router.post("/wizard", async (req, res) => {
         error: "Solo el administrador autenticado en el tenant anterior puede crear una nueva instancia.",
       });
     }
+    console.error("[setup/wizard]", e);
     return res.status(500).json({ error: "No se pudo completar setup wizard", detail: e.message });
   }
 });
