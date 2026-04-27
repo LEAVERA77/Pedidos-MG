@@ -26,6 +26,8 @@ import {
   etiquetaFamiliaProyeccionLarga
 } from './map.js';
 
+import './js/utils.js';
+
 /** Evita avisos del navegador al capturar con html2canvas (getImageData / readback). */
 (function installCanvas2DWillReadFrequently() {
   if (typeof HTMLCanvasElement === 'undefined') return;
@@ -3134,6 +3136,8 @@ document.getElementById('lf').addEventListener('submit', async e => {
         resetPreferenciasPanelesInicioCerrados();
         try { aplicarUIMapaPlataforma(); } catch (_) {}
         try { initWebCoordsConverterBar(); } catch (_) {}
+        setupMapLazyWhenVisibleOnce();
+        scheduleGnMapLayoutBumpsTrasLogin();
         iniciarKeepAlive();
         iniciarTracking();
         iniciarPollNotifMovil();
@@ -5237,6 +5241,46 @@ function setBp2PanelHidden(hidden) {
     if (fab) fab.classList.toggle('visible', !!hidden);
     try { localStorage.setItem('pmg_bp2_hidden', hidden ? '1' : '0'); } catch (_) {}
     if (hidden) queueLazyInitMap();
+}
+
+/** Android: al abrir el detalle (#dm) guardamos si el panel inferior estaba visible para restaurarlo al cerrar. */
+let _gnBp2SnapAntesDetalleAndroid = null;
+
+function _gnOcultarPanelPedidosParaDetalleAndroid() {
+    if (typeof esAndroidWebViewMapa !== 'function' || !esAndroidWebViewMapa()) return;
+    const bp2 = document.getElementById('bp2');
+    if (!bp2 || _gnBp2SnapAntesDetalleAndroid) return;
+    _gnBp2SnapAntesDetalleAndroid = {
+        fullhide: bp2.classList.contains('bp2-fullhide'),
+        col: bp2.classList.contains('col'),
+    };
+    bp2.classList.remove('col');
+    setBp2PanelHidden(true);
+    requestAnimationFrame(() => {
+        try {
+            if (app.map) app.map.invalidateSize({ animate: false });
+        } catch (_) {}
+    });
+}
+
+function _gnRestaurarPanelPedidosTrasCerrarDetalleAndroid() {
+    if (typeof esAndroidWebViewMapa !== 'function' || !esAndroidWebViewMapa()) {
+        _gnBp2SnapAntesDetalleAndroid = null;
+        return;
+    }
+    const snap = _gnBp2SnapAntesDetalleAndroid;
+    _gnBp2SnapAntesDetalleAndroid = null;
+    if (!snap) return;
+    const bp2 = document.getElementById('bp2');
+    setBp2PanelHidden(!!snap.fullhide);
+    if (bp2) {
+        bp2.classList.toggle('col', !!snap.col && !snap.fullhide);
+    }
+    requestAnimationFrame(() => {
+        try {
+            if (app.map) app.map.invalidateSize({ animate: false });
+        } catch (_) {}
+    });
 }
 
 function mapTabIdForCard(cardId) {
@@ -7368,6 +7412,7 @@ function queueLazyInitMap() {
     const run = () => {
         void initMap().finally(() => {
             try { renderMk(); } catch (_) {}
+            scheduleGnMapLayoutBumpsTrasLogin();
         });
     };
     if (typeof requestIdleCallback === 'function') {
@@ -7375,6 +7420,19 @@ function queueLazyInitMap() {
     } else {
         setTimeout(run, 400);
     }
+}
+
+/** Tras mostrar #ms / init del mapa, re-fuerza tamaño Leaflet (paneo en web tras login). */
+function scheduleGnMapLayoutBumpsTrasLogin() {
+    const bump = () => {
+        try {
+            if (!app.map) return;
+            app.map.invalidateSize({ animate: false });
+            if (app.map.dragging && typeof app.map.dragging.enable === 'function') app.map.dragging.enable();
+        } catch (_) {}
+    };
+    requestAnimationFrame(() => requestAnimationFrame(bump));
+    [100, 320, 800, 1600].forEach((ms) => setTimeout(bump, ms));
 }
 
 async function ensureMapReady() {
@@ -11315,11 +11373,7 @@ async function detalle(p) {
     `;
     
     document.getElementById('dm').classList.add('active');
-    if (esAndroidWebViewMapa()) {
-        try {
-            document.getElementById('bp2')?.classList.add('col');
-        } catch (_) {}
-    }
+    _gnOcultarPanelPedidosParaDetalleAndroid();
     requestAnimationFrame(() => {
         if (!esTipoPedidoFactibilidad(p.tt)) refrescarMaterialesEnDetalle(p);
     });
@@ -11642,6 +11696,7 @@ function limpiarFotosYPreviewNuevoPedido() {
 }
 
 function closeAll() {
+    const dmAntes = document.getElementById('dm')?.classList.contains('active');
     const forzarPw = document.getElementById('modal-forzar-cambio-pw');
     document.getElementById('modal-dashboard-gerencia')?.classList.remove('modal-dash--maximized');
     syncDashboardModalMaxButtons();
@@ -11649,6 +11704,11 @@ function closeAll() {
         if (m === forzarPw && window._pendingAndroidPasswordChange) return;
         m.classList.remove('active');
     });
+    if (dmAntes) {
+        try {
+            _gnRestaurarPanelPedidosTrasCerrarDetalleAndroid();
+        } catch (_) {}
+    }
     app.cid = null;
     try {
         const dm = document.getElementById('dm');
@@ -12722,6 +12782,8 @@ try {
         resetPreferenciasPanelesInicioCerrados();
         try { aplicarUIMapaPlataforma(); } catch (_) {}
         try { initWebCoordsConverterBar(); } catch (_) {}
+        setupMapLazyWhenVisibleOnce();
+        scheduleGnMapLayoutBumpsTrasLogin();
         iniciarKeepAlive();
         iniciarTracking();
         iniciarPollNotifMovil();
@@ -12963,6 +13025,9 @@ async function contarPedidosCorteZonaNeon(disVal, trafoVal) {
 let _adminBannerWatermarkId = 0;
 let _adminBannerTimer = null;
 let _pollBannerAdminInterval = null;
+/** Ids de reclamos WhatsApp acumulados en el banner actual (hasta ocultar o abrir detalle). */
+const _adminBannerNuevoIdsMostrados = new Set();
+const BANNER_NUEVO_MS = 10000;
 /** ISO: última fecha_opinion_cliente ya notificada en banner (solo admin). */
 let _adminBannerOpinionWatermarkIso = null;
 
@@ -13018,6 +13083,13 @@ async function iniciarWatermarkBannerOpinionCliente() {
 }
 
 function ocultarBannerReclamoCliente() {
+    if (_adminBannerNuevoIdsMostrados.size) {
+        const mx = Math.max(...[..._adminBannerNuevoIdsMostrados].map((x) => Number(x)).filter((n) => Number.isFinite(n)));
+        if (Number.isFinite(mx) && mx > 0) {
+            _adminBannerWatermarkId = Math.max(_adminBannerWatermarkId, mx);
+        }
+        _adminBannerNuevoIdsMostrados.clear();
+    }
     const box = document.getElementById('admin-banner-nuevo-cliente');
     if (box) {
         box.style.display = 'none';
@@ -13068,7 +13140,7 @@ function ocultarBannerOpinionCliente() {
 async function pollBannerNuevoReclamoCliente() {
     if (!esAdmin() || modoOffline || !NEON_OK || !_sql) return;
     const box = document.getElementById('admin-banner-nuevo-cliente');
-    if (!box || box.dataset.visible === '1') return;
+    if (!box) return;
     try {
         const colO = await sqlSimple(
             `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'pedidos' AND column_name = 'origen_reclamo' LIMIT 1`
@@ -13076,22 +13148,35 @@ async function pollBannerNuevoReclamoCliente() {
         if (!colO.rows?.length) return;
         const tsql = await pedidosFiltroTenantSql();
         const r = await sqlSimple(
-            `SELECT id, numero_pedido, tipo_trabajo FROM pedidos WHERE id > ${esc(_adminBannerWatermarkId)} AND COALESCE(origen_reclamo,'') = 'whatsapp'${tsql} ORDER BY id ASC LIMIT 1`
+            `SELECT id, numero_pedido, tipo_trabajo FROM pedidos WHERE id > ${esc(_adminBannerWatermarkId)} AND COALESCE(origen_reclamo,'') = 'whatsapp'${tsql} ORDER BY id ASC LIMIT 25`
         );
-        const row = r.rows?.[0];
-        if (!row) return;
-        const nid = Number(row.id);
-        _adminBannerWatermarkId = Math.max(_adminBannerWatermarkId, nid);
+        const rows = (r.rows || []).filter((row) => row && row.id != null);
+        if (!rows.length) return;
+        const antes = new Set(_adminBannerNuevoIdsMostrados);
+        let hayNuevo = box.dataset.visible !== '1';
+        for (const row of rows) {
+            const k = String(row.id);
+            if (!antes.has(k)) hayNuevo = true;
+            _adminBannerNuevoIdsMostrados.add(k);
+        }
+        if (!hayNuevo) return;
+        const last = rows.reduce((a, b) => (Number(a.id) > Number(b.id) ? a : b));
+        const nid = Number(last.id);
         const txt = document.getElementById('admin-banner-nuevo-cliente-txt');
         if (txt) {
-            const tit = (row.tipo_trabajo || '').trim();
-            txt.textContent = `Nuevo reclamo de cliente · #${row.numero_pedido || nid}${tit ? ' · ' + tit : ''}`;
+            const n = _adminBannerNuevoIdsMostrados.size;
+            const titLast = (last.tipo_trabajo || '').trim();
+            if (n <= 1) {
+                txt.textContent = `Nuevo reclamo de cliente · #${last.numero_pedido || nid}${titLast ? ' · ' + titLast : ''}`;
+            } else {
+                txt.textContent = `Tenés ${n} nuevos reclamos · último: #${last.numero_pedido || nid}${titLast ? ' · ' + titLast : ''}`;
+            }
         }
         box.style.display = 'flex';
         box.dataset.visible = '1';
         box.dataset.pedidoId = String(nid);
         clearTimeout(_adminBannerTimer);
-        _adminBannerTimer = setTimeout(() => ocultarBannerReclamoCliente(), 30000);
+        _adminBannerTimer = setTimeout(() => ocultarBannerReclamoCliente(), BANNER_NUEVO_MS);
     } catch (_) {}
 }
 
@@ -13246,11 +13331,13 @@ function detenerPollBannerReclamoCliente() {
     }
     ocultarBannerReclamoCliente();
     ocultarBannerOpinionCliente();
+    _adminBannerNuevoIdsMostrados.clear();
 }
 
 function iniciarPollBannerReclamoCliente() {
     detenerPollBannerReclamoCliente();
     if (!esAdmin() || modoOffline || !NEON_OK) return;
+    _adminBannerNuevoIdsMostrados.clear();
     void (async () => {
         await iniciarWatermarkBannerReclamoCliente();
         await iniciarWatermarkBannerOpinionCliente();
@@ -13934,8 +14021,18 @@ function mostrarAlertaPedidoUrgente(pedido) {
 // ── Carga de config.json desde GitHub ────────────────────────
 let APP_CONFIG = null;
 async function cargarAppConfig() {
-    const esAndroidApp = window.location.protocol === 'file:' || /GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent);
-    if (esAndroidApp && window.AndroidConfig && typeof window.AndroidConfig.getConfigJson === 'function') {
+    const uaGestorNova =
+        typeof navigator !== 'undefined' &&
+        (/GestorNova\//i.test(navigator.userAgent) || /Nexxo\//i.test(navigator.userAgent));
+    const desdeAssetsFile = window.location.protocol === 'file:';
+    // Solo leer config desde el APK cuando la UI va por file://. Con HTTPS (ej. GitHub Pages en WebView)
+    // hay que usar el config.json del sitio — igual que en el navegador — o Neon falla con credenciales del ejemplo.
+    if (
+        desdeAssetsFile &&
+        uaGestorNova &&
+        window.AndroidConfig &&
+        typeof window.AndroidConfig.getConfigJson === 'function'
+    ) {
         try {
             const raw = window.AndroidConfig.getConfigJson();
             if (raw && raw.trim()) {
@@ -13948,9 +14045,11 @@ async function cargarAppConfig() {
             console.warn('[config] fallo bridge AndroidConfig:', e && e.message ? e.message : e);
         }
     }
-    const rutas = esAndroidApp
-        ? ['./config.json', 'config.json', 'file:///android_asset/config.json']
-        : ['./config.json?' + Date.now()];
+    const esAndroidApp = desdeAssetsFile || uaGestorNova;
+    const rutas =
+        desdeAssetsFile && uaGestorNova
+            ? ['./config.json', 'config.json', 'file:///android_asset/config.json']
+            : ['./config.json?' + Date.now()];
     let ultimoError = '';
     for (const ruta of rutas) {
         try {
