@@ -18,6 +18,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="admin-web-responsive.css"/>
 </head>
 <body>
 <div id="app">
@@ -61,7 +62,7 @@
     </form>
     <div id="le" class="le"></div>
     <div style="text-align:center;margin-top:.5rem;display:flex;flex-direction:column;align-items:center;gap:.35rem;max-width:24rem;margin-left:auto;margin-right:auto">
-      <button type="button" onclick="document.getElementById('modal-reset-pw').classList.add('active')" style="background:none;border:none;color:var(--bl);font-size:.85rem;cursor:pointer;text-decoration:underline">¿Olvidaste tu usuario o contraseña?</button>
+      <button type="button" onclick="if(typeof reiniciarModalResetPwUi==='function')reiniciarModalResetPwUi();document.getElementById('modal-reset-pw').classList.add('active')" style="background:none;border:none;color:var(--bl);font-size:.85rem;cursor:pointer;text-decoration:underline">¿Olvidaste tu usuario o contraseña?</button>
       <span style="font-size:.74rem;color:var(--tm);line-height:1.35;text-align:center">El usuario de ingreso es tu <strong>email</strong>. Recuperación de clave vía correo (EmailJS) para cuentas administrador; no hace falta API key en la app.</span>
     </div>
     <p id="app-version" class="app-version" style="text-align:center;margin-top:.75rem;font-size:.75rem;color:var(--tm)"></p>
@@ -141,6 +142,7 @@
     <button type="button" id="map-tab-filtro-tipo" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-filtro-tipo',false)" title="Mostrar filtro por tipo de reclamo">Tipo</button>
     <button type="button" id="map-tab-colores" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-colores',false)" title="Mostrar colores">Colores</button>
     <button type="button" id="map-tab-dash" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-dashboard',false)" title="Mostrar dashboard">Dash</button>
+    <button type="button" id="map-tab-capas-osm" class="map-slide-tab" onclick="toggleMapaCardSlideoff('mapa-card-capas-osm',false)" title="Mostrar capas del mapa (admin web)">Capas</button>
     </div>
     <div id="mapa-card-filtro-tipo" class="moui-card">
       <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-tags"></i> Tipo de reclamo <span id="mapa-filtro-tipo-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtro-tipo',true)"><i class="fas fa-eye-slash"></i></button></div>
@@ -185,6 +187,18 @@
           <label class="ll-row ll-span2"><input type="checkbox" id="mapa-flt-prio-cerrado" checked onchange="onMapaFiltroPrioridadChange()"><span class="ll-dot" style="background:#94a3b8"></span><span class="ll-txt">Cerrado</span></label>
         </div>
         <div class="ll-foot">Casco verde: técnico con GPS reciente (solo admin).</div>
+      </div>
+    </div>
+    <div id="mapa-card-capas-osm" class="moui-card" style="display:none">
+      <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-layer-group"></i> Capas del mapa <span id="mapa-capas-osm-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-capas-osm',true)"><i class="fas fa-eye-slash"></i></button></div>
+      <div id="mapa-capas-osm-body" class="moui-bd moui-scroll">
+        <p class="gn-capas-osm-hint">Superposiciones sobre el mapa base (CARTO). Solo administrador en la web; no aplica en la app Android.</p>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="power"> Red eléctrica (OpenInfraMap)</label>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="topo"> Relieve (OpenTopoMap)</label>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="hot"> Calles estilo humanitario (HOT)</label>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="rail"> Vías férreas (OpenRailwayMap)</label>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="hillshade"> Sombreado de relieve (Esri)</label>
+        <p class="gn-capas-osm-foot">Los datos y estilos son de terceros; respetá sus términos de uso. Si una capa falla al cargar, desmarcala.</p>
       </div>
     </div>
     <div id="mapa-card-dashboard" class="moui-card moui-dash" style="display:none">
@@ -325,7 +339,7 @@
 <div id="dm" class="mo">
   <div class="mc lg">
     <div class="mh"><h3><i class="fas fa-clipboard-list"></i> Detalle del Pedido</h3><button class="cm"><i class="fas fa-times"></i></button></div>
-    <div id="dmc" class="dc"></div>
+    <div id="dmc"></div>
   </div>
 </div>
 
@@ -1131,7 +1145,7 @@
 </div>
 <div id="modal-reset-pw" class="mo">
   <div class="mc" style="max-width:420px">
-    <div class="mh"><h3><i class="fas fa-key"></i> Recuperar acceso (admin)</h3><button type="button" class="cm" onclick="document.getElementById('modal-reset-pw').classList.remove('active')"><i class="fas fa-times"></i></button></div>
+    <div class="mh"><h3><i class="fas fa-key"></i> Recuperar acceso (admin)</h3><button type="button" class="cm" onclick="document.getElementById('modal-reset-pw').classList.remove('active');if(typeof reiniciarModalResetPwUi==='function')reiniciarModalResetPwUi();"><i class="fas fa-times"></i></button></div>
     <div class="mb">
       <p style="font-size:.88rem;color:var(--tm);margin-bottom:1rem">Solo cuentas <strong>administrador</strong>. Si no recordás el <strong>email</strong> con el que te registraron, consultá con quien gestiona el sistema o la bandeja de bienvenida. Para la <strong>contraseña</strong>, recibirás un código de 6 dígitos (válido ~30 min) en el correo que indiques abajo o en el email de contacto de la empresa (servicio EmailJS, sin secretos en la app).</p>
       <div class="fg" style="padding:0"><label>Email de tu cuenta admin</label><input id="reset-email" type="text" placeholder="admin@cooperativa.org" autocomplete="username"></div>
@@ -1142,7 +1156,7 @@
       </div>
       <div id="reset-msg" style="font-size:.85rem;margin-top:.5rem"></div>
       <div style="display:flex;gap:.75rem;margin-top:1rem">
-        <button class="sec" onclick="document.getElementById('modal-reset-pw').classList.remove('active')">Cancelar</button>
+        <button class="sec" onclick="document.getElementById('modal-reset-pw').classList.remove('active');if(typeof reiniciarModalResetPwUi==='function')reiniciarModalResetPwUi();">Cancelar</button>
         <button id="btn-reset-pw" class="bp" onclick="pasoResetPw()"><i class="fas fa-paper-plane"></i> Enviar código</button>
       </div>
     </div>
