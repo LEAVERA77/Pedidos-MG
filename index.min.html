@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>GestorNova — Pedidos</title>
@@ -101,7 +101,10 @@
     </div>
     <div class="hd-slot-mid">
       <span id="di" class="di ok"><i class="fas fa-database"></i></span>
-      <span id="un" class="un"></span>
+      <div class="hd-sesion-stack">
+        <span id="hd-empresa" class="hd-empresa" title=""></span>
+        <span id="un" class="un"></span>
+      </div>
       <div id="web-coords-converter" class="web-coords-converter" style="display:none">
         <label class="web-coords-converter-lbl" for="web-coords-converter-mode">Conversión</label>
         <select id="web-coords-converter-mode" title="Modo de conversión" aria-label="Modo de conversión de coordenadas">
@@ -146,7 +149,7 @@
     </div>
     <div id="mapa-card-filtro-tipo" class="moui-card">
       <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-tags"></i> Tipo de reclamo <span id="mapa-filtro-tipo-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtro-tipo',true)"><i class="fas fa-eye-slash"></i></button></div>
-      <div id="mapa-filtro-tipo-body" class="moui-bd moui-scroll mapa-filtro-tipo-list" style="max-height:min(52vh,320px)"></div>
+      <div id="mapa-filtro-tipo-body" class="moui-bd moui-scroll mapa-filtro-tipo-list"></div>
     </div>
     <div id="mapa-card-filtros" class="moui-card">
       <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-filter"></i> Filtros del mapa <span id="mapa-filtros-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-filtros',true)"><i class="fas fa-eye-slash"></i></button></div>
@@ -192,12 +195,11 @@
     <div id="mapa-card-capas-osm" class="moui-card" style="display:none">
       <div class="moui-hd"><i class="fas fa-grip-vertical moui-drag-handle" title="Arrastrar desde la barra"></i><i class="fas fa-layer-group"></i> Capas del mapa <span id="mapa-capas-osm-chevron" style="margin-left:auto;opacity:.6">▼</span><button type="button" class="ib-mini" style="margin-left:.35rem" title="Ocultar panel" onclick="event.stopPropagation();toggleMapaCardSlideoff('mapa-card-capas-osm',true)"><i class="fas fa-eye-slash"></i></button></div>
       <div id="mapa-capas-osm-body" class="moui-bd moui-scroll">
-        <p class="gn-capas-osm-hint">Superposiciones sobre el mapa base (CARTO). Solo administrador en la web; no aplica en la app Android.</p>
-        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="power"> Red eléctrica (OpenInfraMap)</label>
+        <p class="gn-capas-osm-hint">Solo <strong>mapa principal</strong> (contenedor grande). Podés apagar el fondo CARTO (o Esri si hizo fallback) y dejar solo las superposiciones que marques. No aplica al mapa de ubicaciones de usuarios ni al del asistente de setup. Solo administrador en la web; no aplica en la app Android.</p>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" id="mapa-base-carto-visible" checked> Mapa base (CARTO / Esri si reemplaza CARTO)</label>
         <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="topo"> Relieve (OpenTopoMap)</label>
-        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="hot"> Calles estilo humanitario (HOT)</label>
+        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="hot"> Ejidos municipales y lugares</label>
         <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="rail"> Vías férreas (OpenRailwayMap)</label>
-        <label class="moui-chk gn-capas-osm-row"><input type="checkbox" data-osm-layer="hillshade"> Sombreado de relieve (Esri)</label>
         <p class="gn-capas-osm-foot">Los datos y estilos son de terceros; respetá sus términos de uso. Si una capa falla al cargar, desmarcala.</p>
       </div>
     </div>
@@ -215,6 +217,9 @@
     </div>
   </div>
   
+  <button type="button" id="btn-mapa-armar-nuevo" class="btn-mapa-armar-nuevo gn-gps-fab" onclick="toggleMapTapNuevoPedidoArmed()" title="Activar: luego tocá el mapa para elegir el punto del nuevo pedido" aria-pressed="false" aria-label="Activar nuevo pedido con toque en el mapa">
+    <i class="fas fa-map-pin"></i>
+  </button>
   <button type="button" id="btn-mapa-nuevo-gps" class="btn-mapa-nuevo-gps gn-gps-fab" title="Nuevo pedido en mi ubicación" aria-label="Nuevo pedido en mi ubicación">
     <i class="fas fa-plus"></i>
   </button>
@@ -222,7 +227,6 @@
     <i class="fas fa-location-arrow"></i>
   </button>
   
-  <button type="button" id="fab-show-pedidos" class="fab-show-pedidos" onclick="setBp2PanelHidden(false)" title="Mostrar lista de pedidos"><i class="fas fa-list"></i> Pedidos</button>
   <div id="bp2" class="bp2 col">
     <div class="ph" id="ph" title="Arrastrá para mover el panel (PC) · tocá para plegar/desplegar"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:.4rem"><span style="display:flex;align-items:center;gap:.35rem"><div class="hb"></div><span class="hl">Pedidos</span></span><button type="button" class="ib-mini" id="btn-bp2-hide" title="Ocultar panel (mostrar con el botón flotante Pedidos)" onclick="event.stopPropagation();setBp2PanelHidden(true)"><i class="fas fa-eye-slash"></i></button></div></div>
     <div class="pc">
@@ -242,6 +246,7 @@
       <div id="pl" class="pl pedidos-panel-scroll"><div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Cargando...</div></div>
     </div>
   </div>
+  <button type="button" id="fab-show-pedidos" class="fab-show-pedidos" onclick="setBp2PanelHidden(false)" title="Mostrar lista de pedidos" aria-controls="bp2"><i class="fas fa-list"></i> Pedidos</button>
   <span id="offline-badge" style="position:absolute;bottom:10rem;right:.5rem;z-index:1003;display:none;background:#f97316;color:white;border-radius:50%;width:20px;height:20px;font-size:.65rem;font-weight:700;align-items:center;justify-content:center;border:2px solid white;pointer-events:none"></span>
 </div>
 
@@ -471,6 +476,20 @@
           <input id="cfg-provincia-nominatim" type="text" placeholder="Ej. Entre Ríos — se completa al guardar la ubicación base del asistente o al fijar oficina en el mapa">
           <p style="font-size:.72rem;color:var(--tl);margin:.35rem 0 0;line-height:1.35">Debe coincidir con el nombre que usa OpenStreetMap para desambiguar localidades. En municipios muy extensos, el operador del servidor puede subir <code style="font-size:.68rem">NOMINATIM_LOCALITY_MAX_DISTANCE_METERS</code> (p. ej. 35000).</p>
         </div>
+        <div class="full" style="margin-top:.5rem;padding-top:.85rem;border-top:1px dashed var(--bo)">
+          <h4 style="color:var(--tm);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;margin:0 0 .5rem">WhatsApp masivo — característica por localidad (Argentina)</h4>
+          <p style="font-size:.72rem;color:var(--tl);margin:0 0 .65rem;line-height:1.4">El prefijo internacional <strong>549</strong> es el mismo en todo el país; acá cargás solo el <strong>código de área</strong> sin 0 (ej. <code style="font-size:.68rem">343</code> para Paraná y zona, <code style="font-size:.68rem">3438</code> para La Paz de Entre Ríos). Se usa al normalizar teléfonos en avisos masivos y datos de pedidos / padrón de socios.</p>
+          <div><label for="cfg-wa-ar-default-area">Característica de respaldo</label><input id="cfg-wa-ar-default-area" type="text" inputmode="numeric" maxlength="6" placeholder="343" autocomplete="off">
+            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Si no hay coincidencia por localidad, se usa para completar números guardados solo como 15…</p>
+          </div>
+          <div class="full" style="margin-top:.65rem"><label for="cfg-wa-ar-area-prefixes">Prefijos a probar (opcional)</label><input id="cfg-wa-ar-area-prefixes" type="text" placeholder="3438, 343" autocomplete="off">
+            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Separados por coma; conviene listar primero los más largos (3438 antes que 343). Se prueban si falta localidad o el número sigue sin normalizar.</p>
+          </div>
+          <div class="full" style="margin-top:.65rem"><label for="cfg-wa-ar-areas-por-localidad">Mapa localidad → característica</label>
+            <textarea id="cfg-wa-ar-areas-por-localidad" rows="6" spellcheck="false" autocomplete="off" placeholder="Paraná	343&#10;Cerrito	343&#10;La Paz	3438"></textarea>
+            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Una fila por localidad: <strong>tabulador o |</strong> entre nombre y código. Debe coincidir (o estar contenido) con <code style="font-size:.68rem">cliente_localidad</code> en pedidos o <code style="font-size:.68rem">localidad</code> en socios.</p>
+          </div>
+        </div>
         <div class="full"><label>Coordenadas en detalle de pedido (además de WGS84)</label>
           <select id="cfg-coord-familia" onchange="syncCoordModoVisibility()">
             <option value="none">Solo WGS84</option>
@@ -684,14 +703,17 @@
         <h3 id="admin-socios-catalogo-titulo" style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin:0">Catálogo de socios (NIS / medidor)</h3>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
           <label class="btn-sm success" style="cursor:pointer"><i class="fas fa-file-excel"></i> Importar Excel<input type="file" id="input-excel-socios" accept=".xlsx,.xls" style="display:none" onchange="if(typeof onInputExcelSociosConInferencia==='function')onInputExcelSociosConInferencia(event)"></label>
-          <button type="button" class="btn-sm" onclick="mostrarFormatoExcelSocios()" style="background:#fef9c3;border:1px solid #eab308;color:#854d0e"><i class="fas fa-table"></i> Formato</button>
+          <button type="button" class="btn-sm warning" onclick="mostrarFormatoExcelSocios()"><i class="fas fa-question-circle"></i> Formato</button>
           <button type="button" class="btn-sm" onclick="vaciarCoordenadasSociosCatalogo()" style="background:#dc2626;color:#fff;border:none" title="Elimina TODOS los registros de la tabla (100%)"><i class="fas fa-trash-alt"></i> Vaciar tabla</button>
           <label style="font-size:.78rem;color:var(--tm);display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;margin-left:.25rem">
             <input type="checkbox" id="socios-import-reemplazar"> Vaciar catálogo antes de importar
           </label>
+          <label style="font-size:.78rem;color:var(--tm);display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;max-width:min(44rem,100%);line-height:1.35" title="Desactivado por defecto: import instantáneo. Si lo activás, se consulta Nominatim una vez por cada calle+localidad+provincia distintas (~1 s entre consultas).">
+            <input type="checkbox" id="socios-import-cp-nominatim"> Inferir CP (Nominatim) si falta en el Excel — opcional, puede ser lento.
+          </label>
         </div>
       </div>
-      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem"><strong>Columnas recomendadas:</strong> <code style="font-size:.72rem">nis | medidor | nombre | calle | numero | localidad</code> y según «Coordenadas en el Excel»: <code style="font-size:.72rem">latitud | longitud</code> (WGS84, se guardan en Neon) o <code style="font-size:.72rem">este | norte</code> (metros; familia según Empresa; convierte a WGS84 con proj4). La sección verde solo agrega columnas X/Y de otras proyecciones en pantalla. Opcionales: <strong>telefono</strong>, <strong>distribuidor_codigo</strong>, <strong>barrio</strong>, etc. Fila 1 = encabezados; lotes de 1000 filas.</p>
+      <p style="font-size:.8rem;color:var(--tl);margin-bottom:.75rem"><strong>Columnas recomendadas:</strong> <code style="font-size:.72rem">nis | medidor | nombre | calle | numero | localidad</code> y según «Coordenadas en el Excel»: <code style="font-size:.72rem">latitud | longitud</code> (WGS84, se guardan en Neon) o <code style="font-size:.72rem">este | norte</code> (metros; familia según Empresa; convierte a WGS84 con proj4). La sección verde solo agrega columnas X/Y de otras proyecciones en pantalla. Opcionales: <strong>telefono</strong>, <strong>distribuidor_codigo</strong>, <strong>barrio</strong>, <strong>codigo_postal</strong> (o inferencia solo si marcás la casilla Nominatim). Fila 1 = encabezados; lotes de 1000 filas.</p>
       <div id="lista-socios-admin"><div class="ll2"><i class="fas fa-circle-notch fa-spin"></i></div></div>
     </div>
     <div id="admin-estadisticas" class="admin-section">
@@ -954,12 +976,15 @@
       <div id="lista-ubicaciones" style="margin-top:.75rem;font-size:.82rem"></div>
     </div>
     <div id="admin-contrasena" class="admin-section">
-      <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem">Cambiar contraseña</h3>
+      <h3 style="color:var(--tm);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem">Cuenta y contraseña</h3>
       <div style="max-width:360px">
-        <div style="margin-bottom:.75rem"><label>Contraseña actual</label><input id="pw-actual" type="password"></div>
-        <div style="margin-bottom:.75rem"><label>Nueva contraseña</label><input id="pw-nueva" type="password"></div>
-        <div style="margin-bottom:.75rem"><label>Confirmar nueva</label><input id="pw-confirmar" type="password"></div>
-        <button class="bp" style="max-width:200px" onclick="cambiarContrasena()"><i class="fas fa-save"></i> Cambiar</button>
+        <div style="margin-bottom:.75rem"><label>Email de inicio de sesión</label><input id="pw-email-nuevo" type="email" autocomplete="username"></div>
+        <div style="margin-bottom:.75rem"><label>Nombre visible</label><input id="pw-nombre-nuevo" type="text" maxlength="120" autocomplete="name"></div>
+        <p style="font-size:.72rem;color:var(--tl);margin:-.25rem 0 .75rem;line-height:1.35">Requiere <strong>contraseña actual</strong> y sesión con el servidor (token API) para guardar email o nombre.</p>
+        <div style="margin-bottom:.75rem"><label>Contraseña actual</label><input id="pw-actual" type="password" autocomplete="current-password"></div>
+        <div style="margin-bottom:.75rem"><label>Nueva contraseña</label><input id="pw-nueva" type="password" autocomplete="new-password" placeholder="Opcional si solo cambiás email o nombre"></div>
+        <div style="margin-bottom:.75rem"><label>Confirmar nueva</label><input id="pw-confirmar" type="password" autocomplete="new-password"></div>
+        <button class="bp" style="max-width:200px" onclick="cambiarContrasena()"><i class="fas fa-save"></i> Guardar</button>
         <div id="pw-msg" style="margin-top:.5rem;font-size:.85rem"></div>
       </div>
     </div>
@@ -1007,6 +1032,23 @@
             </select>
           </div>
         </div>
+        <details id="cfgi-tech-wrap" style="margin-top:.85rem;padding:.65rem .7rem;background:#f8fafc;border:1px solid var(--bo);border-radius:.5rem">
+          <summary style="cursor:pointer;font-size:.8rem;color:var(--tm);font-weight:600">Herramienta interna (técnico): elegir tenant en el servidor</summary>
+          <p style="font-size:.72rem;color:var(--tl);margin:.45rem 0 .5rem;line-height:1.4">Requiere que en el API (Render, etc.) esté definida la variable <code style="font-size:.68rem">GESTORNOVA_TECHNICIAN_TENANT_KEY</code>. La clave no se guarda en el navegador. Se listan filas de <code style="font-size:.68rem">clientes</code> (Neon) y se reasigna <strong>tu usuario administrador</strong> al tenant elegido; recibís un JWT nuevo.</p>
+          <div class="form-grid" style="margin-top:.35rem">
+            <div class="full"><label for="cfgi-tech-key">Clave de técnico</label>
+              <input id="cfgi-tech-key" type="password" autocomplete="off" placeholder="Mismo valor que GESTORNOVA_TECHNICIAN_TENANT_KEY en el servidor"></div>
+            <div class="full" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:flex-end">
+              <button type="button" class="btn-sm" style="background:var(--bg);border:1px solid var(--bo)" onclick="wizardTecnicoCargarTenantsNeon()"><i class="fas fa-database"></i> Listar tenants</button>
+            </div>
+            <div class="full"><label for="cfgi-tech-tenant-sel">Tenant (<code style="font-size:.68rem">clientes.id</code>)</label>
+              <select id="cfgi-tech-tenant-sel" style="width:100%;max-width:420px"></select></div>
+            <div class="full">
+              <button type="button" class="btn-sm primary" onclick="wizardTecnicoVincularTenantSeleccionado()"><i class="fas fa-link"></i> Vincular mi sesión a este tenant</button>
+            </div>
+          </div>
+          <p id="cfgi-tech-msg" style="display:none;margin:.5rem 0 0;font-size:.8rem" role="status"></p>
+        </details>
       </div>
       <div id="sw-paso-2" class="sw-step">
         <h4 style="margin:.2rem 0 .6rem;color:var(--bd)">Branding</h4>
