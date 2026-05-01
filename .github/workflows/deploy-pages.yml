@@ -54,11 +54,22 @@ jobs:
           rm -rf dist
           mkdir -p dist
           cp index.html sw.js styles.css app.js map.js map-view.js offline.js autocompletado-calles.js config.example.json config.json dist/
+          # app.js importa ES modules desde ./modules/*.js — sin esto el bundle falla en silencio (WebView).
+          if [ -d modules ]; then
+            mkdir -p dist/modules
+            for f in modules/*.js; do [ -f "$f" ] && cp "$f" dist/modules/; done
+          fi
+          [ -f admin-web-responsive.css ] && cp admin-web-responsive.css dist/ || true
+          [ -f index.min.html ] && cp index.min.html dist/ || true
+          [ -f sync-worker.js ] && cp sync-worker.js dist/ || true
+          if [ -d js ]; then mkdir -p dist/js && cp -r js/. dist/js/; fi
+          if [ -d branding ]; then mkdir -p dist/branding && cp -r branding/. dist/branding/; fi
           [ -f gestornova-logo.png ] && cp gestornova-logo.png dist/ || true
           if [ -d privacy ]; then mkdir -p dist/privacy && cp -r privacy/* dist/privacy/; fi
           [ -f README.md ] && cp README.md dist/ || true
           [ -f SECURITY.md ] && cp SECURITY.md dist/ || true
           [ -f COPYRIGHT.md ] && cp COPYRIGHT.md dist/ || true
+          touch dist/.nojekyll
 
       - name: Subir artefacto del sitio
         uses: actions/upload-pages-artifact@v4
