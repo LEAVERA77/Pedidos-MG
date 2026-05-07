@@ -234,20 +234,23 @@
   <div id="bp2" class="bp2 col">
     <div class="ph" id="ph" title="Arrastrá para mover el panel (PC) · tocá para plegar/desplegar"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:.4rem"><span style="display:flex;align-items:center;gap:.35rem"><div class="hb"></div><span class="hl">Pedidos</span></span><button type="button" class="ib-mini" id="btn-bp2-hide" title="Ocultar panel (mostrar con el botón flotante Pedidos)" onclick="event.stopPropagation();setBp2PanelHidden(true)"><i class="fas fa-eye-slash"></i></button></div></div>
     <div class="pc">
-      <div class="pt">
-        <button class="tb active" data-tab="p"><span class="tb-stack"><span class="tb-line"><i class="fas fa-clock"></i> Pendientes</span><span id="pc" class="bge">0</span></span></button>
-        <button class="tb" data-tab="a"><span class="tb-stack"><span class="tb-line"><i class="fas fa-user-check"></i> Asignados</span><span id="ac" class="bge">0</span></span></button>
-        <button class="tb" data-tab="c"><span class="tb-stack"><span class="tb-line"><i class="fas fa-check-circle"></i> Cerrados</span><span id="cc" class="bge">0</span></span></button>
-        <label id="wrap-toggle-ver-todos" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
+      <div class="pt gn-bp2-tabs" role="tablist" aria-label="Filtro por estado de pedidos">
+        <button type="button" class="tb active" data-tab="p"><span class="tb-stack"><span class="tb-line"><i class="fas fa-clock"></i> Pendientes</span><span id="pc" class="bge">0</span></span></button>
+        <button type="button" class="tb" data-tab="a"><span class="tb-stack"><span class="tb-line"><i class="fas fa-user-check"></i> Asignados</span><span id="ac" class="bge">0</span></span></button>
+        <button type="button" class="tb" data-tab="c"><span class="tb-stack"><span class="tb-line"><i class="fas fa-check-circle"></i> Cerrados</span><span id="cc" class="bge">0</span></span></button>
+      </div>
+      <div class="gn-bp2-toolbar">
+        <label id="wrap-toggle-ver-todos" class="gn-bp2-toolbar-chk" style="display:none">
           <input type="checkbox" id="toggle-ver-todos-pedidos" title="Todos los reclamos de la empresa (pendientes, en curso y cerrados)"> Todos
         </label>
-        <label id="wrap-chk-derivados-fuera" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
+        <label id="wrap-chk-derivados-fuera" class="gn-bp2-toolbar-chk" style="display:none">
           <input type="checkbox" id="chk-mostrar-derivados-fuera" title="Mostrar en listas y mapa los reclamos ya derivados a otras empresas"> Derivados fuera
         </label>
-        <label id="wrap-chk-desestimados-lista" style="display:none;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tm);white-space:nowrap;margin:0 .25rem">
+        <label id="wrap-chk-desestimados-lista" class="gn-bp2-toolbar-chk" style="display:none">
           <input type="checkbox" id="chk-lista-mostrar-desestimados" title="Mostrar reclamos desestimados en la lista (pestaña Cerrados) y en el mapa si el filtro lo permite"> Desestimados
         </label>
-        <button id="eb" class="eb" title="Exportar Excel"><i class="fas fa-file-excel"></i></button>
+        <span class="gn-bp2-toolbar-spacer" aria-hidden="true"></span>
+        <button type="button" id="eb" class="eb" title="Exportar Excel"><i class="fas fa-file-excel"></i></button>
         <span id="zoom-altura" class="zoom-indicator">1000 m</span>
       </div>
       <div id="pl" class="pl pedidos-panel-scroll"><div class="ll2"><i class="fas fa-circle-notch fa-spin"></i> Cargando...</div></div>
@@ -495,20 +498,6 @@
         <div><label>Teléfono</label><input id="cfg-telefono" type="text"></div>
         <div class="full"><label for="cfg-provincia-nominatim">Provincia (Nominatim / bot WhatsApp)</label>
           <input id="cfg-provincia-nominatim" type="text" placeholder="Ej. Entre Ríos — se completa al guardar la ubicación base del asistente o al fijar oficina en el mapa">
-        </div>
-        <div class="full" style="margin-top:.5rem;padding-top:.85rem;border-top:1px dashed var(--bo)">
-          <h4 style="color:var(--tm);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;margin:0 0 .5rem">WhatsApp masivo — característica por localidad (Argentina)</h4>
-          <p style="font-size:.72rem;color:var(--tl);margin:0 0 .65rem;line-height:1.4">El país es <strong>54</strong> (Argentina). Acá cargás el <strong>código de área</strong> sin 0 (ej. <code style="font-size:.68rem">343</code> para Paraná y zona, <code style="font-size:.68rem">3438</code> para La Paz de Entre Ríos). La normalización completa números en avisos masivos y en pedidos / padrón de socios.</p>
-          <div><label for="cfg-wa-ar-default-area">Característica de respaldo</label><input id="cfg-wa-ar-default-area" type="text" inputmode="numeric" maxlength="6" placeholder="343" autocomplete="off">
-            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Si no hay coincidencia por localidad, se usa para completar números guardados solo como 15…</p>
-          </div>
-          <div class="full" style="margin-top:.65rem"><label for="cfg-wa-ar-area-prefixes">Prefijos a probar (opcional)</label><input id="cfg-wa-ar-area-prefixes" type="text" placeholder="3438, 343" autocomplete="off">
-            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Separados por coma; conviene listar primero los más largos (3438 antes que 343). Se prueban si falta localidad o el número sigue sin normalizar.</p>
-          </div>
-          <div class="full" style="margin-top:.65rem"><label for="cfg-wa-ar-areas-por-localidad">Mapa localidad → característica</label>
-            <textarea id="cfg-wa-ar-areas-por-localidad" rows="6" spellcheck="false" autocomplete="off" placeholder="Paraná	343&#10;Cerrito	343&#10;La Paz	3438"></textarea>
-            <p style="font-size:.7rem;color:var(--tl);margin:.25rem 0 0">Una fila por localidad: <strong>tabulador o |</strong> entre nombre y código. Debe coincidir (o estar contenido) con <code style="font-size:.68rem">cliente_localidad</code> en pedidos o <code style="font-size:.68rem">localidad</code> en socios.</p>
-          </div>
         </div>
         <div class="full"><label>Coordenadas en detalle de pedido (además de WGS84)</label>
           <select id="cfg-coord-familia" onchange="syncCoordModoVisibility()">
