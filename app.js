@@ -16249,6 +16249,10 @@ function _depsAdminPanelDeferred() {
         actualizarBotonesWhatsappDerivacionesUi,
         refrescarPedidos: () => cargarPedidos({ silent: true }),
         cerrarAdminPanel,
+        getApiToken,
+        apiUrl,
+        esCooperativaElectricaRubro,
+        debeOcultarTabDistribuidoresAdmin,
     };
 }
 
@@ -18166,8 +18170,59 @@ async function cargarEstadisticas() {
         const confRows = rConfMes.rows || [];
         const evConfTot = confRows.reduce((s, r) => s + parseInt(r.ev || 0, 10), 0);
         const minConfTot = confRows.reduce((s, r) => s + parseFloat(r.min_tot || 0), 0);
-        const saifiPeriodo = showConf && nSociosCat ? evConfTot / nSociosCat : null;
-        const saidiPeriodo = showConf && nSociosCat ? minConfTot / nSociosCat : null;
+        const redSaifi = await import('./modules/estadisticas-datos-red-saifi.js');
+        const denomMeta = redSaifi.denominadorClientesConfiabilidad({
+            datosPack: datosRedPack,
+            distRawRows: rConfDist.rows || [],
+            nSociosCat,
+        });
+        const denomEff = denomMeta.n;
+        const saifiPeriodo = showConf && denomEff ? evConfTot / denomEff : null;
+        const saidiPeriodo = showConf && denomEff ? minConfTot / denomEff : null;
+
+        try {
+            const av = document.getElementById('estad-red-infra-aviso');
+            if (av) {
+                if (!showConf) {
+                    av.style.display = 'none';
+                    av.textContent = '';
+                } else if (denomMeta.sinDatosRed) {
+                    av.style.display = '';
+                    av.textContent =
+                        '📊 Datos de red no cargados. Los valores de SAIDI/SAIFI son estimaciones basadas solo en reclamos (denominador: socios del catálogo). Cargá la infraestructura en la pestaña «Red Eléctrica».';
+                } else if (denomMeta.fuente === 'red' && denomMeta.parcial) {
+                    av.style.display = '';
+                    av.textContent =
+                        '⚠️ Datos de red parciales: algunos distribuidores con eventos no tienen clientes en tabla; el denominador suma solo los cargados.';
+                } else if (denomMeta.fuente === 'red') {
+                    av.style.display = '';
+                    av.textContent =
+                        '✓ Denominador según clientes de la pestaña «Red Eléctrica» (suma por distribuidores con interrupciones en el período).';
+                } else {
+                    av.style.display = '';
+                    av.textContent =
+                        '📊 Sin suma útil de clientes por distribuidor afectado; se usa el catálogo de socios.';
+                }
+            }
+        } catch (_) {}
+
+        try {
+            const pd = document.querySelector('#chart-wrap-confiabilidad > p');
+            if (pd && showConf) {
+                const base =
+                    'Basado en <strong>cierres</strong> de reclamos de red (cortes, tensión, cables, etc.), excluye administrativos. <strong>SAIFI</strong> ≈ interrupciones / usuarios; <strong>SAIDI</strong> ≈ minutos acumulados / usuario. ';
+                const den =
+                    denomMeta.fuente === 'red'
+                        ? 'Denominador: <strong>clientes cargados en «Red Eléctrica»</strong> (suma de distribuidores con esos cierres en el período). Complementar con mediciones oficiales.'
+                        : 'Denominador: socios activos en <code style="font-size:.7rem">socios_catalogo</code> (mín. 1). Complementar con mediciones oficiales de red.';
+                pd.innerHTML = base + den;
+            }
+        } catch (_) {}
+
+        try {
+            const cw = document.getElementById('chart-wrap-confiabilidad');
+            if (cw) cw.style.display = showConf ? '' : 'none';
+        } catch (_) {}
 
         // ── Cards de resumen ───────────────────────────────────
         const cardList = [
@@ -18521,6 +18576,11 @@ function resetEstadisticasAdminVisualNeutro() {
             const el = document.getElementById(id);
             if (el) el.textContent = '';
         });
+        const avi = document.getElementById('estad-red-infra-aviso');
+        if (avi) {
+            avi.style.display = 'none';
+            avi.textContent = '';
+        }
         const statsEl = document.getElementById('stats-cards');
         if (!statsEl) return;
         let cardList = [

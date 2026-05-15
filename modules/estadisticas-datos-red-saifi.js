@@ -56,10 +56,10 @@ export async function fetchDatosRedParaEstadisticas(d) {
 export function denominadorClientesConfiabilidad(p) {
   const nCat = Math.max(1, Number(p.nSociosCat) || 1);
   const pack = p.datosPack;
-  const datos = pack && pack.disponible && pack.datos ? pack.datos : null;
-  if (!datos || !Object.keys(datos).length) {
+  if (!pack || pack.disponible === false || !pack.datos || !Object.keys(pack.datos).length) {
     return { n: nCat, fuente: "catalogo", parcial: false, sinDatosRed: true };
   }
+  const datos = pack.datos;
   const codes = new Set();
   for (const row of p.distRawRows || []) {
     const c = codigoDistribuidorDesdeTextoPedido(row.dist_raw);
