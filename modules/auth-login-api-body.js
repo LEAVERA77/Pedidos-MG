@@ -1,11 +1,13 @@
 /**
- * Cuerpo JSON unificado para POST /api/auth/login (multitenant).
+ * Cuerpo JSON y fetch unificado para POST /api/auth/login (multitenant).
  * En pantalla de login NO usar tenant de JWT/pmg/config: solo hint explícito del wizard.
+ * Si el hint está obsoleto (sessionStorage viejo), reintenta sin tenant_id.
  * made by leavera77
  */
 
 let _tenantIdResolver = () => NaN;
 let _loginInFlight = false;
+let _lastLoginAttemptAt = 0;
 
 /** @param {() => number} fn — legacy; el login ya no envía tenant desde el resolver. */
 export function initAuthLoginApiTenantResolver(fn) {
@@ -25,6 +27,12 @@ export function setAuthLoginTenantHint(tenantId) {
     } catch (_) {}
 }
 
+export function clearAuthLoginTenantHint() {
+    try {
+        sessionStorage.removeItem(AUTH_LOGIN_TENANT_HINT_KEY);
+    } catch (_) {}
+}
+
 /** Tenant solo si el usuario lo eligió en wizard/selector (no sesión anterior ni config.json). */
 export function getExplicitLoginTenantHint() {
     try {
@@ -33,6 +41,71 @@ export function getExplicitLoginTenantHint() {
         if (Number.isFinite(h) && h > 0) return h;
     } catch (_) {}
     return null;
+}
+
+function buildLoginBody(usuario, password, tenantId) {
+    const o = { usuario: String(usuario || '').trim(), password: String(password ?? '') };
+    const tid = tenantId != null ? Number(tenantId) : NaN;
+    if (Number.isFinite(tid) && tid > 0) o.tenant_id = tid;
+    return JSON.stringify(o);
+}
+
+/** @param {string} usuario @param {string} password */
+export function authLoginJsonBody(usuario, password) {
+    const tid = getExplicitLoginTenantHint();
+    return buildLoginBody(usuario, password, tid);
+}
+
+/**
+ * POST /api/auth/login con reintento sin tenant si hay hint obsoleto (401).
+ * @param {string} usuario
+ * @param {string} password
+ * @param {(path: string) => string} apiUrlFn
+ * @param {typeof fetch} fetchFn
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [opts]
+ * @returns {Promise<{ resp: Response, data: object }>}
+ */
+export async function fetchAuthLoginApi(usuario, password, apiUrlFn, fetchFn, opts = {}) {
+    const ms = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 28000;
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    const signal = opts.signal || ctl.signal;
+
+    const post = async (tenantId) => {
+        const resp = await fetchFn(apiUrlFn('/api/auth/login'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: buildLoginBody(usuario, password, tenantId),
+            signal,
+        });
+        const data = await resp.json().catch(() => ({}));
+        return { resp, data };
+    };
+
+    try {
+        const hint = getExplicitLoginTenantHint();
+        if (hint != null) {
+            const r1 = await post(hint);
+            const ok1 =
+                r1.resp.ok ||
+                (r1.resp.status === 403 && r1.data?.code === 'must_change_password');
+            if (ok1) return r1;
+            if (r1.resp.status === 401) {
+                const r2 = await post(null);
+                const ok2 =
+                    r2.resp.ok ||
+                    (r2.resp.status === 403 && r2.data?.code === 'must_change_password');
+                if (ok2) {
+                    clearAuthLoginTenantHint();
+                    return r2;
+                }
+            }
+            return r1;
+        }
+        return await post(null);
+    } finally {
+        clearTimeout(t);
+    }
 }
 
 /**
@@ -48,23 +121,15 @@ export async function buildNeonLoginTenantSqlFrag(escFn, getColFn) {
     return ` AND ${colU} = ${escFn(hint)}`;
 }
 
-/** Evita doble envío (click + Enter / doble tap) que mostraba «contraseña incorrecta» y luego entraba. */
+/** Evita doble envío simultáneo (click + Enter); ventana corta, no bloquea un segundo intento manual. */
 export function beginLoginAttempt() {
-    if (_loginInFlight) return false;
+    const now = Date.now();
+    if (_loginInFlight || now - _lastLoginAttemptAt < 350) return false;
     _loginInFlight = true;
+    _lastLoginAttemptAt = now;
     return true;
 }
 
 export function endLoginAttempt() {
     _loginInFlight = false;
-}
-
-/** @param {string} usuario @param {string} password */
-export function authLoginJsonBody(usuario, password) {
-    const u = String(usuario || '').trim();
-    const p = String(password ?? '');
-    const o = { usuario: u, password: p };
-    const tid = getExplicitLoginTenantHint();
-    if (tid != null) o.tenant_id = tid;
-    return JSON.stringify(o);
 }
