@@ -519,7 +519,11 @@ function insertarImagenReclamoEnDOM(srcOrSources, meta = {}) {
     img.src = srcActivo();
     img.alt = 'Foto del reclamo';
     img.draggable = false;
-    img.style.cssText = `max-width:min(100%,96vw);width:auto;height:auto;max-height:min(38vh,380px);object-fit:contain;border-radius:8px;cursor:zoom-in;display:block;transform-origin:center center;transform:rotate(${rotPreview}deg)`;
+    const maxHPreview =
+        typeof document !== 'undefined' && document.documentElement.classList.contains('gn-android-shell')
+            ? 'min(28vh,260px)'
+            : 'min(38vh,380px)';
+    img.style.cssText = `max-width:min(100%,96vw);width:auto;height:auto;max-height:${maxHPreview};object-fit:contain;border-radius:8px;cursor:zoom-in;display:block;transform-origin:center center;transform:rotate(${rotPreview}deg)`;
 
     img.addEventListener('click', (ev) => {
         ev.preventDefault();
@@ -780,6 +784,43 @@ function obtenerPedidoParaImagenDetalle() {
 let _moDetallePedidoImg = null;
 let _rafDetallePedidoImg = null;
 
+function dmDetalleEstaDesplazandose() {
+    try {
+        if (typeof window.gnDmDetalleEstaDesplazandose === 'function') {
+            return window.gnDmDetalleEstaDesplazandose();
+        }
+    } catch (_) {}
+    const dm = document.getElementById('dm');
+    return !!(dm && dm.classList.contains('gn-dm-is-scrolling'));
+}
+
+function esShellAndroidDoc() {
+    try {
+        return document.documentElement.classList.contains('gn-android-shell');
+    } catch (_) {
+        return false;
+    }
+}
+
+function programarInjectDetalleImagen(fn) {
+    const run = () => {
+        if (dmDetalleEstaDesplazandose()) {
+            _rafDetallePedidoImg = requestAnimationFrame(run);
+            return;
+        }
+        fn();
+    };
+    if (esShellAndroidDoc() && typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => run(), { timeout: 380 });
+        return;
+    }
+    if (esShellAndroidDoc()) {
+        setTimeout(run, 100);
+        return;
+    }
+    _rafDetallePedidoImg = requestAnimationFrame(run);
+}
+
 /** Libera observer y rAF pendiente (p. ej. al cerrar #dm). */
 export function disconnectPedidoVerImagenDetalleObserver() {
     if (_rafDetallePedidoImg != null) {
@@ -804,12 +845,17 @@ export function disconnectPedidoVerImagenDetalleObserver() {
  */
 export function installPedidoVerImagenDetalleObserver() {
     if (typeof document === 'undefined') return;
-    disconnectPedidoVerImagenDetalleObserver();
+    if (_moDetallePedidoImg) return;
     const dmc = document.getElementById('dmc');
     if (!dmc) return;
     _moDetallePedidoImg = new MutationObserver(() => {
-        if (_rafDetallePedidoImg != null) cancelAnimationFrame(_rafDetallePedidoImg);
-        _rafDetallePedidoImg = requestAnimationFrame(() => {
+        if (_rafDetallePedidoImg != null) {
+            try {
+                cancelAnimationFrame(_rafDetallePedidoImg);
+            } catch (_) {}
+            _rafDetallePedidoImg = null;
+        }
+        programarInjectDetalleImagen(() => {
             _rafDetallePedidoImg = null;
             const ped = obtenerPedidoParaImagenDetalle();
             if (!ped?.id || String(ped.id).startsWith('off_')) return;

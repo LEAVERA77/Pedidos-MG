@@ -2,6 +2,9 @@
  * WebView Android: clase en <html> para CSS de fluidez (mapa, detalle pedido) sin tocar app.js.
  * made by leavera77
  */
+import './gn-dm-modal-perf-android.js';
+import './pedido-detalle-fotos-lazy-android.js';
+
 (function initGnAndroidShellPerf() {
     try {
         if (typeof window === 'undefined' || !window.document) return;
