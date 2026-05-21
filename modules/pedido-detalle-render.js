@@ -3,6 +3,7 @@
  * made by leavera77
  */
 import { gnDetalleImgAttrs } from './pedido-detalle-html-helpers.js';
+import { gnNombreUsuarioDisplay } from './gn-usuario-nombres.js';
 
 export function computeDetalleEstructuraSig(p, deps) {
     const fotosCount = Array.isArray(p.fotos) ? p.fotos.filter(Boolean).length : 0;
@@ -130,16 +131,12 @@ function buildDetalleRenderParts(p, deps) {
     /** En WebView Android el usuario suele buscar la acción como «Ejecutar»; en web se mantiene el texto largo. */
     const lblPonerEnEjecucion =
         typeof esAndroidWebViewMapa === 'function' && esAndroidWebViewMapa() ? 'Ejecutar' : 'Poner en ejecución';
-    const findUser = id => {
-        if (!id) return null;
-        const u = app.usuariosCache?.find(u => String(u.id) === String(id));
-        return u ? u.nombre : null;
-    };
+    const findUser = (id) => gnNombreUsuarioDisplay(id);
     const _auditLineas = [
-        p.uc  ? '<div class="dr"><span class="dl">Creado por</span><span class="dv">'  + (findUser(p.uc)  || 'id:'+p.uc)  + '</span></div>' : '',
-        p.ui2 ? '<div class="dr"><span class="dl">Iniciado por</span><span class="dv">' + (findUser(p.ui2) || 'id:'+p.ui2) + '</span></div>' : '',
-        p.uav ? '<div class="dr"><span class="dl">Últ avance</span><span class="dv">'   + (findUser(p.uav) || 'id:'+p.uav) + '</span></div>' : '',
-        p.uci ? '<div class="dr"><span class="dl">Cerrado por</span><span class="dv">'  + (findUser(p.uci) || 'id:'+p.uci) + '</span></div>' : '',
+        p.uc  ? '<div class="dr"><span class="dl">Creado por</span><span class="dv">'  + findUser(p.uc)  + '</span></div>' : '',
+        p.ui2 ? '<div class="dr"><span class="dl">Iniciado por</span><span class="dv">' + findUser(p.ui2) + '</span></div>' : '',
+        p.uav ? '<div class="dr"><span class="dl">Últ avance</span><span class="dv">'   + findUser(p.uav) + '</span></div>' : '',
+        p.uci ? '<div class="dr"><span class="dl">Cerrado por</span><span class="dv">'  + findUser(p.uci) + '</span></div>' : '',
     ].filter(Boolean).join('');
     const escDet = t => String(t == null ? '' : t).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const nombreClienteDet = String((p.cnom || p.cl || '')).trim();
@@ -266,7 +263,7 @@ function buildDetalleRenderParts(p, deps) {
     const uAsig = (app.usuariosCache || []).find(u => String(u.id) === String(p.tai));
     const rolAsig = uAsig ? normalizarRolStr(uAsig.rol) : '';
     const nAsig = (p.tai != null)
-        ? `${findUser(p.tai) || ('id ' + p.tai)}${rolAsig ? ' · ' + rolAsig : ''}`
+        ? `${findUser(p.tai)}${rolAsig ? ' · ' + rolAsig : ''}`
         : 'Sin asignar';
     const fasiStr = p.fasi ? new Date(p.fasi).toLocaleString('es-AR', {...tz, hour12:false}) : '';
     const labFirmaDet = etiquetaFirmaPersona();
@@ -293,14 +290,9 @@ function buildDetalleRenderParts(p, deps) {
         fotosHtml += '</div>';
     }
 
-    const shellAndroid =
-        typeof document !== 'undefined' && document.documentElement.classList.contains('gn-android-shell');
-    const fotosSectionHtml =
-        fotosCount > 0 && shellAndroid
-            ? `<details class="gn-dm-section-collapsible gn-dm-fotos-lazy"><summary class="gn-dm-section-collapsible-sum">📸 Fotos del trabajo (${fotosCount})</summary><div class="ds gn-dm-fotos-lazy-host"><p style="font-size:.8rem;color:var(--tl);margin:0">Tocá para ver las fotos</p></div></details>`
-            : fotosHtml
-              ? `<details class="gn-dm-section-collapsible"><summary class="gn-dm-section-collapsible-sum">📸 Fotos del trabajo (${fotosCount})</summary><div class="ds">${fotosHtml}</div></details>`
-              : '';
+    const fotosSectionHtml = fotosHtml
+        ? `<details class="gn-dm-section-collapsible"><summary class="gn-dm-section-collapsible-sum">📸 Fotos del trabajo (${fotosCount})</summary><div class="ds">${fotosHtml}</div></details>`
+        : '';
     
     
     const { la: laM, ln: lnM } = coordsEfectivasPedidoMapa(p);
@@ -353,7 +345,7 @@ function buildDetalleRenderParts(p, deps) {
     let htmlDerivacionAdminExterna = '';
     if (esAdmin() && pedidoEsDerivadoFuera(p)) {
         const fdx = p.fder ? new Date(p.fder).toLocaleString('es-AR', { ...tz, hour12: false }) : '—';
-        const who = findUser(p.uider) || (p.uider != null ? 'id:' + p.uider : '—');
+        const who = findUser(p.uider);
         htmlDerivacionAdminExterna = `<div class="ds" style="border-left:4px solid #64748b">
             <h4>➡️ Derivado a tercero</h4>
             <p style="font-size:.78rem;margin:0 0 .5rem;line-height:1.4">Este reclamo ya no está en la operativa habitual del tenant. Para verlo en el panel de pedidos, activá <strong>Derivados fuera</strong> en la barra del listado.</p>
@@ -388,7 +380,7 @@ function buildDetalleRenderParts(p, deps) {
             : '';
         let pendienteSolicitudHtml = '';
         if (p.sdpen) {
-            const whoTec = findUser(p.sduid) || (p.sduid != null ? 'id:' + p.sduid : '—');
+            const whoTec = findUser(p.sduid);
             const fxs = p.sdf
                 ? new Date(p.sdf).toLocaleString('es-AR', { ...tz, hour12: false })
                 : '—';
@@ -446,31 +438,20 @@ function buildDetalleRenderParts(p, deps) {
             <button type="button" class="ba2 imprimir" onclick="imprimirPedidoPorId('${p.id}')"><i class="fas fa-print"></i> Imprimir</button>
             <button type="button" class="ba2" onclick="_xl('${p.id}')"><i class="fas fa-file-excel"></i> Exportar</button>`;
 
-    const html = `
-        <div class="gn-dm-detail-scroll">
-        <div class="ds gn-dm-block-info" data-gn-dm-block="info">
-            <h4>📋 Información General</h4>
-            ${infoRowsHtml}
-        </div>
-        
-        <div class="ds">
-            <h4>🏢 Datos del Trabajo</h4>
+    const sectionInfo = `<h4>📋 Información General</h4>${infoRowsHtml}`;
+
+    const sectionTrabajo = `<h4>🏢 Datos del Trabajo</h4>
             <div class="dr"><span class="dl">${etiquetaZonaPedido()}</span><span class="dv">${valorZonaPedidoUI(p) || (esMunicipioRubro() ? 'Sin barrio indicado' : esCooperativaAguaRubro() ? 'Sin ramal indicado' : '—')}</span></div>
             ${esCooperativaElectricaRubro() && String(p.trf || '').trim() ? `<div class="dr"><span class="dl">Trafo</span><span class="dv">${escDet(p.trf)}</span></div>` : ''}
             ${htmlDatosCliente}
             ${p.tel ? `<div class="dr"><span class="dl">Tel. contacto (WA)</span><span class="dv">${String(p.tel).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>` : ''}
-            <div class="dr"><span class="dl">Descripción</span><span class="dv">${escDet(sanitizarTextoDescripcionPedidoVista(p.de))}</span></div>
-        </div>
-        
-        <div id="dm-opinion-cliente-host">${htmlOpinionCliente}</div>
-        
-        ${htmlDerivacionTercerosPedidoDetalle()}
-        ${htmlSolicitudDerivacionCoopElectricaTecnico(p)}
-        ${htmlDerivacionCoopElectrica}
-        ${htmlDerivacionAdminExterna}
-        
-        ${p.es === 'Cerrado' ? `
-        <div class="ds">
+            <div class="dr"><span class="dl">Descripción</span><span class="dv">${escDet(sanitizarTextoDescripcionPedidoVista(p.de))}</span></div>`;
+
+    const sectionDerivacion = `${htmlDerivacionTercerosPedidoDetalle()}${htmlSolicitudDerivacionCoopElectricaTecnico(p)}${htmlDerivacionCoopElectrica}${htmlDerivacionAdminExterna}`;
+
+    const sectionCierre =
+        p.es === 'Cerrado'
+            ? `<div class="ds">
             <h4>✅ Cierre del Pedido</h4>
             ${fc ? `<div class="dr"><span class="dl">Fecha cierre</span><span class="dv">${fc}</span></div>` : ''}
             ${p.tc ? `<div class="dr"><span class="dl">Técnico</span><span class="dv">${p.tc}</span></div>` : ''}
@@ -478,39 +459,69 @@ function buildDetalleRenderParts(p, deps) {
             ${p.foto_cierre ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">📸 Foto del cierre</div><img src="${p.foto_cierre}" class="foto-miniatura"${gnDetalleImgAttrs()} style="width:100%;max-height:200px;object-fit:contain;border-radius:.5rem;cursor:pointer;border:1px solid #e2e8f0" onclick="verFotoAmpliada(this.src, {tipo:'pedido_cierre',id:'${p.id}'})"></div>` : ''}
             ${chkResumen}
             ${p.firma ? `<div style="margin-top:.6rem"><div style="font-size:.8rem;color:#475569;margin-bottom:.35rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em">✍️ Firma del ${labFirmaDet}</div><img src="${p.firma}" class="foto-miniatura"${gnDetalleImgAttrs()} style="width:100%;max-height:180px;object-fit:contain;border-radius:.5rem;border:1px solid #e2e8f0" alt="Firma"></div>` : ''}
-        </div>` : ''}
+        </div>`
+            : '';
 
-        ${esTipoPedidoFactibilidad(p.tt) || !incluirBloqueMaterialesEnDetallePedido(p) ? '' : `
-        <div class="ds" id="materiales-detalle-wrap" data-pid="${p.id}">
-            <h4>🔧 Materiales</h4>
-            <div id="materiales-detalle-body"><p style="font-size:.8rem;color:var(--tl)">Cargando…</p></div>
-        </div>
-        `}
-        
-        <div class="ds">
-            <h4>📍 Ubicación</h4>
+    const showMateriales =
+        !esTipoPedidoFactibilidad(p.tt) && incluirBloqueMaterialesEnDetallePedido(p);
+
+    const sectionUbicacion = `<h4>📍 Ubicación</h4>
             ${htmlBadgeUbicModo}
             ${htmlWgeoWa}
             ${bannerSinPinAdmin}
             <div class="dr"><span class="dl">Provincia</span><span class="dv">${escDet(String(p.cpcia || '').trim() || '—')}</span></div>
             <div class="dr"><span class="dl">Código postal</span><span class="dv">${escDet(String(p.ccp || '').trim() || '—')}</span></div>
             ${usadaInferida ? '<p style="font-size:.76rem;color:#b45309;margin:0 0 .35rem;line-height:1.35">Ubicación aproximada por calle y número (el cliente no compartió GPS).</p>' : ''}
-            <div class="dr"><span class="dl">WGS84</span><span class="dv">${wgs84UnaLinea}${laM != null && lnM != null ? ` <span class="dv-copy" onclick="copiarTexto('${latFormateada}')"><i class="fas fa-copy"></i> lat</span> <span class="dv-copy" onclick="copiarTexto('${lngFormateada}')"><i class="fas fa-copy"></i> lng</span>` : ''}</span></div>
+            <div class="dr"><span class="dl">WGS84</span><span class="dv">${wgs84UnaLinea}${laM != null && lnM != null ? ` <span class="dv-copy" onclick="event.stopPropagation();copiarTexto('${latFormateada}, ${lngFormateada}')"><i class="fas fa-copy"></i> Copiar</span>` : ''}</span></div>
             ${filasProyectadas}
             <button class="ba2" style="margin-top:.5rem" onclick="_zm('${p.id}')"><i class="fas fa-search-location"></i> Ver en mapa (zoom máximo)</button>
-            ${esAdmin() ? `<button class="ba2" id="btn-regeocodificar" style="margin-top:.5rem;background:#0891b2;color:#fff;border-color:#0891b2" onclick="regeocodificarPedido('${p.id}')"><i class="fas fa-map-marker-alt"></i> Re-geocodificar</button>` : ''}
-        </div>
-        
-        ${htmlOperativaTop3Section()}
-        ${htmlBloqueCambiosAuditoria}
-        ${fotosSectionHtml}
+            ${esAdmin() ? `<button class="ba2" id="btn-regeocodificar" style="margin-top:.5rem;background:#0891b2;color:#fff;border-color:#0891b2" onclick="regeocodificarPedido('${p.id}')"><i class="fas fa-map-marker-alt"></i> Re-geocodificar</button>` : ''}`;
+
+    const sectionTop3 = htmlOperativaTop3Section();
+
+    const sections = {
+        info: sectionInfo,
+        trabajo: sectionTrabajo,
+        opinion: htmlOpinionCliente,
+        derivacion: sectionDerivacion,
+        cierre: sectionCierre,
+        showMateriales,
+        ubicacion: sectionUbicacion,
+        top3: sectionTop3,
+        auditoria: htmlBloqueCambiosAuditoria,
+        fotos: fotosSectionHtml,
+        acciones: accionesBarHtml,
+    };
+
+    const html = assembleDetalleHtmlFromSections(sections);
+
+    return { html, infoRowsHtml, accionesBarHtml, htmlOpinionCliente, sections };
+}
+
+function assembleDetalleHtmlFromSections(sections) {
+    const mat = sections.showMateriales
+        ? `<div class="ds" id="materiales-detalle-wrap" data-pid="">
+            <h4>🔧 Materiales</h4>
+            <div id="materiales-detalle-body"><p style="font-size:.8rem;color:var(--tl)">Cargando…</p></div>
+        </div>`
+        : '';
+    return `
+        <div class="gn-dm-detail-scroll">
+        <div class="ds gn-dm-block-info" data-gn-dm-block="info">${sections.info}</div>
+        <div class="ds">${sections.trabajo}</div>
+        <div id="dm-opinion-cliente-host">${sections.opinion}</div>
+        ${sections.derivacion}
+        ${sections.cierre}
+        ${mat}
+        <div class="ds">${sections.ubicacion}</div>
+        ${sections.top3}
+        ${sections.auditoria}
+        ${sections.fotos}
         </div>
         <div class="gn-dm-actions-bar">
-        <div class="da">${accionesBarHtml}</div>
+        <div class="da">${sections.acciones}</div>
         </div>
     `;
-
-    return { html, infoRowsHtml, accionesBarHtml, htmlOpinionCliente };
 }
 
 export function buildDetalleInfoBlockInner(p, deps) {
@@ -523,4 +534,9 @@ export function buildDetalleAccionesBarHtml(p, deps) {
 
 export function buildDetallePedidoDmcHtml(p, deps) {
     return buildDetalleRenderParts(p, deps).html;
+}
+
+/** Secciones para hidratación del shell persistente (#dmc). */
+export function buildDetalleSections(p, deps) {
+    return buildDetalleRenderParts(p, deps).sections;
 }

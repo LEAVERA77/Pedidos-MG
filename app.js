@@ -195,7 +195,12 @@ import { initGnModalZIndexStack, gnForceModalZFront } from './modules/gn-modal-z
 import { installGnClipboardCopy } from './modules/gn-clipboard-copy.js';
 import { gnRequestClearGotoPreviewMarker } from './modules/gn-map-goto-preview-marker.js';
 import { gnAndroidCerrarUiEncimaDelMapaParaZoomPedido } from './modules/gn-android-cerrar-ui-para-mapa-zoom.js';
-import { ensureAdminPanelDeferredBindings, exportarPedidosExcelAdminDeferred } from './modules/app-admin-panel-deferred.js';
+import {
+    ensureAdminPanelDeferredBindings,
+    ensureAdminHistoricosTabReady,
+    exportarPedidosExcelAdminDeferred,
+} from './modules/app-admin-panel-deferred.js';
+import { gnResetUsuarioNombresMap } from './modules/gn-usuario-nombres.js';
 import { setInformesEstadisticasPdfCaptureDeps } from './modules/informes-estadisticas-pdf-capture.js';
 import {
     setInformesEstadisticasPrintDeps,
@@ -223,12 +228,10 @@ import {
 } from './modules/pedido-detalle-derivacion-html.js';
 import { pedidoDetalleTraerModalAlFrente } from './modules/pedido-detalle-modal-z.js';
 import { gnDetalleImgAttrs } from './modules/pedido-detalle-html-helpers.js';
-import { buildDetallePedidoDmcHtml } from './modules/pedido-detalle-render.js';
 import {
     puedePatchIncrementalDetalle,
-    patchDetallePedidoIncremental,
-    guardarDetalleEstructuraSig,
 } from './modules/pedido-detalle-incremental.js';
+import { hydrateDetallePedido } from './modules/pedido-detalle-hydrate.js';
 import {
     initGnTenantAccesoTecnicoUnificado,
     clearGnTenantTechSession,
@@ -266,6 +269,12 @@ import {
     verificarGeocercaAntesIniciarPedido,
 } from './modules/pedido-operativa-top3-ui.js';
 import {
+    initPedidoFotosCampoAndroid,
+    solicitarFotosCampoOpcional,
+    tomarFotosAvanceTemp,
+    resetFotosAvanceSesion,
+} from './modules/pedido-fotos-campo-android.js';
+import {
     materialesDetalleDebeOmitirRecarga,
     materialesDetalleMarcarEstable,
     materialesDetalleIniciarCarga,
@@ -279,6 +288,7 @@ import {
     aplicarMascaraEmpresaAdminTrasCambioTenant,
 } from './modules/ocultar-datos-tenant.js';
 import { restaurarDatosCompletosTrasCambioTenant } from './modules/restaurar-datos-tenant.js';
+import { marcarListaSociosPendienteRecarga, recargarSociosAdminTrasCambioTenant } from './modules/admin-socios-carga-tenant.js';
 if (typeof window !== 'undefined') {
     window.generarMenuBot = generarMenuBot;
     window.procesarRespuestaBot = procesarRespuestaBot;
@@ -3644,20 +3654,25 @@ const gnLoginSubmitHandler = async e => {
         lb.disabled = false;
     }
 };
+/** Expuesto para index.html (#lb) y login biométrico; el trap en login-biometric-android.js lo envuelve. */
+window.__gnEjecutarLogin = gnLoginSubmitHandler;
 if (lfLogin) {
-    lfLogin.addEventListener('submit', gnLoginSubmitHandler);
+    const _gnDispatchLogin = (e) => {
+        const fn = window.__gnEjecutarLogin;
+        if (typeof fn === 'function') return fn(e);
+        return gnLoginSubmitHandler(e);
+    };
+    lfLogin.addEventListener('submit', _gnDispatchLogin);
     for (const id of ['em', 'pw']) {
         document.getElementById(id)?.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             try {
                 e.preventDefault();
             } catch (_) {}
-            gnLoginSubmitHandler(e);
+            _gnDispatchLogin(e);
         });
     }
 }
-/** Expuesto para el script inline de index.html (click en #lb antes de que el módulo termine). */
-window.__gnEjecutarLogin = gnLoginSubmitHandler;
 
 (function wrapConfirmGestorNova() {
     if (typeof window === 'undefined' || window.__gnConfirmWrapped) return;
@@ -8762,10 +8777,17 @@ function comprimirImagen(file, opts = {}) {
 })(); 
 
 
+initPedidoFotosCampoAndroid({
+    comprimirImagen,
+    toast,
+    abrirCamara,
+    esAndroidShell: () => document.documentElement.classList.contains('gn-android-shell'),
+    mergeFotosBase64EnPedido,
+});
+
 async function procesarFotoSeleccionada(file, opts = {}) {
     if (!file) return;
     try {
-        toast('Procesando imagen...', 'info');
         const compressedImage = await comprimirImagen(file, opts);
         fotosTemporales.push(compressedImage);
         actualizarVistaPreviaFotos();
@@ -8919,12 +8941,17 @@ function actualizarVistaPreviaFotos() {
 
 
 function abrirAvance(id) {
+    resetFotosAvanceSesion();
     abrirModalAvancePedido(id, (pid) => app.p.find((x) => String(x.id) === String(pid)));
 }
 
 initPedidoAvanceModalUI({
     findPedido: (id) => app.p.find((p) => String(p.id) === String(id)),
-    onGuardar: (id, avance) => actualizarAvance(id, avance),
+    onGuardar: async (id, avance) => {
+        await actualizarAvance(id, avance);
+        const fotosAv = tomarFotosAvanceTemp();
+        if (fotosAv.length) await mergeFotosBase64EnPedido(id, fotosAv);
+    },
     toast,
 });
 
@@ -9376,6 +9403,24 @@ function _gnCerrarDetalleORefrescarTrasPonerEnEjecucion(pedidoId) {
     }
 }
 
+async function mergeFotosBase64EnPedido(id, nuevasDataUrls) {
+    const arr = Array.isArray(nuevasDataUrls) ? nuevasDataUrls.filter(Boolean) : [];
+    if (!arr.length) return;
+    const prev = app.p.find((p) => String(p.id) === String(id));
+    const exist = Array.isArray(prev?.fotos) ? prev.fotos.filter(Boolean) : [];
+    const merged = [...exist, ...arr].slice(0, 12);
+    const cadena = merged.join('||');
+    const apiRow = await pedidoPutApi(id, { foto_base64: cadena });
+    if (apiRow) {
+        const idx = app.p.findIndex((p) => String(p.id) === String(id));
+        if (idx !== -1) app.p[idx] = norm(apiRow);
+        offlinePedidosSave(app.p);
+        render();
+        return;
+    }
+    await updPedido(id, { foto_base64: cadena }, app.u?.id);
+}
+
 async function iniciar(id) {
     try {
         const geo = await verificarGeocercaAntesIniciarPedido(id);
@@ -9383,10 +9428,15 @@ async function iniciar(id) {
             toast(geo.message || 'Geocerca: acercate al reclamo para iniciar', 'warning');
             return;
         }
+        const fotosCampo = await solicitarFotosCampoOpcional(id, 'Al poner en ejecución');
         const now = new Date().toISOString();
         const prevIni = app.p.find((p) => String(p.id) === String(id));
         const bodyIni = bodyIniciarEjecucionSinBajarAvance(prevIni);
         if (prevIni && (parseInt(prevIni.av, 10) || 0) === 0) bodyIni.fecha_avance = now;
+        if (fotosCampo.length) {
+            const exist = Array.isArray(prevIni?.fotos) ? prevIni.fotos.filter(Boolean) : [];
+            bodyIni.foto_base64 = [...exist, ...fotosCampo].join('||');
+        }
         const apiRow = await pedidoPutApi(id, bodyIni);
         if (apiRow) {
             const idx = app.p.findIndex(p => String(p.id) === String(id));
@@ -9403,6 +9453,7 @@ async function iniciar(id) {
         const camposIni = { estado: 'En ejecución', fecha_avance: now };
         if (!prevIni || (parseInt(prevIni.av, 10) || 0) === 0) camposIni.avance = 0;
         await updPedido(id, camposIni, app.u?.id);
+        if (fotosCampo.length) await mergeFotosBase64EnPedido(id, fotosCampo);
         if (puedeEnviarApiRestPedidos()) {
             const pidNum = parseInt(id, 10);
             if (Number.isFinite(pidNum) && pidNum > 0) void notificarWhatsappClienteEventoApi(pidNum, 'inicio');
@@ -11239,27 +11290,26 @@ async function detalle(p, opts = {}) {
     }
 
     const deps = getDetalleRenderDeps();
-    if (puedePatchIncrementalDetalle(p, opts, deps)) {
-        patchDetallePedidoIncremental(p, deps);
-        finalizarDetallePedidoPatch(p);
-        return;
-    }
-
-    const dmcEl = document.getElementById('dmc');
     const dmAbierto = document.getElementById('dm');
+    const dmcEl = document.getElementById('dmc');
     const restaurarScrollDetalle =
         dmAbierto?.classList.contains('active') &&
         String(dmAbierto.dataset.detallePedidoId || '') === pidKey
             ? dmcEl?.querySelector('.gn-dm-detail-scroll')?.scrollTop ?? 0
             : 0;
-    dmcEl.innerHTML = buildDetallePedidoDmcHtml(p, deps);
-    guardarDetalleEstructuraSig(p, deps);
-    if (restaurarScrollDetalle > 0) {
-        requestAnimationFrame(() => {
-            const sc = document.querySelector('#dm .gn-dm-detail-scroll');
-            if (sc) sc.scrollTop = restaurarScrollDetalle;
-        });
+
+    if (puedePatchIncrementalDetalle(p, opts, deps)) {
+        hydrateDetallePedido(p, deps, { mode: 'patch' });
+        finalizarDetallePedidoPatch(p);
+        return;
     }
+
+    hydrateDetallePedido(p, deps, {
+        mode: 'full',
+        preserveScroll: restaurarScrollDetalle > 0,
+        scrollTop: restaurarScrollDetalle,
+        forceFullRender: !!opts.forceFullRender,
+    });
     finalizarDetallePedidoAbierto(p);
 }
 
@@ -11562,18 +11612,7 @@ function togglePanel() {
     document.getElementById('bp2').classList.toggle('col');
 }
 
-/**
- * Listado (#mt, esquina): admin → modal de contraseña y wizard marca/logo/ubicación;
- * otros roles → panel de pedidos (togglePanel).
- */
-async function abrirWizardMarcaEmpresaManual() {
-    if (typeof window.__gnAbrirHerramientaTenantSegunRol === 'function') {
-        await window.__gnAbrirHerramientaTenantSegunRol();
-        return;
-    }
-    togglePanel();
-}
-window.abrirWizardMarcaEmpresaManual = abrirWizardMarcaEmpresaManual;
+/** #mt / abrirWizardMarcaEmpresaManual: ver modules/gn-tenant-solo-tecnico-ui.js */
 
 async function confirmarPasswordYAbrirSetupSaaSWizard() {
     document.getElementById('modal-admin-verify-pw-setup-saas')?.classList.remove('active');
@@ -11643,11 +11682,6 @@ function switchTab(t) {
 }
 
 
-document.getElementById('mt').addEventListener('click', () => {
-    abrirWizardMarcaEmpresaManual().catch((e) => {
-        console.warn('[wizard-marca-manual]', e?.message || e);
-    });
-});
 document.querySelector('#ph .gn-bp2-plegar-trigger')?.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
     if (window.__bp2DragJustEnded) return;
@@ -15034,7 +15068,14 @@ function adminTab(tab) {
             if (typeof actualizarUiSociosVistaProyeccion === 'function') actualizarUiSociosVistaProyeccion();
         } catch (_) {}
         try { if (typeof window._gnInitBotonAnalizarIA === 'function') window._gnInitBotonAnalizarIA(); } catch (_) {}
-        cargarListaSociosAdmin();
+        void (async () => {
+            try {
+                await ensureAdminPanelDeferredBindings(() => _depsAdminPanelDeferred());
+                await cargarListaSociosAdmin();
+            } catch (e) {
+                console.warn('[adminTab socios]', e?.message || e);
+            }
+        })();
         try {
             syncHistorialNisBusquedaDom();
         } catch (_) {}
@@ -15064,9 +15105,7 @@ function adminTab(tab) {
     }
     if (tab === 'mapa-usuarios') iniciarMapaUsuariosAdmin();
     if (tab === 'historicos') {
-        try {
-            if (typeof window.__gnAdminTabHistoricos === 'function') window.__gnAdminTabHistoricos();
-        } catch (_) {}
+        void ensureAdminHistoricosTabReady(() => _depsAdminPanelDeferred());
     }
     if (tab === 'contrasena') {
         try {
@@ -15117,7 +15156,17 @@ function _depsAdminPanelDeferred() {
         nominatimFetchSearch: _nominatimFetchSearch,
     };
 }
-if (typeof window !== 'undefined') window.__gnDepsAdminPanelDeferred = _depsAdminPanelDeferred;
+if (typeof window !== 'undefined') {
+    window.__gnDepsAdminPanelDeferred = _depsAdminPanelDeferred;
+    window.__gnUsuarioNombresDeps = () => ({
+        neonOk: () => NEON_OK,
+        modoOffline: () => !!modoOffline,
+        sqlReady: () => typeof _sql !== 'undefined' && !!_sql,
+        sqlSimple,
+        esc,
+        sqlFiltroUsuariosPorTenant,
+    });
+}
 
 function syncAdminPanelMaxButtons() {
     const p = document.getElementById('admin-panel');
@@ -17001,8 +17050,10 @@ async function ejecutarRefrescoDatosTrasCambioTenantMultitenant() {
                     await cargarEstadisticas();
                 } catch (_) {}
                 try {
-                    if (document.getElementById('admin-socios')?.classList.contains('active')) void cargarListaSociosAdmin();
-                } catch (_) {}
+                    await recargarSociosAdminTrasCambioTenant();
+                } catch (e) {
+                    console.warn('[refresco-multitenant] socios', e?.message || e);
+                }
             }
             try {
                 await refrescarUsuariosCacheDesdeNeon();
@@ -17229,11 +17280,13 @@ function invalidarCachesMultitenantSesionYOAdminUI() {
         }
     } catch (_) {}
     try {
-        const ls = document.getElementById('lista-socios-admin');
-        if (ls) {
-            ls.innerHTML =
-                '<div class="ll2" style="padding:.75rem;color:var(--tm)">Sin socios en pantalla hasta cargar el catálogo del tenant actual…</div>';
-        }
+        try {
+            marcarListaSociosPendienteRecarga();
+        } catch (_) {}
+        try {
+            app.usuariosCache = null;
+            gnResetUsuarioNombresMap();
+        } catch (_) {}
         const listaUb = document.getElementById('lista-ubicaciones');
         if (listaUb)
             listaUb.innerHTML =
