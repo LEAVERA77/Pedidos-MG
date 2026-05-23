@@ -4,6 +4,7 @@
  */
 
 import { toast } from './ui-utils.js';
+import { resetPadronNuevoPedidoNisTimers } from './pedido-nuevo-padron-busqueda.js';
 
 let _modoOficina = false;
 let _mapPickHandler = null;
@@ -387,6 +388,9 @@ export async function abrirPedidoNuevoOficina(deps) {
         return;
     }
     mountPedidoFormularioEnDom();
+    try {
+        resetPadronNuevoPedidoNisTimers();
+    } catch (_) {}
     if (_mapPickHandler && window.app?.map) {
         try {
             window.app.map.off('click', _mapPickHandler);
