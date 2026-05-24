@@ -47,7 +47,7 @@ jobs:
             --arg sv "${EJS_SV:-}" \
             --arg tpl "${EJS_TPL:-}" \
             --arg tplInf "${EJS_TPL_INFORME:-}" \
-            '{neon:{connectionString:$cs},api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl,templateIdInforme:($tplInf|if .=="" then $tpl else . end),templateIdReset:$tpl},app:{version:"2.0.4"}}' \
+            '{neon:{connectionString:$cs},api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl,templateIdInforme:$tplInf,templateIdReset:$tpl},app:{version:"2.0.4"}}' \
             > config.json
           echo "OK: config.json generado (v2.0.4 con escapeHtml fix)."
 
