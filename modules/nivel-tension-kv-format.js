@@ -1,20 +1,24 @@
 /**
- * Formato kV para Red Eléctrica (BD guarda décimas: 13,2 → 132).
+ * Formato kV Red Eléctrica: enteros sin punto (33, 132); decimal solo con flag.
  * made by leavera77
  */
 
-/** @param {unknown} dbValue */
-export function formatNivelTensionKvFromDb(dbValue) {
+/** @param {unknown} dbValue @param {boolean} [kvDecimal] */
+export function formatNivelTensionKvFromDb(dbValue, kvDecimal = false) {
   const v = Number(dbValue);
   if (!Number.isFinite(v) || v <= 0) return '0';
-  const kv = v / 10;
-  const rounded = Math.round(kv * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  if (kvDecimal) {
+    const kv = v / 10;
+    const rounded = Math.round(kv * 10) / 10;
+    if (Number.isInteger(rounded)) return String(rounded);
+    return rounded.toFixed(1);
+  }
+  return String(Math.round(v));
 }
 
-/** @param {unknown} dbValue — etiqueta grupo en select #di2 */
-export function etiquetaGrupoTensionKv(dbValue) {
-  const kv = formatNivelTensionKvFromDb(dbValue);
+/** @param {unknown} dbValue @param {boolean} [kvDecimal] */
+export function etiquetaGrupoTensionKv(dbValue, kvDecimal = false) {
+  const kv = formatNivelTensionKvFromDb(dbValue, kvDecimal);
   if (!kv || kv === '0') return 'Sin clasificar';
   return `${kv} kV`;
 }

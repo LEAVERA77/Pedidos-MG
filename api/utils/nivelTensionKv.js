@@ -1,5 +1,5 @@
 /**
- * Nivel de tensión (kV): en BD se guarda en décimas (13,2 kV → 132) por columna INTEGER.
+ * Nivel de tensión (kV) en distribuidores_red (INTEGER + flag decimal opcional).
  * made by leavera77
  */
 
@@ -15,27 +15,45 @@ function parseNumLoose(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Excel / texto → entero en BD (décimas de kV). */
+/**
+ * Excel / texto → valor en BD.
+ * @returns {{ nivel_tension: number, nivel_tension_kv_decimal: boolean }}
+ */
 export function parseNivelTensionExcelToDb(raw) {
-  if (raw == null || String(raw).trim() === "") return 0;
+  if (raw == null || String(raw).trim() === "") {
+    return { nivel_tension: 0, nivel_tension_kv_decimal: false };
+  }
   const s = String(raw).trim();
   const n = parseNumLoose(s);
-  if (n != null && n > 0 && n < 500) {
-    return Math.round(n * 10);
+  if (n == null || n <= 0) {
+    return { nivel_tension: 0, nivel_tension_kv_decimal: false };
   }
-  const digits = parseInt(String(s).replace(/[^\d]/g, ""), 10);
-  if (Number.isFinite(digits) && digits > 0) {
-    if (digits >= 100 && digits % 10 === 0) return digits;
-    return Math.round(digits * 10);
+  const hasExplicitDecimal = /[.,]\d/.test(s);
+  if (hasExplicitDecimal) {
+    return {
+      nivel_tension: Math.round(n * 10),
+      nivel_tension_kv_decimal: true,
+    };
   }
-  return 0;
+  return {
+    nivel_tension: Math.round(n),
+    nivel_tension_kv_decimal: false,
+  };
 }
 
-/** BD → texto para UI / export ENRE (ej. 132 → "13.2"). */
-export function formatNivelTensionKvFromDb(dbValue) {
+/**
+ * BD → texto UI / export (sin punto salvo flag decimal).
+ * @param {unknown} dbValue
+ * @param {boolean} [kvDecimal]
+ */
+export function formatNivelTensionKvFromDb(dbValue, kvDecimal = false) {
   const v = Number(dbValue);
   if (!Number.isFinite(v) || v <= 0) return "0";
-  const kv = v / 10;
-  const rounded = Math.round(kv * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  if (kvDecimal) {
+    const kv = v / 10;
+    const rounded = Math.round(kv * 10) / 10;
+    if (Number.isInteger(rounded)) return String(rounded);
+    return rounded.toFixed(1);
+  }
+  return String(Math.round(v));
 }
