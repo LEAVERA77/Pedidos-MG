@@ -3282,7 +3282,7 @@ const gnLoginSubmitHandler = async e => {
         document.getElementById('ls').classList.remove('active');
         document.getElementById('ms').classList.add('active');
         try {
-            document.dispatchEvent(new CustomEvent('gn-ms-visible'));
+            window.notifyMainScreenVisible?.();
         } catch (_) {}
         try {
             document.body.classList.add('gn-sesion-activa');
@@ -14825,6 +14825,9 @@ function adminTab(tab) {
     const sec = document.getElementById('admin-' + tab);
     if (sec) sec.classList.add('active');
     if (tab === 'estadisticas') {
+        try {
+            window.ensureEstadisticasAdminMounts?.();
+        } catch (_) {}
         void import('./modules/estadisticas-chart-plugins.js').then((m) => m.initGNChartPercentPlugins()).catch(() => {});
         cargarEstadisticas();
         try { if (typeof window._gnInitBotonAnalizarIA === 'function') window._gnInitBotonAnalizarIA(); } catch (_) {}
