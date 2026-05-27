@@ -14,6 +14,8 @@ import {
 import { htmlZonaServicioAdminBlock, cargarZonaServicioAdmin } from './gn-zona-servicio-ui.js';
 import { refrescarIndicadorReportesEmail } from './gn-reportes-email-indicator.js';
 import { htmlSetupChecklistAdminBlock, cargarSetupChecklistAdmin } from './gn-admin-setup-checklist-ui.js';
+import { htmlGeoCalidadAdminBlock, cargarGeoCalidadEnEstadisticas } from './gn-geo-calidad-admin-ui.js';
+import { htmlSistemaSaludAdminBlock, cargarSistemaSaludAdmin } from './gn-admin-sistema-salud-ui.js';
 
 let _mounted = false;
 
@@ -23,7 +25,10 @@ export function initGnFeaturesAdminMounts(ctx) {
     const geoMount = document.getElementById('gn-admin-geocerca-mount');
     if (geoMount && !geoMount.innerHTML.trim()) {
         geoMount.innerHTML =
-            htmlSetupChecklistAdminBlock() + htmlGeocercaSettingsAdminBlock() + htmlZonaServicioAdminBlock();
+            htmlSetupChecklistAdminBlock() +
+            htmlSistemaSaludAdminBlock() +
+            htmlGeocercaSettingsAdminBlock() +
+            htmlZonaServicioAdminBlock();
     }
     const repMount = document.getElementById('gn-reportes-email-mount');
     if (repMount && !repMount.innerHTML.trim()) {
@@ -31,11 +36,16 @@ export function initGnFeaturesAdminMounts(ctx) {
     }
     const estMount = document.getElementById('gn-est-ranking-sla-mount');
     if (estMount && !estMount.innerHTML.trim()) {
-        estMount.innerHTML = htmlRankingSlaAdminBlocks() + htmlOperacionAuditAdminBlock();
+        estMount.innerHTML =
+            htmlRankingSlaAdminBlocks() + htmlGeoCalidadAdminBlock() + htmlOperacionAuditAdminBlock();
     }
     if (ctx?.esAdmin?.()) {
         void initAdminGeocercaSettingsUI({ toast: ctx.toast, esAdmin: true });
         void cargarSetupChecklistAdmin({
+            apiUrl: ctx.apiUrl,
+            getApiToken: ctx.getApiToken,
+        });
+        void cargarSistemaSaludAdmin({
             apiUrl: ctx.apiUrl,
             getApiToken: ctx.getApiToken,
         });
@@ -74,6 +84,10 @@ export async function refrescarRankingSlaEstadisticas(ctx) {
         getApiToken: ctx.getApiToken,
     });
     await cargarOperacionAuditEnEstadisticas({
+        apiUrl: ctx.apiUrl,
+        getApiToken: ctx.getApiToken,
+    });
+    await cargarGeoCalidadEnEstadisticas({
         apiUrl: ctx.apiUrl,
         getApiToken: ctx.getApiToken,
     });
