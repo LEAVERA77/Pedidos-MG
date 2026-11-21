@@ -16,6 +16,7 @@ import {
   sendText as sendTextWaha,
   startSession as startWahaSession,
 } from "./wahaWhatsapp.js";
+import { sendText as sendTextBaileys } from "./baileysWhatsapp.js";
 import { sendText as sendTextWhapi } from "./whapiWhatsapp.js";
 import { logWhatsappMensajeEnviado } from "./whatsappNotificacionesLog.js";
 import {
@@ -101,6 +102,22 @@ export async function sendBotWhatsAppText({
   const body = String(bodyText || "").trim();
   if (!to || !body) {
     return { ok: false, error: "invalid_params", skipped: false };
+  }
+
+  if (whatsappProvider() === "baileys") {
+    console.log("[whatsapp-service] usando Baileys (bot)", { tenantId, logContext });
+    const r = await sendTextBaileys(to, text);
+    try {
+      await logWhatsappMensajeEnviado(tenantId, to, text, logContext || "bot");
+    } catch (_) {}
+    return {
+      ok: r.ok,
+      status: r.ok ? 200 : 502,
+      graph: r.data,
+      error: r.ok ? undefined : r.error,
+      skipped: false,
+      provider: "baileys",
+    };
   }
 
   if (whatsappProvider() === "waha") {
@@ -282,6 +299,22 @@ export async function sendTenantWhatsAppText({
   const body = String(bodyText || "").trim();
   if (!to || !body) {
     return { ok: false, error: "invalid_params", skipped: false };
+  }
+
+  if (whatsappProvider() === "baileys") {
+    console.log("[whatsapp-service] usando Baileys (tenant)", { tenantId, logContext });
+    const r = await sendTextBaileys(to, text);
+    try {
+      await logWhatsappMensajeEnviado(tenantId, to, text, logContext || "tenant");
+    } catch (_) {}
+    return {
+      ok: r.ok,
+      status: r.ok ? 200 : 502,
+      graph: r.data,
+      error: r.ok ? undefined : r.error,
+      skipped: false,
+      provider: "baileys",
+    };
   }
 
   if (whatsappProvider() === "waha") {

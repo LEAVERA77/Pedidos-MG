@@ -24,6 +24,11 @@ import { handleInboundMetaWhatsAppPayload } from "../services/whatsappBotMeta.js
 import { resolveTenantIdByMetaPhoneNumberId } from "../services/metaTenantWhatsapp.js";
 import { logWhatsappMensajeRecibido } from "../services/whatsappNotificacionesLog.js";
 import { wahaWebhookToMetaShapedPayload } from "../services/wahaWebhookAdapter.js";
+import {
+  getBaileysQrDataUrl,
+  getBaileysStatus,
+  startBaileys,
+} from "../services/baileysWhatsapp.js";
 import { whapiWebhookToMetaShapedPayload } from "../services/whapiWebhookAdapter.js";
 import { processWhapiBroadcastComplianceMessages } from "../services/whapiBroadcastComplianceInbound.js";
 
@@ -304,6 +309,41 @@ router.post("/evolution", express.json({ limit: "2mb" }), async (req, res) => {
     console.error("[webhook-whatsapp]", e);
     return res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+router.get("/baileys/status", (req, res) => {
+  const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || "").trim();
+  const qToken = String(req.query?.token || "").trim();
+  if (token && qToken !== token) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  return res.json({ ok: true, ...getBaileysStatus() });
+});
+
+router.get("/baileys/qr", async (req, res) => {
+  const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || "").trim();
+  const qToken = String(req.query?.token || "").trim();
+  if (token && qToken !== token) {
+    return res.status(401).send("Unauthorized: falta ?token= correcto");
+  }
+  const st = getBaileysStatus();
+  if (st.status === "disconnected") {
+    startBaileys().catch(() => {});
+  }
+  const qr = getBaileysQrDataUrl();
+  if (st.status === "connected") {
+    return res.send(
+      `<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>WhatsApp conectado con Baileys</h2><p>Sesión: ${st.sessionId}</p></body></html>`
+    );
+  }
+  if (!qr) {
+    return res.send(
+      `<html><head><meta http-equiv="refresh" content="3"></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>Generando QR de WhatsApp...</h2><p>Estado: ${st.status}. Esta página se recarga sola cada 3 segundos.</p></body></html>`
+    );
+  }
+  return res.send(
+    `<html><head><meta http-equiv="refresh" content="15"></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>Escaneá el QR con WhatsApp</h2><img src="${qr}" alt="QR WhatsApp" style="border:1px solid #ccc;border-radius:8px"/><p>WhatsApp → Dispositivos vinculados → Vincular un dispositivo</p></body></html>`
+  );
 });
 
 export default router;
