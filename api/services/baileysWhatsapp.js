@@ -9,7 +9,7 @@ import {
   clearPostgresAuthState,
 } from "./baileysAuthPostgres.js";
 import { normalizeWhatsAppRecipientForMeta } from "./metaWhatsapp.js";
-import { handleInboundMetaWhatsAppPayload } from "./whatsappBot.js";
+import { handleInboundMetaWhatsAppPayload } from "./whatsappBotMeta.js";
 import { logWhatsappMensajeRecibido } from "./whatsappNotificacionesLog.js";
 
 const SESSION_ID = String(process.env.BAILEYS_SESSION_ID || "default").trim();
