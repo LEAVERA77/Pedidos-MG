@@ -1,9 +1,21 @@
 # WhatsApp: Whapi, Meta (Cloud API) u otro proveedor
 
-El envío y el bot usan **`WHATSAPP_PROVIDER`** (`whapi` | `meta` | `waha` | `evolution`).
+El envío y el bot usan **`WHATSAPP_PROVIDER`** (`baileys` | `whapi` | `meta` | `waha` | `evolution`).
 
 - **Nombre exacto de la variable:** `WHATSAPP_PROVIDER` (coincide con `process.env` en `api/services/whatsappService.js`). No uses variantes mal escritas o no tendrá efecto.
 - **Si no definís la variable en el servidor**, el código usa por defecto **`meta`** (`|| "meta"`). En **`api/.env.example`** la plantilla activa **`whapi`** para reflejar el despliegue habitual con Whapi.cloud en campo.
+
+## Usar Baileys (conexión directa con persistencia en Neon)
+
+1. En Render (o `.env` local):  
+   `WHATSAPP_PROVIDER=baileys`
+2. Variables opcionales recomendadas:
+   - `WHATSAPP_WEBHOOK_TOKEN`: protege las rutas `/api/webhooks/whatsapp/baileys/qr?token=...` y `/api/webhooks/whatsapp/baileys/status?token=...`.
+   - `WHATSAPP_BOT_TENANT_ID` (o `BAILEYS_TENANT_ID`): ID del cliente en tabla `clientes` al que atiende el bot.
+   - `BAILEYS_SESSION_ID`: identificador de sesión en `baileys_auth_state` (por defecto `default`).
+3. Escanear QR una única vez en `https://<tu-api>/api/webhooks/whatsapp/baileys/qr?token=<WHATSAPP_WEBHOOK_TOKEN>`. Las credenciales quedan persistidas en Postgres (`baileys_auth_state`).
+
+**Código:** `api/services/baileysWhatsapp.js`, `api/services/baileysAuthPostgres.js`, `api/routes/webhooksWhatsapp.js`.
 
 ## Usar Whapi (Whapi.cloud) — plantilla actual
 

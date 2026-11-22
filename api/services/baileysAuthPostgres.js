@@ -17,6 +17,15 @@ async function ensureTable() {
   tableEnsured = true;
 }
 
+function parseStoredJson(rawJson) {
+  if (!rawJson) return null;
+  try {
+    return JSON.parse(rawJson, BufferJSON.reviver);
+  } catch {
+    return null;
+  }
+}
+
 async function readData(sessionId, keyId) {
   await ensureTable();
   const res = await query(
@@ -24,11 +33,22 @@ async function readData(sessionId, keyId) {
     [sessionId, keyId]
   );
   if (!res.rows || res.rows.length === 0) return null;
-  try {
-    return JSON.parse(res.rows[0].data_json, BufferJSON.reviver);
-  } catch {
-    return null;
+  return parseStoredJson(res.rows[0].data_json);
+}
+
+async function readManyData(sessionId, keyIds) {
+  await ensureTable();
+  if (!Array.isArray(keyIds) || keyIds.length === 0) return new Map();
+  const uniqueKeys = [...new Set(keyIds)];
+  const res = await query(
+    "SELECT key_id, data_json FROM baileys_auth_state WHERE session_id = $1 AND key_id = ANY($2::text[])",
+    [sessionId, uniqueKeys]
+  );
+  const out = new Map();
+  for (const row of res.rows || []) {
+    out.set(row.key_id, parseStoredJson(row.data_json));
   }
+  return out;
 }
 
 async function writeData(sessionId, keyId, data) {
@@ -43,12 +63,38 @@ async function writeData(sessionId, keyId, data) {
   );
 }
 
-async function removeData(sessionId, keyId) {
+async function writeAndDeleteBatch(sessionId, upsertMap, deleteSet) {
   await ensureTable();
-  await query(
-    "DELETE FROM baileys_auth_state WHERE session_id = $1 AND key_id = $2",
-    [sessionId, keyId]
-  );
+  const ops = [];
+  if (upsertMap.size > 0) {
+    const keys = [];
+    const vals = [];
+    for (const [k, v] of upsertMap.entries()) {
+      keys.push(k);
+      vals.push(v);
+    }
+    ops.push(
+      query(
+        `INSERT INTO baileys_auth_state (session_id, key_id, data_json, updated_at)
+         SELECT $1, k, v, NOW()
+         FROM UNNEST($2::text[], $3::text[]) AS t(k, v)
+         ON CONFLICT (session_id, key_id)
+         DO UPDATE SET data_json = EXCLUDED.data_json, updated_at = NOW()`,
+        [sessionId, keys, vals]
+      )
+    );
+  }
+  if (deleteSet.size > 0) {
+    ops.push(
+      query(
+        "DELETE FROM baileys_auth_state WHERE session_id = $1 AND key_id = ANY($2::text[])",
+        [sessionId, [...deleteSet]]
+      )
+    );
+  }
+  if (ops.length > 0) {
+    await Promise.all(ops);
+  }
 }
 
 export async function clearPostgresAuthState(sessionId = "default") {
@@ -65,31 +111,37 @@ export async function usePostgresAuthState(sessionId = "default") {
       keys: {
         get: async (type, ids) => {
           const data = {};
-          await Promise.all(
-            ids.map(async (id) => {
-              let value = await readData(sessionId, `${type}-${id}`);
-              if (type === "app-state-sync-key" && value) {
-                value = proto.Message.AppStateSyncKeyData.fromObject(value);
-              }
-              data[id] = value;
-            })
-          );
+          if (!Array.isArray(ids) || ids.length === 0) return data;
+          const keyIds = ids.map((id) => `${type}-${id}`);
+          const found = await readManyData(sessionId, keyIds);
+          for (const id of ids) {
+            let value = found.get(`${type}-${id}`) ?? null;
+            if (type === "app-state-sync-key" && value) {
+              value = proto.Message.AppStateSyncKeyData.fromObject(value);
+            }
+            data[id] = value;
+          }
           return data;
         },
         set: async (data) => {
-          const tasks = [];
+          const upsertMap = new Map();
+          const deleteSet = new Set();
           for (const category in data) {
-            for (const id in data[category]) {
-              const value = data[category][id];
+            const bucket = data[category];
+            if (!bucket || typeof bucket !== "object") continue;
+            for (const id in bucket) {
+              const value = bucket[id];
               const key = `${category}-${id}`;
               if (value) {
-                tasks.push(writeData(sessionId, key, value));
+                upsertMap.set(key, JSON.stringify(value, BufferJSON.replacer));
+                deleteSet.delete(key);
               } else {
-                tasks.push(removeData(sessionId, key));
+                upsertMap.delete(key);
+                deleteSet.add(key);
               }
             }
           }
-          await Promise.all(tasks);
+          await writeAndDeleteBatch(sessionId, upsertMap, deleteSet);
         },
       },
     },

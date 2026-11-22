@@ -1752,6 +1752,22 @@ async function pedirFotoOpcionalAntesConfirmacionWhatsapp(phone, sess, sk, conta
     `Podés enviar hasta *2 fotos* desde la galería o la cámara (📎 → Imagen).\n\n` +
     `Escribí *0* para continuar sin fotos.`;
 
+  const waProv = String(process.env.WHATSAPP_PROVIDER || "meta")
+    .trim()
+    .toLowerCase();
+  if (waProv !== "meta") {
+    await reply(
+      phone,
+      `${bodyText}\n\n` +
+        `Si querés mandar foto: enviá la imagen directamente con 📎.\n` +
+        `Si no: escribí *0* para continuar sin fotos.` +
+        MSG_SALIR_ATRAS,
+      tid,
+      wpid
+    );
+    return;
+  }
+
   const pid = String(wpid || "").trim();
   let accessToken = "";
   let graphPid = pid;
@@ -1893,10 +1909,17 @@ async function replyListaTiposReclamo(phoneDigits, ctx, phoneNumberIdWebhook) {
     await reply(phoneDigits, ctx.whatsappBloqueoMensaje, ctx.id, phoneNumberIdWebhook);
     return { ok: true, blocked: true };
   }
+  const waProv = String(process.env.WHATSAPP_PROVIDER || "meta")
+    .trim()
+    .toLowerCase();
+  const pid = String(phoneNumberIdWebhook || "").trim();
+  if (waProv !== "meta") {
+    const rText = await reply(phoneDigits, menuTextoNumerado(ctx), ctx.id, pid || null);
+    return { ok: !!rText?.ok, skippedInteractive: true };
+  }
   const bodyText =
     `Elegí el tipo que mejor describe tu reclamo (o *Mis reclamos* con *0*):\n\n` +
     `_Para *salir* escribí *menú*._`;
-  const pid = String(phoneNumberIdWebhook || "").trim();
   let accessToken = "";
   let graphPid = pid;
   if (pid) {

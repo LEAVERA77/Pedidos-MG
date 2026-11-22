@@ -15,6 +15,23 @@ export async function resolveTenantIdByMetaPhoneNumberId(phoneNumberId) {
   const pid = String(phoneNumberId || "").trim();
   if (!pid) return null;
 
+  const prov = String(process.env.WHATSAPP_PROVIDER || "").toLowerCase().trim();
+
+  if (prov === "baileys" && pid === "baileys-bot") {
+    const explicitTid = Number(
+      process.env.BAILEYS_TENANT_ID || process.env.WHATSAPP_BOT_TENANT_ID || 0
+    );
+    if (Number.isFinite(explicitTid) && explicitTid >= 1) return explicitTid;
+    try {
+      const rActive = await query(
+        `SELECT id FROM clientes WHERE activo = TRUE ORDER BY (CASE WHEN id = 1 THEN 0 ELSE 1 END), id ASC LIMIT 1`
+      );
+      const activeId = rActive.rows?.[0]?.id;
+      if (activeId != null) return Number(activeId);
+    } catch (_) {}
+    return 1;
+  }
+
   const r = await query(
     `SELECT id FROM clientes
      WHERE activo = TRUE
@@ -28,16 +45,17 @@ export async function resolveTenantIdByMetaPhoneNumberId(phoneNumberId) {
   const fromDb = r.rows?.[0]?.id;
   if (fromDb != null) return Number(fromDb);
 
-  const rWhapiCh = await query(
-    `SELECT id FROM clientes
-     WHERE activo = TRUE AND whapi_channel_id = $1
-     LIMIT 1`,
-    [pid]
-  );
-  const fromWhapiChannel = rWhapiCh.rows?.[0]?.id;
-  if (fromWhapiChannel != null) return Number(fromWhapiChannel);
+  try {
+    const rWhapiCh = await query(
+      `SELECT id FROM clientes
+       WHERE activo = TRUE AND whapi_channel_id = $1
+       LIMIT 1`,
+      [pid]
+    );
+    const fromWhapiChannel = rWhapiCh.rows?.[0]?.id;
+    if (fromWhapiChannel != null) return Number(fromWhapiChannel);
+  } catch (_) {}
 
-  const prov = String(process.env.WHATSAPP_PROVIDER || "").toLowerCase().trim();
   const whapiCh = String(process.env.WHAPI_CHANNEL_ID || "").trim();
   if (prov === "whapi" && whapiCh && pid === whapiCh) {
     const tid = Number(process.env.WHATSAPP_BOT_TENANT_ID || 1);
@@ -48,6 +66,20 @@ export async function resolveTenantIdByMetaPhoneNumberId(phoneNumberId) {
   if (envPid && pid === envPid) {
     const tid = Number(process.env.WHATSAPP_BOT_TENANT_ID || 1);
     return Number.isFinite(tid) ? tid : 1;
+  }
+
+  if (prov === "baileys") {
+    const explicitTid = Number(
+      process.env.BAILEYS_TENANT_ID || process.env.WHATSAPP_BOT_TENANT_ID || 0
+    );
+    if (Number.isFinite(explicitTid) && explicitTid >= 1) return explicitTid;
+    try {
+      const rActive = await query(
+        `SELECT id FROM clientes WHERE activo = TRUE ORDER BY (CASE WHEN id = 1 THEN 0 ELSE 1 END), id ASC LIMIT 1`
+      );
+      const activeId = rActive.rows?.[0]?.id;
+      if (activeId != null) return Number(activeId);
+    } catch (_) {}
   }
 
   return null;

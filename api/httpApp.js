@@ -103,15 +103,33 @@ export function createHttpApp() {
   app.use(express.json({ limit: "25mb" }));
   app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
+  app.get("/", (_req, res) => {
+    res.json({ ok: true, service: "pedidosmg-api", status: "live" });
+  });
+
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "pedidosmg-api", db: "not-checked" });
   });
 
-  app.get("/health/db", async (_req, res) => {
+  let lastHealthDbOkAt = 0;
+  app.get("/health/db", async (req, res) => {
+    const ttlMs =
+      process.env.NODE_ENV === "test"
+        ? 0
+        : Math.max(0, Number(process.env.HEALTH_DB_CACHE_MS ?? 60000) || 0);
+    const forceFresh =
+      String(req.query?.fresh || "").trim() === "1" ||
+      String(req.query?.fresh || "").trim().toLowerCase() === "true";
+
+    if (!forceFresh && ttlMs > 0 && lastHealthDbOkAt > 0 && Date.now() - lastHealthDbOkAt < ttlMs) {
+      return res.json({ ok: true, service: "pedidosmg-api", db: "ok", cached: true });
+    }
     try {
       await query("SELECT 1");
+      lastHealthDbOkAt = Date.now();
       res.json({ ok: true, service: "pedidosmg-api", db: "ok" });
     } catch (error) {
+      lastHealthDbOkAt = 0;
       res.status(500).json({ ok: false, service: "pedidosmg-api", db: "error", error: error.message });
     }
   });

@@ -3,6 +3,7 @@ import { authWithTenantHost } from "../middleware/auth.js";
 import { query } from "../db/neon.js";
 import { normalizePhone } from "../utils/helpers.js";
 import { metaSendWhatsAppText } from "../services/metaWhatsapp.js";
+import { sendTenantWhatsAppText } from "../services/whatsappService.js";
 import {
   tableHasColumn,
   getPedidoRowInTenant,
@@ -136,7 +137,20 @@ router.post("/meta/enviar-texto", async (req, res) => {
     const body = String(mensaje || "").trim();
     if (!tel || !body) return res.status(400).json({ error: "telefono y mensaje son requeridos" });
 
-    const send = await metaSendWhatsAppText(tel, body);
+    const prov = String(process.env.WHATSAPP_PROVIDER || "meta")
+      .trim()
+      .toLowerCase();
+    const send =
+      prov !== "meta"
+        ? await sendTenantWhatsAppText({
+            tenantId: req.tenantId,
+            toDigits: tel,
+            bodyText: body,
+            pedidoId: pedido_id || null,
+            logContext: "admin_enviar_texto_tecnico",
+            skipLog: true,
+          })
+        : await metaSendWhatsAppText(tel, body);
     const graph = send.graph || {};
     const { hasTenant } = await whatsappNotifInsertCols();
     if (!send.ok) {

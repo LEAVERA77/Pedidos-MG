@@ -1,16 +1,26 @@
 import pg from "pg";
+import { normalizePgConnectionString } from "./pgSslUrl.js";
 
 const { Pool } = pg;
 
-const connectionString = process.env.DB_CONNECTION || process.env.DATABASE_URL;
-if (!connectionString) {
+const rawConnectionString = process.env.DB_CONNECTION || process.env.DATABASE_URL;
+if (!rawConnectionString) {
   throw new Error("Falta DB_CONNECTION o DATABASE_URL en variables de entorno");
 }
 
+const connectionString = normalizePgConnectionString(rawConnectionString);
+const needsSsl =
+  connectionString.includes("neon.tech") ||
+  /[?&]sslmode=(require|prefer|verify-ca|verify-full|no-verify)/i.test(connectionString);
+
 export const pool = new Pool({
   connectionString,
-  ssl: connectionString.includes("neon.tech") ? { rejectUnauthorized: false } : false,
+  ...(needsSsl && !/[?&]sslmode=/i.test(connectionString)
+    ? { ssl: { rejectUnauthorized: false } }
+    : {}),
 });
+
+export { normalizePgConnectionString };
 
 export async function query(text, params = []) {
   return pool.query(text, params);
