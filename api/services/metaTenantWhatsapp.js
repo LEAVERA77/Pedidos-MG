@@ -55,7 +55,7 @@ async function queryMetaOrWhapiChannelTenant(pid) {
   try {
     const r = await query(
       `SELECT id FROM clientes
-       WHERE activo = TRUE
+       WHERE COALESCE(activo, TRUE) = TRUE
          AND (
            (configuracion->>'meta_phone_id') = $1
            OR (configuracion->>'meta_phone_number_id') = $1
@@ -70,7 +70,7 @@ async function queryMetaOrWhapiChannelTenant(pid) {
   try {
     const rWhapiCh = await query(
       `SELECT id FROM clientes
-       WHERE activo = TRUE AND whapi_channel_id = $1
+       WHERE COALESCE(activo, TRUE) = TRUE AND whapi_channel_id = $1
        LIMIT 1`,
       [pid]
     );
@@ -82,20 +82,29 @@ async function queryMetaOrWhapiChannelTenant(pid) {
 }
 
 /**
- * Resuelve `{ tenantId, businessType, rubro, tenantNombre, source }` para el bot de WhatsApp.
+ * Resuelve `{ tenantId, businessType, rubro, tenantNombre, locked, source }` para el bot de WhatsApp.
  *
+ * - Si se eligió/bloqueó explícitamente un `tenant_id` en el QR de Baileys (`locked: true`), tiene máxima prioridad.
  * - En proveedores de línea única / QR (`baileys`, `waha`, `evolution` o `phoneNumberId === "baileys-bot"`):
- *   usa primero el target activo sincronizado por login/sesión/cambio de negocio (`whatsapp_bot_active_target`),
- *   luego `BAILEYS_TENANT_ID`, luego `clientes.id = 1` activo (evitando heredar `meta_phone_id` o `WHATSAPP_BOT_TENANT_ID` viejos).
- * - En `meta` / `whapi`:
- *   si el `phoneNumberId` pertenece a un canal dedicado distinto del global compartido, usa ese tenant + su `business_type` activo;
- *   si es la línea compartida de entorno (`META_PHONE_NUMBER_ID` / `WHAPI_CHANNEL_ID`), prioriza `whatsapp_bot_active_target`.
+ *   usa primero `whatsapp_bot_active_target` en Neon (`configuracion`), luego `BAILEYS_TENANT_ID`, luego `clientes.id = 1` activo.
  */
 export async function resolveWhatsappBotTarget(phoneNumberId) {
   const pid = String(phoneNumberId || "").trim();
   const prov = String(process.env.WHATSAPP_PROVIDER || "")
     .toLowerCase()
     .trim();
+
+  const activeTarget = await getWhatsappBotActiveTarget();
+  if (activeTarget?.locked) {
+    return {
+      tenantId: activeTarget.tenantId,
+      businessType: activeTarget.businessType,
+      rubro: activeTarget.rubro,
+      tenantNombre: activeTarget.tenantNombre,
+      locked: true,
+      source: `active_target:${activeTarget.source}`,
+    };
+  }
 
   const forceEnv =
     String(process.env.WHATSAPP_BOT_FORCE_ENV_TENANT || "")
@@ -110,7 +119,6 @@ export async function resolveWhatsappBotTarget(phoneNumberId) {
     }
   }
 
-  const activeTarget = await getWhatsappBotActiveTarget();
   const isSharedQrProvider =
     prov === "baileys" ||
     prov === "waha" ||
@@ -124,6 +132,7 @@ export async function resolveWhatsappBotTarget(phoneNumberId) {
         businessType: activeTarget.businessType,
         rubro: activeTarget.rubro,
         tenantNombre: activeTarget.tenantNombre,
+        locked: Boolean(activeTarget.locked),
         source: `active_target:${activeTarget.source}`,
       };
     }
@@ -136,7 +145,7 @@ export async function resolveWhatsappBotTarget(phoneNumberId) {
 
     try {
       const rActive = await query(
-        `SELECT id FROM clientes WHERE activo = TRUE ORDER BY (CASE WHEN id = 1 THEN 0 ELSE 1 END), id ASC LIMIT 1`
+        `SELECT id FROM clientes WHERE COALESCE(activo, TRUE) = TRUE ORDER BY (CASE WHEN id = 1 THEN 0 ELSE 1 END), id ASC LIMIT 1`
       );
       const activeId = rActive?.rows?.[0]?.id;
       if (activeId != null) {

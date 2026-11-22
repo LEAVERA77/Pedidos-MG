@@ -80,6 +80,7 @@ import {
 import {
   getWhatsappBotActiveTarget,
   peekWhatsappBotActiveTarget,
+  registerOnWhatsappBotTargetChanged,
 } from "./whatsappBotTargetStore.js";
 import {
   normalizeBusinessTypeInput,
@@ -132,6 +133,14 @@ import {
 } from "../modules/busqueda-nombre-bot.js";
 
 const sessions = new Map();
+
+export function clearWhatsappBotSessions() {
+  sessions.clear();
+}
+
+registerOnWhatsappBotTargetChanged(() => {
+  sessions.clear();
+});
 
 const MSG_SALIR_ATRAS = "\n\n_Escribí *menú* para salir · *atrás* para el paso anterior._";
 
@@ -909,7 +918,7 @@ function normCfg(cfg) {
 
 export async function loadTenantBotContext(tenantId, preferredBusinessType = null) {
   const r = await query(
-    `SELECT id, nombre, tipo, configuracion FROM clientes WHERE id = $1 AND activo = TRUE LIMIT 1`,
+    `SELECT id, nombre, tipo, configuracion FROM clientes WHERE id = $1 AND COALESCE(activo, TRUE) = TRUE LIMIT 1`,
     [tenantId]
   );
   const row = r.rows?.[0];

@@ -194,10 +194,7 @@ export async function resolveInboundSender(msg, currentSock = sock) {
 }
 
 function resolveBaileysPhoneNumberId() {
-  return (
-    String(process.env.BAILEYS_PHONE_NUMBER_ID || "baileys-bot").trim() ||
-    "baileys-bot"
-  );
+  return "baileys-bot";
 }
 
 function buildMetaShapedPayload(waId, metaMessage, pushName) {
@@ -502,6 +499,41 @@ export function getBaileysStatus() {
 
 export function getBaileysQrDataUrl() {
   return lastQrDataUrl;
+}
+
+export async function resetBaileysSessionAndReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  const prevSock = sock;
+  sock = null;
+  lastQrRaw = null;
+  lastQrDataUrl = null;
+  lastError = null;
+  connectionStatus = "disconnected";
+
+  if (prevSock) {
+    try {
+      await prevSock.logout();
+    } catch (_) {}
+    try {
+      prevSock.ev?.removeAllListeners?.("connection.update");
+      prevSock.ev?.removeAllListeners?.("messages.upsert");
+      prevSock.ev?.removeAllListeners?.("creds.update");
+      prevSock.ws?.close?.();
+    } catch (_) {}
+  }
+
+  await clearPostgresAuthState(SESSION_ID).catch((e) =>
+    console.error("[baileys] Error limpiando credenciales en reset:", e?.message || e)
+  );
+
+  startBaileys().catch((e) =>
+    console.error("[baileys] Error iniciando nuevo QR tras reset:", e?.message || e)
+  );
+
+  return getBaileysStatus();
 }
 
 async function resolveOutboundJid(toDigits, currentSock) {

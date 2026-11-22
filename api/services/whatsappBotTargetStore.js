@@ -17,6 +17,13 @@ let _cachedTarget = undefined; // undefined = uninitialized, null = none, object
 let _cachedAtMs = 0;
 let _lastPersistedSig = "";
 let _lastPersistedAtMs = 0;
+const _changeListeners = new Set();
+
+export function registerOnWhatsappBotTargetChanged(listener) {
+  if (typeof listener === "function") {
+    _changeListeners.add(listener);
+  }
+}
 
 function targetSignature(t) {
   if (!t) return "";
@@ -32,6 +39,73 @@ export function __resetWhatsappBotTargetCacheForTests() {
 
 export function peekWhatsappBotActiveTarget() {
   return _cachedTarget && typeof _cachedTarget === "object" ? { ..._cachedTarget } : null;
+}
+
+export function businessTypeLabelEs(bt) {
+  const norm = normalizeBusinessTypeInput(bt);
+  if (norm === "agua") return "Cooperativa de Agua";
+  if (norm === "municipio") return "Municipio";
+  return "Cooperativa Eléctrica";
+}
+
+export async function listActiveTenantsForWhatsappSelector() {
+  let rows = [];
+  try {
+    const r = await query(
+      `SELECT id, nombre, tipo, active_business_type, COALESCE(activo, TRUE) AS activo
+       FROM clientes
+       WHERE COALESCE(activo, TRUE) = TRUE
+       ORDER BY id ASC
+       LIMIT 500`
+    );
+    rows = r?.rows || [];
+  } catch (_) {
+    try {
+      const rFallback = await query(
+        `SELECT id, nombre, tipo, COALESCE(activo, TRUE) AS activo
+         FROM clientes
+         WHERE COALESCE(activo, TRUE) = TRUE
+         ORDER BY id ASC
+         LIMIT 500`
+      );
+      rows = rFallback?.rows || [];
+    } catch (_e2) {
+      rows = [];
+    }
+  }
+
+  return rows.map((row) => {
+    const tid = Number(row.id);
+    const abt = normalizeBusinessTypeInput(row.active_business_type);
+    const bt = abt || rubroNormToBusinessType(normalizarRubroCliente(row.tipo));
+    const rubro = businessTypeToRubroParaTipos(bt);
+    return {
+      tenantId: tid,
+      nombre: String(row.nombre || "").trim() || `Tenant #${tid}`,
+      businessType: bt,
+      rubro,
+      rubroLabel: businessTypeLabelEs(bt),
+      tipoRaw: row.tipo != null ? String(row.tipo).trim() : rubro,
+    };
+  });
+}
+
+export async function selectWhatsappBotTenantFromBaileysQr(params = {}) {
+  const tid = Number(params?.tenantId ?? params?.tenant_id);
+  if (!Number.isFinite(tid) || tid < 1) return null;
+  const rawBt = String(params?.businessType ?? params?.business_type ?? "")
+    .trim()
+    .toLowerCase();
+  const preferredBt =
+    rawBt && rawBt !== "auto" ? normalizeBusinessTypeInput(rawBt) : null;
+
+  return await syncWhatsappBotActiveTarget({
+    tenantId: Math.trunc(tid),
+    businessType: preferredBt,
+    source: "baileys_qr_selector",
+    force: true,
+    locked: true,
+  });
 }
 
 async function resolveTenantMetadata(tenantId, preferredBusinessType = null) {
@@ -239,6 +313,11 @@ export async function syncWhatsappBotActiveTarget(params = {}) {
     _lastPersistedSig = sig;
     _lastPersistedAtMs = now;
     if (changed) {
+      for (const fn of _changeListeners) {
+        try {
+          fn(candidate);
+        } catch (_) {}
+      }
       console.log(
         `[whatsapp-bot-target] Bot WhatsApp apuntando a tenant_id=${candidate.tenantId} (${candidate.tenantNombre}) | business_type=${candidate.businessType} (${candidate.rubro}) [source=${candidate.source}${candidate.locked ? ", locked=true" : ""}]`
       );

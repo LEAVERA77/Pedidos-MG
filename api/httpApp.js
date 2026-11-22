@@ -88,6 +88,12 @@ export function createHttpApp() {
       return callback(null, corsOptions);
     }
 
+    const host = req.get("host");
+    if (host && (origin === `https://${host}` || origin === `http://${host}`)) {
+      corsOptions.origin = true;
+      return callback(null, corsOptions);
+    }
+
     return callback(null, corsOptions);
   };
 

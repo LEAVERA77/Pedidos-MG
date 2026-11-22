@@ -255,7 +255,7 @@ export async function getWhatsAppCredentialsForTenant(tenantId) {
 
   try {
     const r = await query(
-      `SELECT configuracion FROM clientes WHERE id = $1 AND activo = TRUE LIMIT 1`,
+      `SELECT configuracion FROM clientes WHERE id = $1 AND COALESCE(activo, TRUE) = TRUE LIMIT 1`,
       [tid]
     );
     const row = r.rows?.[0];
