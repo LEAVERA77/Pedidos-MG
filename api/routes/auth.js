@@ -12,6 +12,7 @@ import {
   verificarDesafioOtpAdmin,
 } from "../services/adminLoginOtp.js";
 import { getUsuarioNotifPrefs, setUsuarioNotifPrefs } from "../services/usuarioNotifPrefs.js";
+import { syncWhatsappBotActiveTarget } from "../services/whatsappBotTargetStore.js";
 
 const router = express.Router();
 
@@ -153,6 +154,13 @@ router.post("/login", async (req, res) => {
         });
       }
     }
+    try {
+      await syncWhatsappBotActiveTarget({
+        tenantId: tenant_id,
+        source: "auth_login",
+        userId: u.id,
+      });
+    } catch (_) {}
     return res.json({
       token,
       user: { id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, tenant_id },
@@ -191,6 +199,13 @@ router.post("/verify-login-otp", async (req, res) => {
     }
     const tenant_id = await getUserTenantId(u.id);
     const token = signToken({ userId: u.id, rol: u.rol, tenant_id });
+    try {
+      await syncWhatsappBotActiveTarget({
+        tenantId: tenant_id,
+        source: "auth_verify_otp",
+        userId: u.id,
+      });
+    } catch (_) {}
     return res.json({
       token,
       user: { id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, tenant_id },
@@ -318,6 +333,13 @@ router.post("/verify-token", authMiddleware, async (req, res) => {
  * Útil cuando el WebView lee Neon con carrera y el JWT aún trae un tenant viejo.
  */
 router.get("/tenant-operativo", authMiddleware, async (req, res) => {
+  try {
+    await syncWhatsappBotActiveTarget({
+      tenantId: req.tenantId,
+      source: "auth_tenant_operativo",
+      userId: req.user?.id ?? null,
+    });
+  } catch (_) {}
   return res.json({
     tenant_id: req.tenantId,
     user_id: req.user.id,

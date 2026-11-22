@@ -21,7 +21,10 @@
  */
 import express from "express";
 import { handleInboundMetaWhatsAppPayload } from "../services/whatsappBotMeta.js";
-import { resolveTenantIdByMetaPhoneNumberId } from "../services/metaTenantWhatsapp.js";
+import {
+  resolveTenantIdByMetaPhoneNumberId,
+  resolveWhatsappBotTarget,
+} from "../services/metaTenantWhatsapp.js";
 import { logWhatsappMensajeRecibido } from "../services/whatsappNotificacionesLog.js";
 import { wahaWebhookToMetaShapedPayload } from "../services/wahaWebhookAdapter.js";
 import {
@@ -311,13 +314,26 @@ router.post("/evolution", express.json({ limit: "2mb" }), async (req, res) => {
   }
 });
 
-router.get("/baileys/status", (req, res) => {
+router.get("/baileys/status", async (req, res) => {
   const token = String(process.env.WHATSAPP_WEBHOOK_TOKEN || "").trim();
   const qToken = String(req.query?.token || "").trim();
   if (token && qToken !== token) {
     return res.status(401).json({ ok: false, error: "unauthorized" });
   }
-  return res.json({ ok: true, ...getBaileysStatus() });
+  let botTarget = null;
+  try {
+    const resolved = await resolveWhatsappBotTarget("baileys-bot");
+    if (resolved) {
+      botTarget = {
+        tenant_id: resolved.tenantId,
+        tenant_nombre: resolved.tenantNombre,
+        business_type: resolved.businessType,
+        rubro: resolved.rubro,
+        source: resolved.source,
+      };
+    }
+  } catch (_) {}
+  return res.json({ ok: true, ...getBaileysStatus(), botTarget });
 });
 
 router.get("/baileys/qr", async (req, res) => {
@@ -332,8 +348,19 @@ router.get("/baileys/qr", async (req, res) => {
   }
   const qr = getBaileysQrDataUrl();
   if (st.status === "connected") {
+    let targetInfoHtml = "";
+    try {
+      const resolved = await resolveWhatsappBotTarget("baileys-bot");
+      if (resolved) {
+        const safeName = String(resolved.tenantNombre || `Tenant #${resolved.tenantId}`)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        targetInfoHtml = `<p><strong>Tenant activo:</strong> #${resolved.tenantId} — ${safeName} (<code>${resolved.businessType}</code> / <code>${resolved.rubro}</code>)</p>`;
+      }
+    } catch (_) {}
     return res.send(
-      `<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>WhatsApp conectado con Baileys</h2><p>Sesión: ${st.sessionId}</p></body></html>`
+      `<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>WhatsApp conectado con Baileys</h2><p>Sesión: ${st.sessionId}</p>${targetInfoHtml}</body></html>`
     );
   }
   if (!qr) {

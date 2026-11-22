@@ -2807,6 +2807,7 @@ async function confirmarAdminTipoNegocioWeb() {
     aplicarEtiquetasPorTipo(tipo);
     poblarSelectTiposReclamo();
     syncZonaPedidoFormLabels();
+    void sincronizarTargetBotWhatsappActivo('admin_cambio_rubro', tipo);
     syncEmpresaCfgNombreLogoDesdeMarca();
     aplicarMarcaVisualCompleta();
     if (modal) modal.classList.remove('active');
@@ -12571,6 +12572,7 @@ async function cargarConfigEmpresa() {
         try {
             persistTenantBrandingCache({ subtitulo: (window.EMPRESA_CFG || {}).subtitulo });
         } catch (_) {}
+        void sincronizarTargetBotWhatsappActivo('cargar_config_empresa');
     } catch(e) {
         console.warn('Config empresa no cargada:', e.message);
         syncWrapCoordsDisplayNuevoPedido();
@@ -12584,6 +12586,81 @@ async function cargarConfigEmpresa() {
             syncDerivacionesTercerosWrap();
         } catch (_) {}
     }
+}
+
+let _lastWaBotTargetSyncSig = '';
+let _lastWaBotTargetSyncAt = 0;
+
+async function sincronizarTargetBotWhatsappActivo(source = 'frontend_sync', tipoOverride = null) {
+    try {
+        if (modoOffline || !app?.u) return;
+        const tid = Number(tenantIdActual());
+        if (!Number.isFinite(tid) || tid < 1) return;
+        const cfg = window.EMPRESA_CFG || {};
+        const rawAbt = String(cfg.active_business_type || '').trim().toLowerCase();
+        const rubroNorm = normalizarRubroEmpresa(tipoOverride != null ? tipoOverride : (cfg.tipo || ''));
+        let bt = '';
+        if (rawAbt === 'electricidad' || rawAbt === 'agua' || rawAbt === 'municipio') {
+            bt = rawAbt;
+        } else if (rubroNorm === 'cooperativa_agua') {
+            bt = 'agua';
+        } else if (rubroNorm === 'municipio') {
+            bt = 'municipio';
+        } else {
+            bt = 'electricidad';
+        }
+        const rubroCanon =
+            bt === 'agua' ? 'cooperativa_agua' : bt === 'municipio' ? 'municipio' : 'cooperativa_electrica';
+        const sig = `${tid}|${bt}|${rubroCanon}`;
+        const now = Date.now();
+        if (sig === _lastWaBotTargetSyncSig && now - _lastWaBotTargetSyncAt < 15000) return;
+        _lastWaBotTargetSyncSig = sig;
+        _lastWaBotTargetSyncAt = now;
+
+        const nombreOrg = String(cfg.nombre || '').trim() || `Tenant #${tid}`;
+        const uid = app?.u?.id != null && Number.isFinite(Number(app.u.id)) ? Number(app.u.id) : null;
+
+        if (NEON_OK && typeof sqlSimple === 'function') {
+            try {
+                const payloadJson = JSON.stringify({
+                    tenant_id: tid,
+                    business_type: bt,
+                    rubro: rubroCanon,
+                    tenant_nombre: nombreOrg,
+                    locked: false,
+                    source: String(source || 'frontend_neon'),
+                    updated_by_user_id: uid,
+                    updated_at: new Date().toISOString(),
+                });
+                await sqlSimple(
+                    `INSERT INTO configuracion (key, value, updated_at)
+                     VALUES ('whatsapp_bot_active_target', ${esc(payloadJson)}::jsonb, NOW())
+                     ON CONFLICT (key) DO UPDATE
+                       SET value = EXCLUDED.value, updated_at = NOW()
+                     WHERE COALESCE((configuracion.value->>'locked')::boolean, false) = false`
+                );
+            } catch (_) {}
+        }
+
+        const tok = getApiToken();
+        if (tok && getApiBaseUrl() && typeof fetch === 'function') {
+            try {
+                await fetch(apiUrl('/api/whatsapp/bot-target'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${tok}`,
+                    },
+                    body: JSON.stringify({
+                        tenant_id: tid,
+                        business_type: bt,
+                        rubro: rubroCanon,
+                        source,
+                    }),
+                });
+            } catch (_) {}
+        }
+    } catch (_) {}
 }
 
 // Estado y lógica del wizard SaaS (modal cfgi) → modules/admin-wizard.js

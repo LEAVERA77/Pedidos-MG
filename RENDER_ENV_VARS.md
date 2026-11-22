@@ -7,7 +7,7 @@
 | Variable | Uso |
 |----------|-----|
 | **`WHATSAPP_PROVIDER`** | Nombre **exacto** (sin typos). Valores: `baileys`, `whapi`, `meta`, `waha`, `evolution`. Si no está definida en Render, el código usa **`meta`** por defecto. |
-| **Baileys** | `WHATSAPP_PROVIDER=baileys` + opcional `BAILEYS_SESSION_ID` (`default`), `WHATSAPP_WEBHOOK_TOKEN` (protege `/baileys/qr` y `/baileys/status`), `WHATSAPP_BOT_TENANT_ID`. Sesión persistida en Neon (`baileys_auth_state`). QR: `GET /api/webhooks/whatsapp/baileys/qr?token=...`. |
+| **Baileys** | `WHATSAPP_PROVIDER=baileys` + opcional `BAILEYS_SESSION_ID` (`default`), `WHATSAPP_WEBHOOK_TOKEN` (protege `/baileys/qr` y `/baileys/status`). Sesión persistida en Neon (`baileys_auth_state`). El bot sincroniza automáticamente el `tenant_id` y `business_type` (`electricidad`, `agua`, `municipio`) en Neon (`configuracion.whatsapp_bot_active_target`) al iniciar sesión, restaurar sesión o cambiar de negocio/tenant (y se puede consultar/fijar en `GET/POST /api/whatsapp/bot-target` o ver en `GET /api/webhooks/whatsapp/baileys/status`). Opcional: `BAILEYS_TENANT_ID` (respaldo inicial) y `WHATSAPP_BOT_FORCE_ENV_TENANT=true` (solo si se quiere forzar un tenant fijo por entorno). QR: `GET /api/webhooks/whatsapp/baileys/qr?token=...`. |
 | **Whapi** | `WHATSAPP_PROVIDER=whapi` + `WHAPI_API_URL`, `WHAPI_API_KEY`, `WHATSAPP_WEBHOOK_TOKEN` (y opcional `WHAPI_CHANNEL_ID`). Webhook: `POST /api/webhooks/whatsapp/whapi`. |
 | **Meta** | `WHATSAPP_PROVIDER=meta` + `META_*` (token, phone id, app secret, verify token). Webhook: `POST /api/webhooks/whatsapp/meta`. |
 

@@ -195,13 +195,8 @@ export async function resolveInboundSender(msg, currentSock = sock) {
 
 function resolveBaileysPhoneNumberId() {
   return (
-    String(
-      process.env.BAILEYS_PHONE_NUMBER_ID ||
-        process.env.WHATSAPP_PHONE_NUMBER_ID ||
-        process.env.META_PHONE_NUMBER_ID ||
-        process.env.WHAPI_CHANNEL_ID ||
-        "baileys-bot"
-    ).trim() || "baileys-bot"
+    String(process.env.BAILEYS_PHONE_NUMBER_ID || "baileys-bot").trim() ||
+    "baileys-bot"
   );
 }
 
