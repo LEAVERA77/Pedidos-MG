@@ -52,4 +52,12 @@ describe("offline.js — usuario offline", () => {
     expect(found).toMatchObject({ email: "t@test.com", nombre: "T" });
     expect(verificarUsuarioOffline("t@test.com", "mala")).toBeNull();
   });
+
+  it("no guarda ni conserva una clave offline administrativa", () => {
+    localStorage.setItem("pmg_offline_user", JSON.stringify([{ email: "admin@test.com", rol: "admin", _pw: "anterior" }]));
+    guardarUsuarioOffline({ id: 5, email: "admin@test.com", rol: "administrador" }, "nueva");
+    expect(verificarUsuarioOffline("admin@test.com", "nueva")).toBeNull();
+    expect(JSON.parse(localStorage.getItem("pmg_offline_user"))).toEqual([]);
+  });
+
 });
