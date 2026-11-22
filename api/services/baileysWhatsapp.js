@@ -161,12 +161,21 @@ export async function startBaileys() {
         for (const msg of messages || []) {
           try {
             if (!msg || msg.key?.fromMe) continue;
-            const remoteJid = String(msg.key?.remoteJid || "");
+            const rawJid = String(msg.key?.remoteJid || "");
+            const altJid = String(msg.key?.remoteJidAlt || "");
+            const remoteJid =
+              rawJid.endsWith("@lid") && altJid ? altJid : rawJid;
             if (!remoteJid || remoteJid.endsWith("@g.us") || remoteJid === "status@broadcast") {
               continue;
             }
             const waId = remoteJid.split("@")[0].replace(/\D/g, "");
             const text = extractMessageText(msg).trim();
+            console.log("[baileys] mensaje entrante:", {
+              rawJid,
+              remoteJid,
+              waId,
+              text: text.slice(0, 80),
+            });
             if (!waId || !text) continue;
 
             try {
