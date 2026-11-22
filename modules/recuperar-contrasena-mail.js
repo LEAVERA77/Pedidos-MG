@@ -86,6 +86,40 @@ async function pasoResetPw() {
             return;
         }
         _resetUsuarioAdmin = false;
+        const apiBase = String(window.APP_CONFIG?.api?.baseUrl || '').trim().replace(/\/+$/, '');
+        if (apiBase) {
+            try {
+                const destManualApi = (document.getElementById('reset-email-destino')?.value || '').trim();
+                const tidFn = typeof window._gnTenantId === 'function' ? window._gnTenantId : () => 1;
+                const resp = await fetch(`${apiBase}/api/auth/password-reset/request`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario: email,
+                        email_destino: destManualApi,
+                        tenant_id: tidFn(),
+                        emailjs: cfg || {},
+                    }),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    msg.style.color = '';
+                    msg.textContent = data?.error || `Error (${resp.status})`;
+                    return;
+                }
+                _resetTargetUserId = Number(data?.user_id) || null;
+                _resetUsuarioAdmin = true;
+                msg.style.color = '#166534';
+                msg.textContent = `✓ Código enviado a ${data?.to_email || 'tu correo'}`;
+                document.getElementById('reset-codigo-wrap').style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirmar código';
+                _resetPaso = 2;
+            } catch (e) {
+                msg.style.color = '';
+                msg.textContent = 'Error: ' + _errMsg(e);
+            }
+            return;
+        }
         try {
             const emailLc = email.toLowerCase();
             const matchSql = (wfExtra) => `SELECT id, email, nombre, rol
@@ -223,6 +257,37 @@ async function pasoResetPw() {
             return;
         }
         const nuevaPw = valPw.password;
+        const apiBase = String(window.APP_CONFIG?.api?.baseUrl || '').trim().replace(/\/+$/, '');
+        if (apiBase) {
+            try {
+                const resp = await fetch(`${apiBase}/api/auth/password-reset/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario: email,
+                        user_id: _resetTargetUserId,
+                        codigo,
+                        nueva_password: nuevaPw,
+                    }),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    msg.style.color = '';
+                    msg.textContent = data?.error || `Error (${resp.status})`;
+                    return;
+                }
+                msg.style.color = '#166534';
+                msg.textContent = '✓ Contraseña actualizada. Ya podés iniciar sesión.';
+                btn.style.display = 'none';
+                _resetPaso = 1;
+                _resetTokenActual = null;
+                _resetUsuarioAdmin = false;
+            } catch (e) {
+                msg.style.color = '';
+                msg.textContent = 'Error: ' + _errMsg(e);
+            }
+            return;
+        }
         try {
             const emailLc = email.toLowerCase();
             const wf = await sqlFiltroUsuariosPorTenant();

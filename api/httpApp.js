@@ -38,11 +38,13 @@ import debugRoutes from "./routes/debug.js";
 import iaRoutes from "./routes/ia.js";
 import sociosExportRoutes from "./routes/sociosExport.js";
 import padronPedidoRoutes from "./routes/padronPedido.js";
+import sqlRoutes from "./routes/sql.js";
 import {
   authLoginLimiter,
   authVerifyPasswordLimiter,
   generalApiLimiter,
   geocodeRouteLimiter,
+  sqlGatewayLimiter,
 } from "./middleware/rateLimits.js";
 
 export function createHttpApp() {
@@ -171,8 +173,13 @@ export function createHttpApp() {
     if (req.method !== "POST") return next();
     return authLoginLimiter(req, res, next);
   });
+  app.use("/api/auth/password-reset/confirm", (req, res, next) => {
+    if (req.method !== "POST") return next();
+    return authLoginLimiter(req, res, next);
+  });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/sql", sqlGatewayLimiter, sqlRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/admin", redElectricaInfraRoutes);
   app.use("/api/admin", subestacionesCatalogoRoutes);

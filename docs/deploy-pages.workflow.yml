@@ -1,0 +1,90 @@
+# Patrón oficial GitHub: job build (artefacto) + job deploy (solo deploy-pages).
+# SEGURIDAD: config.json público en Pages SOLO incluye API_BASE_URL y EmailJS (NUNCA NEON_CONNECTION_STRING).
+
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v4
+
+      - name: Generar config.json público sin credenciales de base de datos
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          EJS_PK: ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EJS_SV: ${{ secrets.EMAILJS_SERVICE_ID }}
+          EJS_TPL: ${{ secrets.EMAILJS_TEMPLATE_ID }}
+        run: |
+          EFFECTIVE_API="${API_BASE_URL:-https://nexxo-api-418k.onrender.com}"
+          jq -n \
+            --arg api "$EFFECTIVE_API" \
+            --arg pk "${EJS_PK:-}" \
+            --arg sv "${EJS_SV:-}" \
+            --arg tpl "${EJS_TPL:-}" \
+            '{api:{baseUrl:$api},emailjs:{publicKey:$pk,serviceId:$sv,templateId:$tpl,templateIdReset:$tpl},app:{version:"2.0.5"}}' \
+            > config.json
+          echo "OK: config.json generado sin NEON_CONNECTION_STRING (API centralizada en Render)."
+
+      - name: Preparar carpeta publicable
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp index.html sw.js styles.css app.js map.js map-view.js offline.js autocompletado-calles.js config.example.json config.json dist/
+          for f in status.html seguridad.html gn-trust-ui.css gn-android-shell-perf.css gn-login-screen.css gn-wizard-screen.css; do
+            [ -f "$f" ] && cp "$f" dist/ || true
+          done
+          # app.js importa ES modules desde ./modules/*.js — sin esto el bundle falla en silencio (WebView).
+          if [ -d modules ]; then
+            mkdir -p dist/modules
+            for f in modules/*.js; do [ -f "$f" ] && cp "$f" dist/modules/; done
+          fi
+          [ -f admin-web-responsive.css ] && cp admin-web-responsive.css dist/ || true
+          [ -f index.min.html ] && cp index.min.html dist/ || true
+          [ -f sync-worker.js ] && cp sync-worker.js dist/ || true
+          if [ -d js ]; then mkdir -p dist/js && cp -r js/. dist/js/; fi
+          if [ -d branding ]; then mkdir -p dist/branding && cp -r branding/. dist/branding/; fi
+          [ -f gestornova-logo.png ] && cp gestornova-logo.png dist/ || true
+          if [ -d privacy ]; then mkdir -p dist/privacy && cp -r privacy/* dist/privacy/; fi
+          [ -f README.md ] && cp README.md dist/ || true
+          [ -f SECURITY.md ] && cp SECURITY.md dist/ || true
+          [ -f COPYRIGHT.md ] && cp COPYRIGHT.md dist/ || true
+          touch dist/.nojekyll
+          if grep -qiE "postgresql://|postgres://|neon\.tech|connectionString" dist/config.json; then
+            echo "::error::Seguridad bloqueada: dist/config.json no puede contener cadenas de conexión a PostgreSQL/Neon."
+            exit 1
+          fi
+
+      - name: Subir artefacto del sitio
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

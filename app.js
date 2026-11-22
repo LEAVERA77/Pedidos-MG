@@ -1073,20 +1073,119 @@ window.addEventListener('offline', () => { _netCache = { ok: false, ts: Date.now
 
 
 
+async function initApiSqlGateway(apiBase) {
+    const HEALTH_TIMEOUT_MS = 25000;
+    const HEALTH_INTENTOS = 3;
+    let healthOk = false;
+    for (let i = 0; i < HEALTH_INTENTOS; i++) {
+        if (i > 0) {
+            await new Promise((r) => setTimeout(r, 500 + i * 750));
+        }
+        try {
+            const ctl = new AbortController();
+            const timer = setTimeout(() => {
+                try {
+                    ctl.abort();
+                } catch (_) {}
+            }, HEALTH_TIMEOUT_MS);
+            let resp;
+            try {
+                resp = await fetch(`${apiBase}/health`, { cache: 'no-store', signal: ctl.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+            if (resp && resp.ok) {
+                healthOk = true;
+                break;
+            }
+        } catch (e) {
+            console.warn('[api-sql] health intento', i + 1, e?.message || e);
+        }
+    }
+    if (!healthOk) return false;
+
+    _sql = async (q) => {
+        const sqlText = String(q || '').trim();
+        if (!sqlText) return { rows: [] };
+
+        // Pings livianos de red antes del login no requieren consultar PostgreSQL directo
+        if (/^SELECT\s+1(\s+AS\s+[A-Za-z0-9_]+)?\s*;?\s*$/i.test(sqlText) && !getApiToken()) {
+            const hr = await fetch(`${apiBase}/health`, { cache: 'no-store' });
+            if (!hr.ok) throw new Error(`API HTTP ${hr.status}`);
+            return { rows: [{ ok: 1 }] };
+        }
+
+        if (!getApiToken() && app?.u) {
+            await asegurarJwtApiRest();
+        }
+        let tok = getApiToken();
+        if (!tok) {
+            throw new Error('401 Unauthorized — iniciá sesión para consultar el servidor');
+        }
+
+        const sendOnce = async (bearer) => {
+            const ctl = new AbortController();
+            const timer = setTimeout(() => {
+                try {
+                    ctl.abort();
+                } catch (_) {}
+            }, 30000);
+            try {
+                return await fetch(`${apiBase}/api/sql/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${bearer}`,
+                    },
+                    body: JSON.stringify({ query: sqlText }),
+                    signal: ctl.signal,
+                });
+            } finally {
+                clearTimeout(timer);
+            }
+        };
+
+        let resp = await sendOnce(tok);
+        if (resp.status === 401 && app?.u) {
+            const refreshed = await intentarRefrescarJwtDesdeCredencialesGuardadas();
+            tok = getApiToken();
+            if (refreshed && tok) {
+                resp = await sendOnce(tok);
+            }
+        }
+
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            throw new Error(data?.details || data?.error || `HTTP ${resp.status}`);
+        }
+        return {
+            rows: Array.isArray(data?.rows) ? data.rows : [],
+            rowCount: data?.rowCount ?? 0,
+        };
+    };
+
+    NEON_OK = true;
+    console.log('[api-sql] Conectado vía API segura Render:', apiBase);
+    return true;
+}
+
 async function initNeon() {
     if (window.__gnNeonFastOfflineAndroid && typeof window.AndroidConfig !== 'undefined') {
         NEON_OK = false;
         return false;
     }
-    if (!window.APP_CONFIG?.neon?.connectionString) {
-        console.warn('[neon] APP_CONFIG no disponible — esperando config.json');
+
+    const apiBase = getApiBaseUrl();
+    const directCs = String(window.APP_CONFIG?.neon?.connectionString || '').trim();
+
+    if (!apiBase && !directCs) {
+        console.warn('[neon] Falta api.baseUrl en config.json');
         return false;
     }
-    // WebView Android: a veces hayInternet() falla con HTML remoto o file:// aunque Neon sea alcanzable.
+
+    // WebView Android: a veces hayInternet() falla con HTML remoto o file:// aunque la API sea alcanzable.
     const esWebViewLocal = typeof window.AndroidConfig !== 'undefined';
     const tieneRed = await hayInternet();
-    // En HTTPS (p. ej. GitHub Pages) los HEAD no-cors a CDNs de prueba pueden fallar por firewall/DNS
-    // aunque Neon y config.json respondan; no bloquear el SDK aquí.
     const navegadorHttps =
         typeof window !== 'undefined' &&
         window.location?.protocol === 'https:' &&
@@ -1095,6 +1194,16 @@ async function initNeon() {
         console.log('[neon] sin red real — modo offline');
         NEON_OK = false;
         return false;
+    }
+
+    // Modo seguro centralizado: todas las consultas pasan por la API en Render (sin exponer DATABASE_URL en el navegador)
+    if (apiBase) {
+        const okApi = await initApiSqlGateway(apiBase);
+        if (okApi) return true;
+        if (!directCs) {
+            NEON_OK = false;
+            return false;
+        }
     }
 
     const versions = ['0.10.4', '0.9.5', '0.8.0'];
@@ -3092,6 +3201,8 @@ async function conectarNeon() {
                 }
             } catch (_) {}
             habilitarBotonIngresarLogin();
+            const puedeEjecutarDdlInicial = !getApiBaseUrl() || (!!getApiToken() && esAdmin());
+            if (puedeEjecutarDdlInicial) {
             try {
                 await sqlSimple(`CREATE TABLE IF NOT EXISTS pedidos(
                     id SERIAL PRIMARY KEY,
@@ -3188,12 +3299,17 @@ async function conectarNeon() {
                     'ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE'
                 );
             } catch (_) {}
+            }
             if (dbs) {
                 dbs.className = 'dbs ok';
-                dbs.innerHTML = '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
+                dbs.innerHTML = getApiBaseUrl()
+                    ? '<i class="fas fa-check-circle"></i> Conectado - Servidor API Seguro'
+                    : '<i class="fas fa-check-circle"></i> Conectado - Neon PostgreSQL';
             }
             setModoOffline(false);
-            await notificarNeonConectadoParaUpdateCheck();
+            if (!getApiBaseUrl() || !!getApiToken()) {
+                await notificarNeonConectadoParaUpdateCheck();
+            }
             try {
                 if (app.u) {
                     await sincronizarTenantOperativoDesdeMiConfiguracionApi({ silent: true });
@@ -17200,6 +17316,38 @@ async function pasoResetPw() {
             return;
         }
         _resetUsuarioAdmin = false;
+        const destManualApi = (document.getElementById('reset-email-destino')?.value || '').trim();
+        if (getApiBaseUrl()) {
+            try {
+                const resp = await fetch(apiUrl('/api/auth/password-reset/request'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario: email,
+                        email_destino: destManualApi,
+                        tenant_id: tenantIdActual(),
+                        emailjs: cfg || {},
+                    }),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    msg.style.color = '';
+                    msg.textContent = data?.error || `Error (${resp.status})`;
+                    return;
+                }
+                _resetTargetUserId = Number(data?.user_id) || null;
+                _resetUsuarioAdmin = true;
+                msg.style.color = '#166534';
+                msg.textContent = `✓ Código enviado a ${data?.to_email || 'tu correo'}`;
+                document.getElementById('reset-codigo-wrap').style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirmar código';
+                _resetPaso = 2;
+            } catch (e) {
+                msg.style.color = '';
+                msg.textContent = 'Error: ' + _errMsg(e);
+            }
+            return;
+        }
         try {
             const emailLc = email.toLowerCase();
             const matchSql = (wfExtra) => `SELECT id, email, nombre, rol
@@ -17318,6 +17466,36 @@ async function pasoResetPw() {
         const codigo = _normalizarCodigoResetPw(document.getElementById('reset-codigo').value);
         const nuevaPw = document.getElementById('reset-nueva-pw').value;
         if (!codigo || !nuevaPw) { msg.textContent = 'Completá el código y la nueva contraseña'; return; }
+        if (getApiBaseUrl()) {
+            try {
+                const resp = await fetch(apiUrl('/api/auth/password-reset/confirm'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario: email,
+                        user_id: _resetTargetUserId,
+                        codigo,
+                        nueva_password: nuevaPw,
+                    }),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    msg.style.color = '';
+                    msg.textContent = data?.error || `Error (${resp.status})`;
+                    return;
+                }
+                msg.style.color = '#166534';
+                msg.textContent = '✓ Contraseña actualizada. Ya podés iniciar sesión.';
+                btn.style.display = 'none';
+                _resetPaso = 1;
+                _resetTokenActual = null;
+                _resetUsuarioAdmin = false;
+            } catch (e) {
+                msg.style.color = '';
+                msg.textContent = 'Error: ' + _errMsg(e);
+            }
+            return;
+        }
         try {
             const emailLc = email.toLowerCase();
             const wf = await sqlFiltroUsuariosPorTenant();
@@ -17607,7 +17785,7 @@ if ('serviceWorker' in navigator) {
             if (sesionCompletaParaMarcaLogin()) {
                 hydrateBrandingForPublicScreen();
                 try {
-                    if (NEON_OK) await cargarConfigEmpresa();
+                    if (NEON_OK && (!!getApiToken() || !getApiBaseUrl())) await cargarConfigEmpresa();
                 } catch (_) {}
                 try {
                     aplicarMarcaVisualCompleta();
@@ -17617,7 +17795,7 @@ if ('serviceWorker' in navigator) {
                     pintarCabeceraLoginWizardGenerica();
                 } catch (_) {}
                 try {
-                    if (NEON_OK) await cargarConfigEmpresa();
+                    if (NEON_OK && (!!getApiToken() || !getApiBaseUrl())) await cargarConfigEmpresa();
                 } catch (_) {}
             }
         }

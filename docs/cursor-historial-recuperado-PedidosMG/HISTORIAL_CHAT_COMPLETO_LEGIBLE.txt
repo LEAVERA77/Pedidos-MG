@@ -741,7 +741,7 @@ Ya lo dejé corregido en el proyecto.
 ```1:5:c:\Users\leave\AndroidStudioProjects\PedidosMG\app\src\main\assets\config.json
 {
   "neon": {
-    "connectionString": "postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
+    "connectionString": "postgresql://neondb_owner:REDACTED_NEON_PASSWORD@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
   }
 }
 ```
@@ -3919,7 +3919,7 @@ ____
 </external_links>
 <user_query>
 
-te paso la cadena de conexión a neon: postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require ; necesito crear una api con node.js, ya lo tengo instalado. Se crearon nuevas tablas en neon: -- ============================================================
+te paso la cadena de conexión a neon: postgresql://neondb_owner:REDACTED_NEON_PASSWORD@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require ; necesito crear una api con node.js, ya lo tengo instalado. Se crearon nuevas tablas en neon: -- ============================================================
 -- AGREGAR CAMPOS DE TELÉFONO A TABLAS EXISTENTES
 -- ============================================================
 
@@ -4003,7 +4003,7 @@ ____
 </external_links>
 <user_query>
 
-te paso la cadena de conexión a neon: postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require ; necesito crear una api con node.js, ya lo tengo instalado. Se crearon nuevas tablas en neon: -- ============================================================
+te paso la cadena de conexión a neon: postgresql://neondb_owner:REDACTED_NEON_PASSWORD@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require ; necesito crear una api con node.js, ya lo tengo instalado. Se crearon nuevas tablas en neon: -- ============================================================
 -- AGREGAR CAMPOS DE TELÉFONO A TABLAS EXISTENTES
 -- ============================================================
 
@@ -4757,7 +4757,7 @@ en DATABASE_URL , que pongo en value?
 En **Value** pegá tu cadena completa de conexión de Neon, exactamente así (la que ya me pasaste):
 
 ```text
-postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+postgresql://neondb_owner:REDACTED_NEON_PASSWORD@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 ```
 
 Sin comillas, sin espacios extras.
@@ -7770,7 +7770,7 @@ pedidos-mg-api/
 ### Variables de entorno (.env)
 ```
 PORT=3000
-DB_CONNECTION=postgresql://neondb_owner:npg_uqKG4gLvcOj7@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
+DB_CONNECTION=postgresql://neondb_owner:REDACTED_NEON_PASSWORD@ep-gentle-silence-adns9whd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=pedidos_mg_secret_key_2024_cambiar_en_produccion
 JWT_EXPIRES_IN=24h
 CLOUDINARY_CLOUD_NAME=tu_cloud_name
