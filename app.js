@@ -11,6 +11,10 @@ import {
 } from './offline.js';
 
 import './modules/canvas-2d-willread-patch.js';
+import {
+    createApiSqlGatewayClient,
+    wrapSqlExecutorWithClientCache,
+} from './modules/gn-sql-cache-client.js';
 
 import {
   resolverTenantIdPostLoginNeon,
@@ -1074,98 +1078,17 @@ window.addEventListener('offline', () => { _netCache = { ok: false, ts: Date.now
 
 
 async function initApiSqlGateway(apiBase) {
-    const HEALTH_TIMEOUT_MS = 25000;
-    const HEALTH_INTENTOS = 3;
-    let healthOk = false;
-    for (let i = 0; i < HEALTH_INTENTOS; i++) {
-        if (i > 0) {
-            await new Promise((r) => setTimeout(r, 500 + i * 750));
-        }
-        try {
-            const ctl = new AbortController();
-            const timer = setTimeout(() => {
-                try {
-                    ctl.abort();
-                } catch (_) {}
-            }, HEALTH_TIMEOUT_MS);
-            let resp;
-            try {
-                resp = await fetch(`${apiBase}/health`, { cache: 'no-store', signal: ctl.signal });
-            } finally {
-                clearTimeout(timer);
-            }
-            if (resp && resp.ok) {
-                healthOk = true;
-                break;
-            }
-        } catch (e) {
-            console.warn('[api-sql] health intento', i + 1, e?.message || e);
-        }
-    }
-    if (!healthOk) return false;
-
-    _sql = async (q) => {
-        const sqlText = String(q || '').trim();
-        if (!sqlText) return { rows: [] };
-
-        // Pings livianos de red antes del login no requieren consultar PostgreSQL directo
-        if (/^SELECT\s+1(\s+AS\s+[A-Za-z0-9_]+)?\s*;?\s*$/i.test(sqlText) && !getApiToken()) {
-            const hr = await fetch(`${apiBase}/health`, { cache: 'no-store' });
-            if (!hr.ok) throw new Error(`API HTTP ${hr.status}`);
-            return { rows: [{ ok: 1 }] };
-        }
-
-        if (!getApiToken() && app?.u) {
-            await asegurarJwtApiRest();
-        }
-        let tok = getApiToken();
-        if (!tok) {
-            throw new Error('401 Unauthorized — iniciá sesión para consultar el servidor');
-        }
-
-        const sendOnce = async (bearer) => {
-            const ctl = new AbortController();
-            const timer = setTimeout(() => {
-                try {
-                    ctl.abort();
-                } catch (_) {}
-            }, 30000);
-            try {
-                return await fetch(`${apiBase}/api/sql/query`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${bearer}`,
-                    },
-                    body: JSON.stringify({ query: sqlText }),
-                    signal: ctl.signal,
-                });
-            } finally {
-                clearTimeout(timer);
-            }
-        };
-
-        let resp = await sendOnce(tok);
-        if (resp.status === 401 && app?.u) {
-            const refreshed = await intentarRefrescarJwtDesdeCredencialesGuardadas();
-            tok = getApiToken();
-            if (refreshed && tok) {
-                resp = await sendOnce(tok);
-            }
-        }
-
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-            throw new Error(data?.details || data?.error || `HTTP ${resp.status}`);
-        }
-        return {
-            rows: Array.isArray(data?.rows) ? data.rows : [],
-            rowCount: data?.rowCount ?? 0,
-        };
-    };
-
+    const client = await createApiSqlGatewayClient({
+        apiBase,
+        getApiToken,
+        getAppUser: () => app?.u || null,
+        asegurarJwtApiRest,
+        intentarRefrescarJwtDesdeCredencialesGuardadas,
+    });
+    if (!client) return false;
+    _sql = client;
     NEON_OK = true;
-    console.log('[api-sql] Conectado vía API segura Render:', apiBase);
+    console.log('[api-sql] Conectado vía API segura Render (con caché L1/L2):', apiBase);
     return true;
 }
 
@@ -1231,12 +1154,15 @@ async function initNeon() {
                     try { delete neonConfig.fetchConnectionCache; } catch(_){}
                 }
                 const fn = neon(window.APP_CONFIG.neon.connectionString);
-                _sql = async (q) => {
-                    const rows = await fn([q]);
-                    if (Array.isArray(rows)) return { rows };
-                    if (rows && rows.rows) return rows;
-                    return { rows: [] };
-                };
+                _sql = wrapSqlExecutorWithClientCache(
+                    async (q) => {
+                        const rows = await fn([q]);
+                        if (Array.isArray(rows)) return { rows };
+                        if (rows && rows.rows) return rows;
+                        return { rows: [] };
+                    },
+                    () => `${app?.u?.tenant_id ?? app?.u?.tid ?? ''}:${app?.u?.id ?? ''}`
+                );
                 let test = null;
                 let pingErr = null;
                 for (let intento = 0; intento < NEON_PING_INTENTOS; intento++) {

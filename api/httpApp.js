@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 
 import { query } from "./db/neon.js";
 import { requestContextMiddleware, logApiError } from "./middleware/requestContext.js";
@@ -75,7 +76,9 @@ export function createHttpApp() {
         "X-Hub-Signature-256",
         "X-Request-Id",
         "X-GestorNova-Technician-Key",
+        "If-None-Match",
       ],
+      exposedHeaders: ["X-Neon-Cache", "ETag"],
       optionsSuccessStatus: 204,
       maxAge: 86400,
     };
@@ -101,6 +104,12 @@ export function createHttpApp() {
 
   app.use(cors(corsOptionsDelegate));
   app.options("*", cors(corsOptionsDelegate));
+  app.use(
+    compression({
+      threshold: 1024,
+      level: 6,
+    })
+  );
 
   app.use((req, res, next) => {
     if (!req.path.startsWith("/api")) return next();

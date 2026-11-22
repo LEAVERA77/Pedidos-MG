@@ -172,13 +172,19 @@ router.post("/query", async (req, res) => {
   }
 
   const startTime = Date.now();
+  const scopeKey = `t:${req.tenantId ?? 0}:r:${String(req.user?.rol || "").toLowerCase()}`;
+  const bypassCache = Boolean(req.body?.noCache);
+
   try {
-    const result = await dbQuery(check.normalizedSql);
+    const result = await dbQuery(check.normalizedSql, [], { scopeKey, bypassCache });
+    const cacheStatus = result?._cacheStatus || "BYPASS";
+    res.set("X-Neon-Cache", cacheStatus);
     return res.json({
       rows: result.rows || [],
       rowCount: result.rowCount ?? (result.rows ? result.rows.length : 0),
       command: result.command || null,
       fields: Array.isArray(result.fields) ? result.fields.map((f) => ({ name: f.name })) : [],
+      cache: cacheStatus,
       executionTimeMs: Date.now() - startTime,
     });
   } catch (error) {
@@ -198,11 +204,18 @@ router.post("/location", async (req, res) => {
   if (!/\bubicaciones_usuarios\b/i.test(stripped)) {
     return res.status(403).json({ error: "Operación solo permitida sobre ubicaciones_usuarios" });
   }
+  const scopeKey = `t:${req.tenantId ?? 0}:loc`;
   try {
-    const result = await dbQuery(check.normalizedSql);
+    const result = await dbQuery(check.normalizedSql, [], {
+      scopeKey,
+      bypassCache: Boolean(req.body?.noCache),
+    });
+    const cacheStatus = result?._cacheStatus || "BYPASS";
+    res.set("X-Neon-Cache", cacheStatus);
     return res.json({
       rows: result.rows || [],
       rowCount: result.rowCount ?? 0,
+      cache: cacheStatus,
     });
   } catch (error) {
     return res.status(500).json({
